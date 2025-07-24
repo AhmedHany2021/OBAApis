@@ -37,6 +37,11 @@ class Options {
 	 * @return void
 	 */
 	public static function set_defaults() {
+		// Check if we're in WordPress context
+		if ( ! defined( 'ABSPATH' ) || ! function_exists( 'get_option' ) ) {
+			return;
+		}
+
 		foreach ( self::$defaults as $key => $value ) {
 			$option_name = self::OPTION_PREFIX . $key;
 			if ( false === get_option( $option_name ) ) {
@@ -53,6 +58,11 @@ class Options {
 	 * @return mixed
 	 */
 	public static function get( $key, $default = null ) {
+		// Check if we're in WordPress context
+		if ( ! defined( 'ABSPATH' ) || ! function_exists( 'get_option' ) ) {
+			return $default;
+		}
+
 		$option_name = self::OPTION_PREFIX . $key;
 		$value = get_option( $option_name, $default );
 
@@ -72,6 +82,11 @@ class Options {
 	 * @return bool
 	 */
 	public static function set( $key, $value ) {
+		// Check if we're in WordPress context
+		if ( ! defined( 'ABSPATH' ) || ! function_exists( 'update_option' ) ) {
+			return false;
+		}
+
 		$option_name = self::OPTION_PREFIX . $key;
 		return update_option( $option_name, $value );
 	}
@@ -83,6 +98,11 @@ class Options {
 	 * @return bool
 	 */
 	public static function delete( $key ) {
+		// Check if we're in WordPress context
+		if ( ! defined( 'ABSPATH' ) || ! function_exists( 'delete_option' ) ) {
+			return false;
+		}
+
 		$option_name = self::OPTION_PREFIX . $key;
 		return delete_option( $option_name );
 	}
@@ -148,6 +168,11 @@ class Options {
 	 * @return void
 	 */
 	public static function delete_all() {
+		// Check if we're in WordPress context
+		if ( ! defined( 'ABSPATH' ) || ! function_exists( 'delete_option' ) ) {
+			return;
+		}
+
 		foreach ( array_keys( self::$defaults ) as $key ) {
 			self::delete( $key );
 		}

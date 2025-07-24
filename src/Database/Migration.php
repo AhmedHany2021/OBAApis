@@ -15,7 +15,17 @@ class Migration {
 	 * @return void
 	 */
 	public static function create_tables() {
+		// Check if we're in WordPress context
+		if ( ! defined( 'ABSPATH' ) || ! function_exists( 'dbDelta' ) ) {
+			return;
+		}
+
 		global $wpdb;
+
+		// Check if $wpdb is available
+		if ( ! $wpdb ) {
+			return;
+		}
 
 		$charset_collate = $wpdb->get_charset_collate();
 
@@ -98,7 +108,17 @@ class Migration {
 	 * @return void
 	 */
 	public static function drop_tables() {
+		// Check if we're in WordPress context
+		if ( ! defined( 'ABSPATH' ) ) {
+			return;
+		}
+
 		global $wpdb;
+
+		// Check if $wpdb is available
+		if ( ! $wpdb ) {
+			return;
+		}
 
 		$tables = [
 			$wpdb->prefix . 'oba_api_logs',

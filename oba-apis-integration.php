@@ -14,7 +14,7 @@
  * Tested up to: 6.4
  * Requires PHP: 7.4
  * Network: false
- *GitHub Plugin URI: https://github.com/AhmedHany2021/OBAApis
+ * GitHub Plugin URI: https://github.com/AhmedHany2021/OBAApis
  *
  * @package OBA\APIsIntegration
  */
