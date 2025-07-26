@@ -16,22 +16,17 @@ class Migration {
 	 */
 	public static function create_tables() {
 		// Check if we're in WordPress context
-		if ( ! defined( 'ABSPATH' ) || ! function_exists( 'dbDelta' ) ) {
+		if ( ! defined( 'ABSPATH' ) ) {
 			return;
 		}
 
 		global $wpdb;
 
-		// Check if $wpdb is available
-		if ( ! $wpdb ) {
-			return;
-		}
-
 		$charset_collate = $wpdb->get_charset_collate();
 
 		// API logs table
 		$table_name = $wpdb->prefix . 'oba_api_logs';
-		$sql = "CREATE TABLE $table_name (
+		$sql = "CREATE TABLE IF NOT EXISTS $table_name (
 			id bigint(20) NOT NULL AUTO_INCREMENT,
 			user_id bigint(20) DEFAULT NULL,
 			endpoint varchar(255) NOT NULL,
@@ -47,13 +42,11 @@ class Migration {
 			KEY endpoint (endpoint),
 			KEY created_at (created_at)
 		) $charset_collate;";
-
-		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
-		dbDelta( $sql );
+		$wpdb->query($sql);
 
 		// API rate limiting table
 		$table_name = $wpdb->prefix . 'oba_rate_limits';
-		$sql = "CREATE TABLE $table_name (
+		$sql = "CREATE TABLE IF NOT EXISTS $table_name (
 			id bigint(20) NOT NULL AUTO_INCREMENT,
 			user_id bigint(20) DEFAULT NULL,
 			ip_address varchar(45) NOT NULL,
@@ -68,12 +61,11 @@ class Migration {
 			KEY ip_address (ip_address),
 			KEY window_start (window_start)
 		) $charset_collate;";
-
-		dbDelta( $sql );
+		$wpdb->query($sql);
 
 		// JWT blacklist table
 		$table_name = $wpdb->prefix . 'oba_jwt_blacklist';
-		$sql = "CREATE TABLE $table_name (
+		$sql = "CREATE TABLE IF NOT EXISTS $table_name (
 			id bigint(20) NOT NULL AUTO_INCREMENT,
 			token_hash varchar(64) NOT NULL,
 			user_id bigint(20) DEFAULT NULL,
@@ -84,12 +76,11 @@ class Migration {
 			KEY user_id (user_id),
 			KEY expires_at (expires_at)
 		) $charset_collate;";
-
-		dbDelta( $sql );
+		$wpdb->query($sql);
 
 		// API settings table
 		$table_name = $wpdb->prefix . 'oba_api_settings';
-		$sql = "CREATE TABLE $table_name (
+		$sql = "CREATE TABLE IF NOT EXISTS $table_name (
 			id bigint(20) NOT NULL AUTO_INCREMENT,
 			setting_key varchar(255) NOT NULL,
 			setting_value longtext,
@@ -98,8 +89,7 @@ class Migration {
 			PRIMARY KEY (id),
 			UNIQUE KEY setting_key (setting_key)
 		) $charset_collate;";
-
-		dbDelta( $sql );
+		$wpdb->query($sql);
 	}
 
 	/**
