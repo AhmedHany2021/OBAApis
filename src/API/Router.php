@@ -150,7 +150,13 @@ class Router {
 	 */
 	private function get_route_from_request( $request ) {
 		$route = $request->get_route();
-		$route = str_replace( '/wp-json/' . self::API_NAMESPACE . '/', '', $route );
+		
+		// Remove the namespace prefix
+		$namespace = '/' . self::API_NAMESPACE . '/';
+		if ( strpos( $route, $namespace ) === 0 ) {
+			$route = substr( $route, strlen( $namespace ) );
+		}
+		
 		return trim( $route, '/' );
 	}
 
