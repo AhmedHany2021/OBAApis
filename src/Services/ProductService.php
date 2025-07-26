@@ -324,8 +324,8 @@ class ProductService {
 			$product_data['attributes'] = $attributes;
 
 			// Add related products
-			$related_products = wc_get_related_product_ids( $product->get_id() );
-			$product_data['related_products'] = $related_products;
+//			$related_products = wc_get_related_product_ids( $product->get_id() );
+//			$product_data['related_products'] = $related_products;
 
 			// Add upsell products
 			$upsell_products = $product->get_upsell_ids();
