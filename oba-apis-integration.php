@@ -3,7 +3,7 @@
  * Plugin Name: OBA APIs Integration
  * Plugin URI: https://oba.com
  * Description: Backend API-only service for mobile applications with JWT authentication
- * Version: 1.0.1
+ * Version: 1.0.2
  * Author: OBA Team
  * Author URI: https://oba.com
  * License: GPL v2 or later
