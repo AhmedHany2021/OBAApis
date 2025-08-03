@@ -72,6 +72,14 @@ class AuthService {
 			);
 		}
 
+        if (!get_usermeta( $user->ID, 'mdclara_patient_id' ) ) {
+            return new WP_Error(
+                'user_is_not_patient',
+                __( 'User is not patient', 'oba-apis-integration' ),
+                [ 'status' => 403 ]
+            );
+        }
+
 		// Generate tokens
 		$access_token = JWT::generate_token( $user, 'access' );
 		$refresh_token = JWT::generate_token( $user, 'refresh' );
@@ -217,21 +225,21 @@ class AuthService {
 		}
 
 		// Add Dokan vendor data if available
-		if ( class_exists( 'WeDevs_Dokan' ) && in_array( 'seller', $user->roles, true ) ) {
-			$vendor_data = get_user_meta( $user->ID, 'dokan_profile_settings', true );
-			if ( $vendor_data ) {
-				$user_data['dokan'] = [
-					'store_name' => $vendor_data['store_name'] ?? '',
-					'store_url' => $vendor_data['store_url'] ?? '',
-					'store_description' => $vendor_data['store_description'] ?? '',
-					'store_address' => $vendor_data['address'] ?? [],
-					'store_banner' => $vendor_data['banner'] ?? '',
-					'store_logo' => $vendor_data['logo'] ?? '',
-					'store_phone' => $vendor_data['phone'] ?? '',
-					'store_email' => $vendor_data['email'] ?? '',
-				];
-			}
-		}
+//		if ( class_exists( 'WeDevs_Dokan' ) && in_array( 'seller', $user->roles, true ) ) {
+//			$vendor_data = get_user_meta( $user->ID, 'dokan_profile_settings', true );
+//			if ( $vendor_data ) {
+//				$user_data['dokan'] = [
+//					'store_name' => $vendor_data['store_name'] ?? '',
+//					'store_url' => $vendor_data['store_url'] ?? '',
+//					'store_description' => $vendor_data['store_description'] ?? '',
+//					'store_address' => $vendor_data['address'] ?? [],
+//					'store_banner' => $vendor_data['banner'] ?? '',
+//					'store_logo' => $vendor_data['logo'] ?? '',
+//					'store_phone' => $vendor_data['phone'] ?? '',
+//					'store_email' => $vendor_data['email'] ?? '',
+//				];
+//			}
+//		}
 
 		// Add Paid Memberships Pro data if available
 		if ( class_exists( 'PMPro_Member' ) ) {
