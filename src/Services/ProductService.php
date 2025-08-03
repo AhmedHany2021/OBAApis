@@ -2,7 +2,6 @@
 
 namespace OBA\APIsIntegration\Services;
 
-use OBA\APIsIntegration\Traits\UserPmpro;
 use WP_REST_Request;
 use WP_REST_Response;
 use WP_Error;
@@ -13,8 +12,6 @@ use WP_Error;
  * @package OBA\APIsIntegration\Services
  */
 class ProductService {
-    use UserPmpro;
-
     /**
 	 * Get products
 	 *
@@ -217,6 +214,7 @@ class ProductService {
 //			'date_created' => $product->get_date_created()->format( 'c' ),
 //			'date_modified' => $product->get_date_modified()->format( 'c' ),
 //			'permalink' => get_permalink( $product->get_id() ),
+            'membership_price' => get_post_meta($product->ID, '_membership_price', true),
 		];
 
 		// Add images
