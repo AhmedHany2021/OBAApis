@@ -189,7 +189,7 @@ class ProductService {
 			'sale_price' => $product->get_sale_price(),
             'membership_price' => get_post_meta($product->get_id(), '_membership_price', true) ? get_post_meta($product->get_id(), '_membership_price', true) : false,
 			'stock_status' => $product->get_stock_status(),
-            'required_survey' => get_post_meta($product->get_id(), 'required_survey_id', true) ? get_post_meta($product->get_id(), 'required_survey_id', true) : false,
+            'required_survey' => get_post_meta($product->get_id(), '_required_survey_id', true) ? get_post_meta($product->get_id(), '_required_survey_id', true) : false,
 		];
         $images = [];
 		$product_images = $product->get_gallery_image_ids();
