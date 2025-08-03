@@ -180,16 +180,27 @@ class AuthService {
 	private function format_user_data( $user ) {
 		$user_data = [
 			'id' => $user->ID,
-			'email' => $user->user_email,
-			'username' => $user->user_login,
-			'display_name' => $user->display_name,
-			'first_name' => $user->first_name,
-			'last_name' => $user->last_name,
-			'roles' => $user->roles,
-			'capabilities' => array_keys( $user->allcaps ),
-			'registered_date' => $user->user_registered,
-			'last_login' => get_user_meta( $user->ID, 'last_login', true ),
+            'first_name' => $user->first_name,
+            'last_name' => $user->last_name,
+            'mdclara_patient_id' =>  get_user_meta( $user->ID, 'mdclara_patient_id', true ),
 		];
+
+        $user_avatar_data = get_user_meta( $user->ID, 'user_avatar', true );
+        if ( is_array( $user_avatar_data ) && ! empty( $user_avatar_data['previewurl'] ) ) {
+            $user_data['avatar'] = $user_avatar_data['previewurl'];
+        }
+        return $user_data;
+
+        array_merge($user_data , [
+            'email' => $user->user_email,
+            'username' => $user->user_login,
+            'display_name' => $user->display_name,
+
+            'roles' => $user->roles,
+            'capabilities' => array_keys( $user->allcaps ),
+            'registered_date' => $user->user_registered,
+            'last_login' => get_user_meta( $user->ID, 'last_login', true )
+        ]);
 
 		// Add WooCommerce customer data if available
 		if ( class_exists( 'WC_Customer' ) ) {
