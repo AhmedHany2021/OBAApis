@@ -219,13 +219,13 @@ class ProductService {
 		$product_data['categories'] = $categories;
         if ( $detailed ) {
             $subscription_plans = get_post_meta($product->get_id(), '_wcsatt_schemes', true) ? get_post_meta($product->get_id(), '_wcsatt_schemes', true) : false;
-            $allow_one_time_purchase = get_post_meta($product->get_id(), '_wcsatt_force_subscription', true) ? get_post_meta($product->get_id(), '_wcsatt_force_subscription', true) : false;
+            $allow_one_time_purchase = get_post_meta($product->get_id(), '_wcsatt_force_subscription', true) == 'no' ? true : false;
             $one_time_purchase_promp = get_post_meta($product->get_id(), '_wcsatt_subscription_prompt', true) ? get_post_meta($product->get_id(), '_wcsatt_subscription_prompt', true) : false;
             $subscription_plans_enabled = $subscription_plans ? true : false;
             $product_data['subscription_plans'] = [
                 'enabled' => $subscription_plans_enabled,
                 'subscription_plans' => $subscription_plans,
-                'allow_one_time_purchase' => !$allow_one_time_purchase,
+                'allow_one_time_purchase' => $allow_one_time_purchase,
                 'one_time_purchase_promp' => $one_time_purchase_promp,
             ];
         }
