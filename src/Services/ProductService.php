@@ -213,7 +213,7 @@ class ProductService {
 //			'date_created' => $product->get_date_created()->format( 'c' ),
 //			'date_modified' => $product->get_date_modified()->format( 'c' ),
 //			'permalink' => get_permalink( $product->get_id() ),
-            'membership_price' => get_post_meta($product->get_id(), '_membership_price', true),
+            'membership_price' => get_post_meta($product->get_id(), '_membership_price', true)??false,
 		];
 
 		// Add images
