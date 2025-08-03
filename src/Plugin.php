@@ -6,6 +6,7 @@ use OBA\APIsIntegration\Core\Options;
 use OBA\APIsIntegration\API\Router;
 use OBA\APIsIntegration\API\Middleware\AuthMiddleware;
 use OBA\APIsIntegration\Services\AuthService;
+use OBA\APIsIntegration\Services\SurveyService;
 use OBA\APIsIntegration\Services\UserService;
 use OBA\APIsIntegration\Services\OrderService;
 use OBA\APIsIntegration\Services\ProductService;
@@ -88,6 +89,7 @@ class Plugin {
 		$this->services['product'] = new ProductService();
 		$this->services['vendor'] = new VendorService();
 		$this->services['membership'] = new MembershipService();
+        $this->services['survey'] = new SurveyService();
 	}
 
 	/**
