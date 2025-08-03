@@ -132,7 +132,11 @@ class Plugin {
 		// Membership routes
 		$this->router->register_route( 'membership/status', 'GET', [ $this->services['membership'], 'get_status' ], [ AuthMiddleware::class ] );
 		$this->router->register_route( 'membership/plans', 'GET', [ $this->services['membership'], 'get_plans' ] );
-	}
+
+        //survey routes
+        $this->router->register_route( 'survey/(?P<id>\d+)', 'GET', [ $this->services['survey'], 'get_survey' ] );
+
+    }
 
 	/**
 	 * Add admin hooks
