@@ -72,7 +72,7 @@ class AuthService {
 			);
 		}
 
-        if (!get_usermeta( $user->ID, 'mdclara_patient_id' ) ) {
+        if ( ! get_user_meta( $user->ID, 'mdclara_patient_id', true ) ) {
             return new WP_Error(
                 'user_is_not_patient',
                 __( 'User is not patient', 'oba-apis-integration' ),
@@ -80,7 +80,8 @@ class AuthService {
             );
         }
 
-		// Generate tokens
+
+        // Generate tokens
 		$access_token = JWT::generate_token( $user, 'access' );
 		$refresh_token = JWT::generate_token( $user, 'refresh' );
 
