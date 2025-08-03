@@ -338,7 +338,7 @@ class ProductService {
 //			$cross_sell_products = $product->get_cross_sell_ids();
 //			$product_data['cross_sell_products'] = $cross_sell_products;
 //		}
-        $product_data['membership_price'] = $price = get_pmpro_product_price_for_membership( $product->get_id(), $user_level->id );
+        $product_data['membership_price'] = $price = $this->get_pmpro_product_price_for_membership( $product->get_id(), $user_level->id );
 		return $product_data;
 	}
 
