@@ -70,12 +70,11 @@ class ProductService {
 		$products = [];
 
 		if ( $query->have_posts() ) {
-            $user_level = $this->get_user_level($request);
 			while ( $query->have_posts() ) {
 				$query->the_post();
 				$product = wc_get_product( get_the_ID() );
 				if ( $product ) {
-					$products[] = $this->format_product( $product , $user_level );
+					$products[] = $this->format_product( $product);
 				}
 			}
 		}
@@ -183,7 +182,7 @@ class ProductService {
 	 * @param bool        $detailed Whether to include detailed information.
 	 * @return array
 	 */
-	private function format_product( $product, $user_level ,  $detailed = false ) {
+	private function format_product( $product ,  $detailed = false ) {
 		$product_data = [
 			'id' => $product->get_id(),
 			'name' => $product->get_name(),
@@ -336,7 +335,6 @@ class ProductService {
 //			$cross_sell_products = $product->get_cross_sell_ids();
 //			$product_data['cross_sell_products'] = $cross_sell_products;
 //		}
-        $product_data['membership_price'] = $price = $this->get_pmpro_product_price_for_membership( $product->get_id(), $user_level->id );
 		return $product_data;
 	}
 
