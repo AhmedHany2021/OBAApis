@@ -1,10 +1,10 @@
 {
 	"info": {
-		"_postman_id": "oba-apis-integration-collection",
+		"_postman_id": "5c501050-4461-43ad-9d5b-6de1c89ee054",
 		"name": "OBA APIs Integration",
 		"description": "Complete API collection for testing the OBA APIs Integration WordPress plugin. This collection includes all authentication, user management, product, order, vendor, and membership endpoints.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-		"_exporter_id": "oba-apis-integration"
+		"_exporter_id": "42474376"
 	},
 	"item": [
 		{
@@ -701,6 +701,19 @@
 				}
 			],
 			"description": "Membership management endpoints for Paid Memberships Pro integration."
+		},
+		{
+			"name": "survey",
+			"item": [
+				{
+					"name": "get survey",
+					"request": {
+						"method": "GET",
+						"header": []
+					},
+					"response": []
+				}
+			]
 		}
 	],
 	"event": [
@@ -758,20 +771,17 @@
 		{
 			"key": "base_url",
 			"value": "https://your-site.com/wp-json/oba/v1",
-			"type": "string",
-			"description": "Base URL for the OBA APIs Integration plugin"
+			"type": "string"
 		},
 		{
 			"key": "access_token",
 			"value": "",
-			"type": "string",
-			"description": "JWT access token (auto-populated after login)"
+			"type": "string"
 		},
 		{
 			"key": "refresh_token",
 			"value": "",
-			"type": "string",
-			"description": "JWT refresh token (auto-populated after login)"
+			"type": "string"
 		}
 	]
-} 
+}
