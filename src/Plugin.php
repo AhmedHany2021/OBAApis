@@ -18,7 +18,6 @@ use OBA\APIsIntegration\Services\MembershipService;
  * @package OBA\APIsIntegration
  */
 class Plugin {
-
 	/**
 	 * Plugin instance
 	 *
