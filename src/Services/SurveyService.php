@@ -76,7 +76,7 @@ class SurveyService
     /**
      * Get User's survey status with product
      */
-    public function get_user_survey_product($request) {
+    public function get_user_survey_product(WP_REST_Request $request) {
         $survey_id = $request->get_param('survey_id');
         $product_id = $request->get_param('product_id');
         $user_id = $request->get_param('current_user')->ID;
