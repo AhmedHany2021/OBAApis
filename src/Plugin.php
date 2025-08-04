@@ -118,25 +118,25 @@ class Plugin {
 
 		// Order routes
 		$this->router->register_route( 'orders', 'GET', [ $this->services['order'], 'get_orders' ], [ AuthMiddleware::class ] );
-		$this->router->register_route( 'orders/(?P<id>\d+)', 'GET', [ $this->services['order'], 'get_order' ], [ AuthMiddleware::class ] );
+		$this->router->register_route( 'orders/{id}', 'GET', [ $this->services['order'], 'get_order' ], [ AuthMiddleware::class ] );
 		$this->router->register_route( 'orders', 'POST', [ $this->services['order'], 'create_order' ], [ AuthMiddleware::class ] );
 
 		// Product routes
 		$this->router->register_route( 'products', 'GET', [ $this->services['product'], 'get_products' ] );
-		$this->router->register_route( 'products/(?P<id>\d+)', 'GET', [ $this->services['product'], 'get_product' ] );
+		$this->router->register_route( 'products/{id}', 'GET', [ $this->services['product'], 'get_product' ] );
 		$this->router->register_route( 'products/categories', 'GET', [ $this->services['product'], 'get_categories' ] );
 
 		// Vendor routes
 		$this->router->register_route( 'vendors', 'GET', [ $this->services['vendor'], 'get_vendors' ] );
-		$this->router->register_route( 'vendors/(?P<id>\d+)', 'GET', [ $this->services['vendor'], 'get_vendor' ] );
-		$this->router->register_route( 'vendors/(?P<id>\d+)/products', 'GET', [ $this->services['vendor'], 'get_vendor_products' ] );
+		$this->router->register_route( 'vendors/{id}', 'GET', [ $this->services['vendor'], 'get_vendor' ] );
+		$this->router->register_route( 'vendors/{id}/products', 'GET', [ $this->services['vendor'], 'get_vendor_products' ] );
 
 		// Membership routes
 		$this->router->register_route( 'membership/status', 'GET', [ $this->services['membership'], 'get_status' ], [ AuthMiddleware::class ] );
 		$this->router->register_route( 'membership/plans', 'GET', [ $this->services['membership'], 'get_plans' ] );
 
         //survey routes
-        $this->router->register_route( 'survey/(?P<id>\d+)', 'GET', [ $this->services['survey'], 'get_survey' ] );
+        $this->router->register_route( 'survey/{id}', 'GET', [ $this->services['survey'], 'get_survey' ] );
         $this->router->register_route('survey/check-product' , 'GET', [ $this->services['survey'], 'get_user_survey_product' ] );
 
     }

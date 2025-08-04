@@ -185,7 +185,8 @@ class Router {
 	 */
 	private function route_matches( $pattern, $route ) {
 		// Convert pattern to regex
-		$regex = preg_replace( '/\(\?P<([^>]+)>[^)]+\)/', '([^/]+)', $pattern );
+		// Handle {id} syntax by converting it to \d+ pattern
+		$regex = preg_replace( '/\{([^}]+)\}/', '(\d+)', $pattern );
 		$regex = '#^' . $regex . '$#';
 		
 		return preg_match( $regex, $route );
@@ -201,12 +202,13 @@ class Router {
 		$args = [];
 
 		// Extract parameters from route pattern
-		if ( preg_match_all( '/\(\?P<([^>]+)>[^)]+\)/', $route, $matches ) ) {
+		if ( preg_match_all( '/\{([^}]+)\}/', $route, $matches ) ) {
 			foreach ( $matches[1] as $param ) {
 				$args[ $param ] = [
 					'required' => true,
 					'validate_callback' => function ( $value, $request, $param ) {
-						return ! empty( $value );
+						// Validate that the value is a number
+						return ! empty( $value ) && is_numeric( $value );
 					},
 				];
 			}
