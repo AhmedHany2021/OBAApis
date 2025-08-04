@@ -15,6 +15,8 @@ class SurveyService
      */
     public function get_survey(WP_REST_Request $request)
     {
+        return new WP_REST_Response([ 'success' => false, 'message' => "I'm here" ], 400);
+
         $survey_id = absint( $request->get_param('id') );
         if ( ! $survey_id ) {
             return new WP_REST_Response([ 'success' => false, 'message' => 'Survey ID is required.' ], 400);
