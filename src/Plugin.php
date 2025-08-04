@@ -125,8 +125,9 @@ class Plugin {
 		$this->router->register_route( 'products', 'GET', [ $this->services['product'], 'get_products' ] );
 		$this->router->register_route( 'products/{id}', 'GET', [ $this->services['product'], 'get_product' ] );
 		$this->router->register_route( 'products/categories', 'GET', [ $this->services['product'], 'get_categories' ] );
+        $this->router->register_route('products/check-survey' , 'GET', [ $this->services['survey'], 'get_user_survey_product' ] );
 
-		// Vendor routes
+        // Vendor routes
 		$this->router->register_route( 'vendors', 'GET', [ $this->services['vendor'], 'get_vendors' ] );
 		$this->router->register_route( 'vendors/{id}', 'GET', [ $this->services['vendor'], 'get_vendor' ] );
 		$this->router->register_route( 'vendors/{id}/products', 'GET', [ $this->services['vendor'], 'get_vendor_products' ] );
@@ -137,7 +138,6 @@ class Plugin {
 
         //survey routes
         $this->router->register_route( 'survey/{id}', 'GET', [ $this->services['survey'], 'get_survey' ] );
-        $this->router->register_route('survey/check-product' , 'GET', [ $this->services['survey'], 'get_user_survey_product' ] );
 
     }
 
