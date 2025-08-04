@@ -2,12 +2,14 @@
 
 namespace OBA\APIsIntegration\Services;
 
+use OBA\APIsIntegration\Traits\SurveyRelationsHelper;
 use WP_REST_Request;
 use WP_REST_Response;
 use WP_Error;
 
 class SurveyService
 {
+    use SurveyRelationsHelper;
     /**
      * Get a survey by ID with all its questions and options.
      */
@@ -69,6 +71,37 @@ class SurveyService
                 'questions' => $questions,
             ],
         ]);
+    }
+
+    /**
+     * Get User's survey status with product
+     */
+    public function get_user_survey_product(WP_REST_Request $request) {
+        $survey_id = $request->get_param('survey_id');
+        $product_id = $request->get_param('product_id');
+        $user_id = $request->get_param('current_user')->ID;
+
+        if (!$survey_id || !$product_id) {
+            return $this->response_data(false , false , false , 'Survey ID or Product ID is required.' , 404);
+        }
+
+        $submission = $this->CheckUserSubmissions($user_id, $survey_id);
+        $any_submission = $this->CheckUserHasAnySubmission($user_id, $survey_id);
+        $existing_request = $this->CheckMedicationRequestExists($user_id, $product_id);
+
+        if (!$submission || !$any_submission) {
+            return $this->response_data(true , true , false , 'No Submission added yet' , 404);
+        }
+        return $this->response_data(true , false , true , 'User can add product');
+    }
+
+    private function response_data($success = true, $not_submitted = false, $can_add = false, $message = '', $status = 200) : WP_REST_Response {
+        return new WP_REST_Response([
+            'success' => $success,
+            'message' => $message,
+            'not_submitted' => $not_submitted,
+            'can_add' => $can_add,
+        ], $status);
     }
 
     /**
