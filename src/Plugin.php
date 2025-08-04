@@ -106,7 +106,7 @@ class Plugin {
 	 *
 	 * @return void
 	 */
-	private function register_routes() {
+	public function register_routes() {
 		// Auth routes
 		$this->router->register_route( 'auth/login', 'POST', [ $this->services['auth'], 'login' ] );
 		$this->router->register_route( 'auth/logout', 'POST', [ $this->services['auth'], 'logout' ], [ AuthMiddleware::class ] );
