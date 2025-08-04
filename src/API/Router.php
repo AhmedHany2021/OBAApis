@@ -185,8 +185,8 @@ class Router {
 	 */
 	private function route_matches( $pattern, $route ) {
 		// Convert pattern to regex
-		// Handle {id} syntax by converting it to \d+ pattern
-		$regex = preg_replace( '/\{([^}]+)\}/', '(\d+)', $pattern );
+		// Handle {id} syntax by converting it to .+ pattern to match any characters
+		$regex = preg_replace( '/\{([^}]+)\}/', '([^/]+)', $pattern );
 		$regex = '#^' . $regex . '$#';
 		
 		return preg_match( $regex, $route );
