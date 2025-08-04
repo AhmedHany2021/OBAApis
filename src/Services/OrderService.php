@@ -20,7 +20,7 @@ class OrderService {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function get_orders( $request ) {
-		$user = $request->get_attribute( 'current_user' );
+		$user = $request->get_param( 'current_user' );
 		
 		if ( ! $user ) {
 			return new WP_Error(
