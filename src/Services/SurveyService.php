@@ -10,57 +10,58 @@ use WP_Error;
 class SurveyService
 {
     use SurveyRelationsHelper;
+
     /**
      * Get a survey by ID with all its questions and options.
      */
     public function get_survey(WP_REST_Request $request)
     {
-        $survey_id = absint( $request->get_param('id') );
-        if ( ! $survey_id ) {
-            return new WP_REST_Response([ 'success' => false, 'message' => 'Survey ID is required.' ], 400);
+        $survey_id = absint($request->get_param('id'));
+        if (!$survey_id) {
+            return new WP_REST_Response(['success' => false, 'message' => 'Survey ID is required.'], 400);
         }
 
         global $wpdb;
-        $prefix           = $wpdb->prefix . SURVEY_MAKER_DB_PREFIX;
-        $survey_table     = $prefix . 'surveys';
-        $questions_table  = $prefix . 'questions';
-        $answers_table    = $prefix . 'answers';
+        $prefix = $wpdb->prefix . SURVEY_MAKER_DB_PREFIX;
+        $survey_table = $prefix . 'surveys';
+        $questions_table = $prefix . 'questions';
+        $answers_table = $prefix . 'answers';
 
         // 1. Fetch the survey record
-        $survey = $wpdb->get_row( $wpdb->prepare("SELECT * FROM {$survey_table} WHERE id = %d", $survey_id), ARRAY_A );
-        if ( ! $survey ) {
-            return new WP_REST_Response([ 'success' => false, 'message' => 'Survey not found.' ], 404);
+        $survey = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$survey_table} WHERE id = %d", $survey_id), ARRAY_A);
+        if (!$survey) {
+            return new WP_REST_Response(['success' => false, 'message' => 'Survey not found.'], 404);
         }
 
         // 2. Read the comma‑separated question_ids
-        $question_ids = array_filter( array_map( 'absint', explode( ',', $survey['question_ids'] ) ) );
+        $question_ids = array_filter(array_map('absint', explode(',', $survey['question_ids'])));
 
         $questions = [];
         $qustion_temp = [];
-        if ( $question_ids ) {
+        if ($question_ids) {
             // 3. Fetch questions by IN list
-            $placeholders = implode( ',', array_fill( 0, count( $question_ids ), '%d' ) );
+            $placeholders = implode(',', array_fill(0, count($question_ids), '%d'));
             $questions_temp = $wpdb->get_results(
                 $wpdb->prepare(
                     "SELECT * FROM {$questions_table} WHERE id IN ($placeholders) ORDER BY FIELD(id, $placeholders)",
-                    array_merge( $question_ids, $question_ids )
+                    array_merge($question_ids, $question_ids)
                 ),
                 ARRAY_A
             );
 
-            foreach ( $questions_temp as $question ) {
-                $questions[] = ['id' => $question['id'], 'question' => $question['question'] , 'type' => $question['type'] ];
+            foreach ($questions_temp as $question) {
+                $questions[] = ['id' => $question['id'], 'question' => $question['question'], 'type' => $question['type']];
             }
 
             $answers_temp = [];
             // 4. For each question fetch its answers
-            foreach ( $questions as &$q ) {
+            foreach ($questions as &$q) {
                 $answers_temp = $wpdb->get_results(
-                    $wpdb->prepare("SELECT * FROM {$answers_table} WHERE question_id = %d ORDER BY ordering ASC", absint( $q['id'] )),
+                    $wpdb->prepare("SELECT * FROM {$answers_table} WHERE question_id = %d ORDER BY ordering ASC", absint($q['id'])),
                     ARRAY_A
                 );
-                foreach ( $answers_temp as $answer ) {
-                    $q['answers'][] = ['id' => $answer['id'] , 'answer' => $answer['answer']];
+                foreach ($answers_temp as $answer) {
+                    $q['answers'][] = ['id' => $answer['id'], 'answer' => $answer['answer']];
                 }
             }
         }
@@ -76,40 +77,80 @@ class SurveyService
     /**
      * Get User's survey status with product
      */
-    public function get_user_survey_product(WP_REST_Request $request) {
+    public function get_user_survey_product(WP_REST_Request $request)
+    {
         $survey_id = $request->get_param('survey_id');
         $product_id = $request->get_param('product_id');
         $user_id = $request->get_param('current_user')->ID;
 
         if (!$survey_id || !$product_id) {
-            return $this->response_data(false , false , false , 'Survey ID or Product ID is required.' , 404);
+            return $this->response_data(false, false, false, 'Survey ID or Product ID is required.', 404);
+        }
+
+        $survey = $this->GetSurvey($survey_id);
+
+        if (!$survey) {
+            return $this->response_data(false, false, false, 'Survey ID is incorrect', 404);
         }
 
         $submission = $this->CheckUserSubmissions($user_id, $survey_id);
-        $any_submission = $this->CheckUserHasAnySubmission($user_id, $survey_id);
         $existing_request = $this->CheckMedicationRequestExists($user_id, $product_id);
 
-        if (!$submission || !$any_submission) {
-            return $this->response_data(true , true , false , 'No Submission added yet' , 404);
+        if (!$submission) {
+            return $this->response_data(true, true, false, 'No Submission added yet', 404);
         }
-        return $this->response_data(true , false , true , 'User can add product');
+
+        if ($existing_request) {
+            if ($existing_request['status'] == 'approved' || $existing_request['status'] == 'complete') {
+                return $this->response_data(true, false, true, 'User request approved');
+            } elseif ($existing_request['status'] == 'rejected') {
+                return $this->response_data(true, false, false, 'User request rejected');
+            } elseif ($existing_request['status'] == 'pending approval') {
+                $conditions = json_decode($survey->conditions, true);
+                $condition_met = $this->CheckConditionMet($submission, $conditions, $product_id);
+                if ($condition_met) {
+                    $this->UpdateRequestStatus($existing_request['id'], 'approved');
+                    return $this->response_data(true, false, true, 'User can add product');
+
+                } else {
+                    return $this->response_data(true, false, false, 'User request pending approval');
+                }
+            }
+        } else {
+            $conditions = json_decode($survey->conditions, true);
+            $condition_met = $this->CheckConditionMet($submission, $conditions, $product_id);
+            $status = $condition_met ? 'approved' : 'pending approval';
+            $medication_request = $this->HandleNewMedicationRequest($submission, $product_id, $user_id, $status);
+            if (!$medication_request) {
+                return $this->response_data(false, false, false, "couldn't create request in mdclara");
+            }
+            if ($condition_met) {
+                return $this->response_data(true, false, true, "user can add product");
+            } else {
+                return $this->response_data(true , false , false , 'user request pending approval');
+            }
+        }
+        return $this->response_data(false, false, false, 'un known error please contact support', 404);
     }
 
-    private function response_data($success = true, $not_submitted = false, $can_add = false, $message = '', $status = 200) : WP_REST_Response {
+    private
+    function response_data($success = true, $not_submitted = false, $can_add = false, $message = '', $status = 200): WP_REST_Response
+    {
         return new WP_REST_Response([
-            'success' => $success,
-            'message' => $message,
+            'success'       => $success,
+            'message'       => $message,
             'not_submitted' => $not_submitted,
-            'can_add' => $can_add,
+            'can_add'       => $can_add,
         ], $status);
     }
 
     /**
      * Submit a survey with answers.
      */
-    public function submit_survey(WP_REST_Request $request)
+    public
+    function submit_survey(WP_REST_Request $request)
     {
-        $survey_id = (int) $request->get_param('survey_id');
+        $survey_id = (int)$request->get_param('survey_id');
         $user_id = $request->get_param('current_user')->ID;
         $answers = $request->get_param('answers');
         $product_id = $request->get_param('product_id');
@@ -117,16 +158,16 @@ class SurveyService
         if (!$survey_id || !is_array($answers)) {
             return new WP_Error(
                 'survey_submit_required',
-                __( 'Survey id or answers are missing.', 'oba-apis-integration' ),
-                [ 'status' => 400 ]
+                __('Survey id or answers are missing.', 'oba-apis-integration'),
+                ['status' => 400]
             );
         }
 
         if (!$product_id) {
             return new WP_Error(
                 'product_id_required',
-                __( 'product id is missing.', 'oba-apis-integration' ),
-                [ 'status' => 400 ]
+                __('product id is missing.', 'oba-apis-integration'),
+                ['status' => 400]
             );
         }
 
@@ -135,11 +176,11 @@ class SurveyService
 
         foreach ($answers as $question_id => $value) {
             $wpdb->insert($results_table, [
-                'user_id' => $user_id,
-                'survey_id' => $survey_id,
+                'user_id'     => $user_id,
+                'survey_id'   => $survey_id,
                 'question_id' => $question_id,
-                'answer' => maybe_serialize($value),
-                'created_at' => current_time('mysql'),
+                'answer'      => maybe_serialize($value),
+                'created_at'  => current_time('mysql'),
             ]);
         }
 

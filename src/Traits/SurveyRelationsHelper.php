@@ -351,4 +351,15 @@ trait SurveyRelationsHelper
         return $results;
     }
 
+    private function GetSurvey($survey_id)
+    {
+        global $wpdb;
+        $survey_table = $wpdb->prefix . "ayssurvey_surveys";
+        $survey = $wpdb->get_row($wpdb->prepare(
+            "SELECT conditions FROM $survey_table WHERE id = %d",
+            $survey_id
+        ));
+        return $survey;
+    }
+
 }
