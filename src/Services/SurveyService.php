@@ -80,7 +80,10 @@ class SurveyService
         $survey_id = $request->get_param('survey_id');
         $product_id = $request->get_param('product_id');
         $user_id = $request->get_param('current_user')->ID;
-
+        return new WP_REST_Response([
+            'product_id' => $product_id,
+            'survey_id' => $survey_id,
+        ]);
         if (!$survey_id || !$product_id) {
             return $this->response_data(false , false , false , 'Survey ID or Product ID is required.' , 404);
         }
