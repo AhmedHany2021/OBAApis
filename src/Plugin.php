@@ -67,8 +67,8 @@ class Plugin {
 		// Initialize API router
 		$this->init_router();
 
-		// Hook route registration to rest_api_init
-		add_action('rest_api_init', [$this, 'register_routes']);
+		// Register REST API routes
+		$this->register_routes();
 
 		// Add admin hooks
 		$this->add_admin_hooks();
@@ -106,7 +106,7 @@ class Plugin {
 	 *
 	 * @return void
 	 */
-	public function register_routes() {
+	private function register_routes() {
 		// Auth routes
 		$this->router->register_route( 'auth/login', 'POST', [ $this->services['auth'], 'login' ] );
 		$this->router->register_route( 'auth/logout', 'POST', [ $this->services['auth'], 'logout' ], [ AuthMiddleware::class ] );
