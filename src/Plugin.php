@@ -138,6 +138,7 @@ class Plugin {
 
         //survey routes
         $this->router->register_route( 'survey/{id}', 'GET', [ $this->services['survey'], 'get_survey' ] );
+
     }
 
 	/**
