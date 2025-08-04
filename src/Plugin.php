@@ -137,7 +137,7 @@ class Plugin {
 
         //survey routes
         $this->router->register_route( 'survey/(?P<id>\d+)', 'GET', [ $this->services['survey'], 'get_survey' ] );
-        $this->router->register_route('products/(?P<product_id>\d+)/check-survey/(?P<survey_id>\d+)' , 'POST', [ $this->services['survey'], 'get_user_survey_product' ] , [ AuthMiddleware::class ] );
+        $this->router->register_route('products/(?P<product_id>\d+)/check-survey/(?P<survey_id>\d+)' , 'GET', [ $this->services['survey'], 'get_user_survey_product' ] , [ AuthMiddleware::class ] );
 
     }
 
