@@ -15,8 +15,6 @@ class SurveyService
      */
     public function get_survey(WP_REST_Request $request)
     {
-        return new WP_REST_Response([ 'success' => false, 'message' => "I'm here" ], 400);
-
         $survey_id = absint( $request->get_param('id') );
         if ( ! $survey_id ) {
             return new WP_REST_Response([ 'success' => false, 'message' => 'Survey ID is required.' ], 400);
@@ -78,7 +76,7 @@ class SurveyService
     /**
      * Get User's survey status with product
      */
-    public function get_user_survey_product(WP_REST_Request $request) {
+    public function get_user_survey_product( $request) {
         $survey_id = $request->get_param('survey_id');
         $product_id = $request->get_param('product_id');
         $user_id = $request->get_param('current_user')->ID;
