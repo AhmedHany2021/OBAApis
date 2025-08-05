@@ -233,9 +233,16 @@ class SurveyService
             $questions_table = $wpdb->prefix . 'ayssurvey_submissions_questions';
             
             foreach ($answers as $question_id => $value) {
+                // Debug: Log the current answer being processed
+                var_dump("Processing answer for question_id: $question_id");
+                var_dump("Value: ");
+                var_dump($value);
+                var_dump("Current submission_id: $submission_id, survey_id: $survey_id, user_id: $user_id");
+                
                 // If value is an array (multiple answers), join them with comma
                 if (is_array($value)) {
                     $value = implode(',', $value);
+                    var_dump("Converted array value to string: $value");
                 }
                 
                 // Get question details to determine type and section
@@ -245,9 +252,12 @@ class SurveyService
                 ));
 
                 if (!$question) {
-                    error_log("Question not found for ID: $question_id");
+                    var_dump("Question not found for ID: $question_id");
                     continue;
                 }
+
+                // Debug: Log question details
+                var_dump("Question details - section_id: " . $question->section_id . ", type: " . $question->type);
 
                 // Prepare the insert query with proper escaping
                 $insert_sql = $wpdb->prepare(
@@ -261,7 +271,7 @@ class SurveyService
                     $question->section_id,
                     $survey_id,
                     $user_id,
-                    is_numeric($value) ? $value : null,
+                    is_numeric($value) ? absint($value) : 0,
                     $value,
                     '',
                     '',
@@ -271,17 +281,27 @@ class SurveyService
                     $current_time
                 );
 
+                // Debug: Log the prepared SQL query
+                var_dump("Prepared SQL: ");
+                var_dump($insert_sql);
+
                 // Execute the query
                 $result = $wpdb->query($insert_sql);
                 
                 if ($result === false) {
-                    error_log("Failed to insert answer for question $question_id: " . $wpdb->last_error);
+                    var_dump("Failed to insert answer for question $question_id");
+                    var_dump("Database error: ");
+                    var_dump($wpdb->last_error);
+                    var_dump("Last query: ");
+                    var_dump($wpdb->last_query);
                     $wpdb->query('ROLLBACK');
                     return new WP_Error(
                         'submission_failed',
                         __('Failed to save survey answers: ' . $wpdb->last_error, 'oba-apis-integration'),
                         ['status' => 500]
                     );
+                } else {
+                    var_dump("Successfully inserted answer for question $question_id");
                 }
             }
 
