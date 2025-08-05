@@ -236,11 +236,29 @@ class SurveyService
                     $value = implode(',', $value);
                 }
                 
+                // Get question details to determine type and section
+                $question = $wpdb->get_row($wpdb->prepare(
+                    "SELECT section_id, type FROM {$wpdb->prefix}ayssurvey_questions WHERE id = %d",
+                    $question_id
+                ));
+
+                if (!$question) {
+                    continue; // Skip if question not found
+                }
+
                 $wpdb->insert($wpdb->prefix . 'ayssurvey_submissions_questions', [
                     'submission_id' => $submission_id,
                     'question_id' => $question_id,
+                    'section_id' => $question->section_id,
+                    'survey_id' => $survey_id,
+                    'user_id' => $user_id,
                     'answer_id' => is_numeric($value) ? $value : null,
                     'user_answer' => $value,
+                    'user_variant' => '', // Optional field
+                    'user_explanation' => '', // Optional field
+                    'type' => $question->type,
+                    'options' => '', // Optional field
+                    'point' => 0, // Default point value
                     'created_at' => $current_time
                 ]);
             }
