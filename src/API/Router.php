@@ -63,7 +63,7 @@ class Router {
 		foreach ( $this->routes as $route_data ) {
 			register_rest_route(
 				self::API_NAMESPACE,
-				'/' . $route_data['route'],
+                '/' . $this->convert_route_pattern($route_data['route']),
 				[
 					[
 						'methods' => $route_data['method'],
@@ -185,14 +185,25 @@ class Router {
 	 */
 	private function route_matches( $pattern, $route ) {
 		// Convert pattern to regex
-		// Handle {parameter} syntax by converting it to ([^/]+) pattern
-		$regex = preg_replace( '/\{([^}]+)\}/', '([^/]+)', $pattern );
+		// Handle {id} syntax by converting it to \d+ pattern
+		$regex = preg_replace( '/\{([^}]+)\}/', '(\d+)', $pattern );
 		$regex = '#^' . $regex . '$#';
 		
 		return preg_match( $regex, $route );
 	}
 
-	/**
+    /**
+     * Convert {param} style route to WordPress REST API format
+     *
+     * @param string $route
+     * @return string
+     */
+    private function convert_route_pattern($route) {
+        return preg_replace('/\{([a-zA-Z0-9_]+)\}/', '(?P<$1>\d+)', $route);
+    }
+
+
+    /**
 	 * Get route arguments for validation
 	 *
 	 * @param string $route Route path.
