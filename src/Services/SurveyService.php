@@ -95,11 +95,7 @@ class SurveyService
 
         $submission = $this->CheckUserSubmissions($user_id, $survey_id);
         $existing_request = $this->CheckMedicationRequestExists($user_id, $product_id);
-        return new WP_REST_Response([
-            'success' => true,
-            'submission' => $submission,
-            'existing_request' => $existing_request,
-        ]);
+
         if (!$submission) {
             return $this->response_data(true, true, false, 'No Submission added yet', 404);
         }
