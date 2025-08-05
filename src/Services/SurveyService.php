@@ -127,14 +127,13 @@ class SurveyService
             if ($condition_met) {
                 return $this->response_data(true, false, true, "user can add product");
             } else {
-                return $this->response_data(true , false , false , 'user request pending approval');
+                return $this->response_data(true, false, false, 'user request pending approval');
             }
         }
         return $this->response_data(false, false, false, 'un known error please contact support', 404);
     }
 
-    private
-    function response_data($success = true, $not_submitted = false, $can_add = false, $message = '', $status = 200): WP_REST_Response
+    private function response_data($success = true, $not_submitted = false, $can_add = false, $message = '', $status = 200): WP_REST_Response
     {
         return new WP_REST_Response([
             'success'       => $success,
@@ -147,8 +146,7 @@ class SurveyService
     /**
      * Submit a survey with answers.
      */
-    public
-    function submit_survey(WP_REST_Request $request)
+    public function submit_survey(WP_REST_Request $request)
     {
         $survey_id = (int)$request->get_param('survey_id');
         $user_id = $request->get_param('current_user')->ID;
@@ -172,21 +170,68 @@ class SurveyService
         }
 
         global $wpdb;
-        $results_table = $wpdb->prefix . 'ays_survey_user_answer';
+        $submissions_table = $wpdb->prefix . 'ayssurvey_submissions';
+        $submissions_questions_table = $wpdb->prefix . 'ayssurvey_submissions_questions';
 
-        foreach ($answers as $question_id => $value) {
-            $wpdb->insert($results_table, [
-                'user_id'     => $user_id,
-                'survey_id'   => $survey_id,
-                'question_id' => $question_id,
-                'answer'      => maybe_serialize($value),
-                'created_at'  => current_time('mysql'),
+        // Start transaction
+        $wpdb->query('START TRANSACTION');
+
+        try {
+            // Insert submission record
+            $submission_id = $wpdb->insert($submissions_table, [
+                'survey_id' => $survey_id,
+                'user_id' => $user_id,
+                'status' => 'completed',
+                'created_at' => current_time('mysql'),
+                'updated_at' => current_time('mysql'),
             ]);
-        }
 
-        return new WP_REST_Response([
-            'success' => true,
-            'message' => 'Survey submitted successfully.',
-        ]);
+            if (!$submission_id) {
+                $wpdb->query('ROLLBACK');
+                return new WP_Error(
+                    'submission_failed',
+                    __('Failed to create survey submission.', 'oba-apis-integration'),
+                    ['status' => 500]
+                );
+            }
+
+            // Insert answers for each question
+            foreach ($answers as $question_id => $value) {
+                $wpdb->insert($submissions_questions_table, [
+                    'submission_id' => $submission_id,
+                    'question_id' => $question_id,
+                    'answer_id' => is_numeric($value) ? $value : null,
+                    'user_answer' => maybe_serialize($value),
+                    'created_at' => current_time('mysql'),
+                ]);
+            }
+
+            // Commit transaction
+            $wpdb->query('COMMIT');
+
+            // Handle medication request if needed
+            $survey = $this->GetSurvey($survey_id);
+            if ($survey && !empty($survey->conditions)) {
+                $conditions = json_decode($survey->conditions, true);
+                $condition_met = $this->CheckConditionMet($submission_id, $conditions, $product_id);
+                
+                $status = $condition_met ? 'approved' : 'pending approval';
+                $this->HandleNewMedicationRequest($submission_id, $product_id, $user_id, $status);
+            }
+
+            return new WP_REST_Response([
+                'success' => true,
+                'message' => 'Survey submitted successfully.',
+                'submission_id' => $submission_id,
+            ]);
+
+        } catch (Exception $e) {
+            $wpdb->query('ROLLBACK');
+            return new WP_Error(
+                'submission_failed',
+                __('Failed to submit survey: ' . $e->getMessage(), 'oba-apis-integration'),
+                ['status' => 500]
+            );
+        }
     }
 }
