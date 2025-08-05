@@ -264,8 +264,8 @@ class SurveyService
                     "INSERT INTO $questions_table 
                      (submission_id, question_id, section_id, survey_id, user_id, 
                       answer_id, user_answer, user_variant, user_explanation, type, 
-                      options, point, created_at) 
-                     VALUES (%d, %d, %d, %d, %d, %s, %s, %s, %s, %s, %s, %d, %s)",
+                      options, point) 
+                     VALUES (%d, %d, %d, %d, %d, %s, %s, %s, %s, %s, %s, %d)",
                     $submission_id,
                     $question_id,
                     $question->section_id,
@@ -277,8 +277,7 @@ class SurveyService
                     '',
                     $question->type,
                     '',
-                    0,
-                    $current_time
+                    0
                 );
 
                 // Debug: Log the prepared SQL query
