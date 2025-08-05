@@ -215,9 +215,12 @@ class SurveyService
             ];
 
             // Insert submission record
-            $submission_id = $wpdb->insert($wpdb->prefix . 'ayssurvey_submissions', $submission_data);
-
-            if (!$submission_id) {
+            $inserted = $wpdb->insert($wpdb->prefix . 'ayssurvey_submissions', $submission_data);
+            $submission_id = $inserted;
+            if ($inserted) {
+                $submission_id = $wpdb->insert_id; // ← This is the auto-increment ID
+            }
+            if (!$inserted) {
                 $wpdb->query('ROLLBACK');
                 return new WP_Error(
                     'submission_failed',
