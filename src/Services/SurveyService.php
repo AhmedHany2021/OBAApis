@@ -228,11 +228,16 @@ class SurveyService
 
             // Insert answers for each question
             foreach ($answers as $question_id => $value) {
+                // If value is an array (multiple answers), join them with comma
+                if (is_array($value)) {
+                    $value = implode(',', $value);
+                }
+                
                 $wpdb->insert($wpdb->prefix . 'ayssurvey_submissions_questions', [
                     'submission_id' => $submission_id,
                     'question_id' => $question_id,
                     'answer_id' => is_numeric($value) ? $value : null,
-                    'user_answer' => maybe_serialize($value),
+                    'user_answer' => $value,
                     'created_at' => $current_time
                 ]);
             }
