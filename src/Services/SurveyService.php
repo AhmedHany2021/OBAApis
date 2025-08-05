@@ -170,21 +170,52 @@ class SurveyService
         }
 
         global $wpdb;
-        $submissions_table = $wpdb->prefix . 'ayssurvey_submissions';
-        $submissions_questions_table = $wpdb->prefix . 'ayssurvey_submissions_questions';
+        $survey = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}ayssurvey_surveys WHERE id = %d", $survey_id));
+        if (!$survey) {
+            return new WP_Error(
+                'survey_not_found',
+                __('Survey not found.', 'oba-apis-integration'),
+                ['status' => 404]
+            );
+        }
+
+        // Get user info
+        $user = get_userdata($user_id);
+        if (!$user) {
+            return new WP_Error(
+                'user_not_found',
+                __('User not found.', 'oba-apis-integration'),
+                ['status' => 404]
+            );
+        }
 
         // Start transaction
         $wpdb->query('START TRANSACTION');
 
         try {
-            // Insert submission record
-            $submission_id = $wpdb->insert($submissions_table, [
+            // Prepare submission data
+            $current_time = current_time('mysql');
+            $submission_data = [
                 'survey_id' => $survey_id,
                 'user_id' => $user_id,
-                'status' => 'completed',
-                'created_at' => current_time('mysql'),
-                'updated_at' => current_time('mysql'),
-            ]);
+                'user_ip' => $_SERVER['REMOTE_ADDR'],
+                'user_name' => $user->display_name,
+                'user_email' => $user->user_email,
+                'start_date' => $current_time,
+                'end_date' => $current_time,
+                'submission_date' => $current_time,
+                'status' => 'published',
+                'options' => maybe_serialize([
+                    'product_id' => $product_id
+                ]),
+                'point' => 0,
+                'changed' => 0,
+                'post_id' => 0,
+                'admin_note' => ''
+            ];
+
+            // Insert submission record
+            $submission_id = $wpdb->insert($wpdb->prefix . 'ayssurvey_submissions', $submission_data);
 
             if (!$submission_id) {
                 $wpdb->query('ROLLBACK');
@@ -197,12 +228,12 @@ class SurveyService
 
             // Insert answers for each question
             foreach ($answers as $question_id => $value) {
-                $wpdb->insert($submissions_questions_table, [
+                $wpdb->insert($wpdb->prefix . 'ayssurvey_submissions_questions', [
                     'submission_id' => $submission_id,
                     'question_id' => $question_id,
                     'answer_id' => is_numeric($value) ? $value : null,
                     'user_answer' => maybe_serialize($value),
-                    'created_at' => current_time('mysql'),
+                    'created_at' => $current_time
                 ]);
             }
 
@@ -210,8 +241,7 @@ class SurveyService
             $wpdb->query('COMMIT');
 
             // Handle medication request if needed
-            $survey = $this->GetSurvey($survey_id);
-            if ($survey && !empty($survey->conditions)) {
+            if (!empty($survey->conditions)) {
                 $conditions = json_decode($survey->conditions, true);
                 $condition_met = $this->CheckConditionMet($submission_id, $conditions, $product_id);
                 
