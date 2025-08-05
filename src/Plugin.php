@@ -140,6 +140,13 @@ class Plugin {
         $this->router->register_route( 'survey/{id}', 'GET', [ $this->services['survey'], 'get_survey' ] );
         $this->router->register_route( 'survey/submit', 'POST', [ $this->services['survey'], 'submit_survey' ], [ AuthMiddleware::class ] );
 
+        //cart routes
+        $this->router->register_route( 'cart', 'GET', [ $this->services['cart'], 'get_cart' ], [ AuthMiddleware::class ] );
+        $this->router->register_route( 'cart/add', 'POST', [ $this->services['cart'], 'add_to_cart' ], [ AuthMiddleware::class ] );
+        $this->router->register_route( 'cart/remove', 'POST', [ $this->services['cart'], 'remove_from_cart' ], [ AuthMiddleware::class ] );
+        $this->router->register_route( 'cart/update', 'POST', [ $this->services['cart'], 'update_cart_item' ], [ AuthMiddleware::class ] );
+        $this->router->register_route( 'cart/clear', 'POST', [ $this->services['cart'], 'clear_cart' ], [ AuthMiddleware::class ] );
+
     }
 
 	/**
@@ -153,6 +160,28 @@ class Plugin {
 			add_action( 'admin_init', [ $this, 'admin_init' ] );
 		}
 	}
+
+	    public function __construct() {
+        $this->load_dependencies();
+        $this->register_hooks();
+    }
+
+    public function register_hooks() {
+        add_action('init', [$this, 'init']);
+        add_action('rest_api_init', [$this, 'register_routes']);
+        
+        // Add activation hook
+        register_activation_hook(ABSPATH . 'wp-content/plugins/oba-apis-integration/oba-apis-integration.php', 
+            [$this, 'activate_plugin']);
+    }
+
+    /**
+     * Plugin activation hook
+     */
+    public function activate_plugin() {
+        // Initialize database tables
+        \OBA\APIsIntegration\Database\CartTable::init();
+    }
 
 	/**
 	 * Add admin menu
