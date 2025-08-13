@@ -30,13 +30,13 @@ class MembershipService {
 			);
 		}
 
-		if ( ! class_exists( 'PMPro_Member' ) ) {
-			return new WP_Error(
-				'pmpro_required',
-				__( 'Paid Memberships Pro is required for membership operations.', 'oba-apis-integration' ),
-				[ 'status' => 400 ]
-			);
-		}
+//		if ( ! class_exists( 'PMPro_Member' ) ) {
+//			return new WP_Error(
+//				'pmpro_required',
+//				__( 'Paid Memberships Pro is required for membership operations.', 'oba-apis-integration' ),
+//				[ 'status' => 400 ]
+//			);
+//		}
 
 		$member = new \PMPro_Member( $user->ID );
 		$membership_data = [];
@@ -161,13 +161,13 @@ class MembershipService {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function get_signup_form( $request ) {
-		if ( ! class_exists( 'PMPro_Member' ) ) {
-			return new WP_Error(
-				'pmpro_required',
-				__( 'Paid Memberships Pro is required for membership operations.', 'oba-apis-integration' ),
-				[ 'status' => 400 ]
-			);
-		}
+//		if ( ! class_exists( 'PMPro_Member' ) ) {
+//			return new WP_Error(
+//				'pmpro_required',
+//				__( 'Paid Memberships Pro is required for membership operations.', 'oba-apis-integration' ),
+//				[ 'status' => 400 ]
+//			);
+//		}
 
 		$level_id = absint( $request->get_param( 'level_id' ) );
 		if ( ! $level_id ) {
@@ -250,13 +250,13 @@ class MembershipService {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function process_signup( $request ) {
-		if ( ! class_exists( 'PMPro_Member' ) ) {
-			return new WP_Error(
-				'pmpro_required',
-				__( 'Paid Memberships Pro is required for membership operations.', 'oba-apis-integration' ),
-				[ 'status' => 400 ]
-			);
-		}
+//		if ( ! class_exists( 'PMPro_Member' ) ) {
+//			return new WP_Error(
+//				'pmpro_required',
+//				__( 'Paid Memberships Pro is required for membership operations.', 'oba-apis-integration' ),
+//				[ 'status' => 400 ]
+//			);
+//		}
 
 		$signup_data = $request->get_json_params();
 		if ( empty( $signup_data ) ) {
@@ -377,13 +377,13 @@ class MembershipService {
 			);
 		}
 
-		if ( ! class_exists( 'PMPro_Member' ) ) {
-			return new WP_Error(
-				'pmpro_required',
-				__( 'Paid Memberships Pro is required for membership operations.', 'oba-apis-integration' ),
-				[ 'status' => 400 ]
-			);
-		}
+//		if ( ! class_exists( 'PMPro_Member' ) ) {
+//			return new WP_Error(
+//				'pmpro_required',
+//				__( 'Paid Memberships Pro is required for membership operations.', 'oba-apis-integration' ),
+//				[ 'status' => 400 ]
+//			);
+//		}
 
 		$change_data = $request->get_json_params();
 		if ( empty( $change_data ) || empty( $change_data['new_level_id'] ) ) {
@@ -457,13 +457,13 @@ class MembershipService {
 			);
 		}
 
-		if ( ! class_exists( 'PMPro_Member' ) ) {
-			return new WP_Error(
-				'pmpro_required',
-				__( 'Paid Memberships Pro is required for membership operations.', 'oba-apis-integration' ),
-				[ 'status' => 400 ]
-			);
-		}
+//		if ( ! class_exists( 'PMPro_Member' ) ) {
+//			return new WP_Error(
+//				'pmpro_required',
+//				__( 'Paid Memberships Pro is required for membership operations.', 'oba-apis-integration' ),
+//				[ 'status' => 400 ]
+//			);
+//		}
 
 		$cancel_data = $request->get_json_params();
 		$cancel_at_period_end = ! empty( $cancel_data['cancel_at_period_end'] );
@@ -504,13 +504,13 @@ class MembershipService {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function get_payment_gateways( $request ) {
-		if ( ! class_exists( 'PMPro_Member' ) ) {
-			return new WP_Error(
-				'pmpro_required',
-				__( 'Paid Memberships Pro is required for membership operations.', 'oba-apis-integration' ),
-				[ 'status' => 400 ]
-			);
-		}
+//		if ( ! class_exists( 'PMPro_Member' ) ) {
+//			return new WP_Error(
+//				'pmpro_required',
+//				__( 'Paid Memberships Pro is required for membership operations.', 'oba-apis-integration' ),
+//				[ 'status' => 400 ]
+//			);
+//		}
 
 		$gateways = pmpro_getGateways();
 		$gateway_details = [];
@@ -1495,13 +1495,13 @@ class MembershipService {
 			);
 		}
 
-		if ( ! class_exists( 'PMPro_Member' ) ) {
-			return new WP_Error(
-				'pmpro_required',
-				__( 'Paid Memberships Pro is required for membership operations.', 'oba-apis-integration' ),
-				[ 'status' => 400 ]
-			);
-		}
+//		if ( ! class_exists( 'PMPro_Member' ) ) {
+//			return new WP_Error(
+//				'pmpro_required',
+//				__( 'Paid Memberships Pro is required for membership operations.', 'oba-apis-integration' ),
+//				[ 'status' => 400 ]
+//			);
+//		}
 
 		// Get membership history from PMPro
 		$history = pmpro_get_membership_levels_for_user( $user->ID, true );
@@ -1541,13 +1541,13 @@ class MembershipService {
 			);
 		}
 
-		if ( ! class_exists( 'PMPro_Member' ) ) {
-			return new WP_Error(
-				'pmpro_required',
-				__( 'Paid Memberships Pro is required for membership operations.', 'oba-apis-integration' ),
-				[ 'status' => 400 ]
-			);
-		}
+//		if ( ! class_exists( 'PMPro_Member' ) ) {
+//			return new WP_Error(
+//				'pmpro_required',
+//				__( 'Paid Memberships Pro is required for membership operations.', 'oba-apis-integration' ),
+//				[ 'status' => 400 ]
+//			);
+//		}
 
 		// Get query parameters
 		$page = max( 1, absint( $request->get_param( 'page' ) ?: 1 ) );
@@ -1608,13 +1608,13 @@ class MembershipService {
 			);
 		}
 
-		if ( ! class_exists( 'PMPro_Member' ) ) {
-			return new WP_Error(
-				'pmpro_required',
-				__( 'Paid Memberships Pro is required for membership operations.', 'oba-apis-integration' ),
-				[ 'status' => 400 ]
-			);
-		}
+//		if ( ! class_exists( 'PMPro_Member' ) ) {
+//			return new WP_Error(
+//				'pmpro_required',
+//				__( 'Paid Memberships Pro is required for membership operations.', 'oba-apis-integration' ),
+//				[ 'status' => 400 ]
+//			);
+//		}
 
 		// Get user data
 		$user_data = [
