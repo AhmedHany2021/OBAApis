@@ -94,13 +94,13 @@ class MembershipService {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function get_plans( $request ) {
-		if ( ! class_exists( 'PMPro_Member' ) ) {
-			return new WP_Error(
-				'pmpro_required',
-				__( 'Paid Memberships Pro is required for membership operations.', 'oba-apis-integration' ),
-				[ 'status' => 400 ]
-			);
-		}
+//		if ( ! class_exists( 'PMPro_Member' ) ) {
+//			return new WP_Error(
+//				'pmpro_required',
+//				__( 'Paid Memberships Pro is required for membership operations.', 'oba-apis-integration' ),
+//				[ 'status' => 400 ]
+//			);
+//		}
 
 		// Get query parameters
 		$page = max( 1, absint( $request->get_param( 'page' ) ?: 1 ) );
