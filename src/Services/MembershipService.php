@@ -189,7 +189,7 @@ class MembershipService {
 		}
 
 		// Get available payment gateways
-		$gateways = pmpro_getGateways();
+		$gateways = pmpro_gateways();
 		$available_gateways = [];
 		foreach ( $gateways as $gateway => $gateway_name ) {
 			$available_gateways[] = [
