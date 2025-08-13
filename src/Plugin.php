@@ -115,7 +115,7 @@ class Plugin
      *
      * @return void
      */
-    private function register_routes()
+    public function register_routes()
     {
         // Auth routes
         $this->router->register_route('auth/login', 'POST', [$this->services['auth'], 'login']);
@@ -195,7 +195,7 @@ class Plugin
     public function register_hooks()
     {
         add_action('init', [$this, 'init']);
-//        add_action('rest_api_init', [$this, 'register_routes']);
+        add_action('rest_api_init', [$this, 'register_routes']);
 
         // Add activation hook
         register_activation_hook(ABSPATH . 'wp-content/plugins/oba-apis-integration/oba-apis-integration.php',
