@@ -73,7 +73,7 @@ class Plugin
         $this->init_router();
 
         // Register REST API routes
-        $this->register_routes();
+//        $this->register_routes();
 
         // Add admin hooks
         $this->add_admin_hooks();
