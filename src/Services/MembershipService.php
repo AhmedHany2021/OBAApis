@@ -160,88 +160,95 @@ class MembershipService {
 	 * @param WP_REST_Request $request Request object.
 	 * @return WP_REST_Response|WP_Error
 	 */
-	public function get_signup_form( $request ) {
-//		if ( ! class_exists( 'PMPro_Member' ) ) {
-//			return new WP_Error(
-//				'pmpro_required',
-//				__( 'Paid Memberships Pro is required for membership operations.', 'oba-apis-integration' ),
-//				[ 'status' => 400 ]
-//			);
-//		}
+    public function get_signup_form( $request ) {
+        $level_id = absint( $request->get_param( 'level_id' ) );
+        if ( ! $level_id ) {
+            return new WP_Error(
+                'invalid_level_id',
+                __( 'Valid level ID is required.', 'oba-apis-integration' ),
+                [ 'status' => 400 ]
+            );
+        }
 
-		$level_id = absint( $request->get_param( 'level_id' ) );
-		if ( ! $level_id ) {
-			return new WP_Error(
-				'invalid_level_id',
-				__( 'Valid level ID is required.', 'oba-apis-integration' ),
-				[ 'status' => 400 ]
-			);
-		}
+        // Get the membership level
+        $level = pmpro_getLevel( $level_id );
+        if ( ! $level ) {
+            return new WP_Error(
+                'level_not_found',
+                __( 'Membership level not found.', 'oba-apis-integration' ),
+                [ 'status' => 404 ]
+            );
+        }
 
-		// Get the membership level
-		$level = pmpro_getLevel( $level_id );
-		if ( ! $level ) {
-			return new WP_Error(
-				'level_not_found',
-				__( 'Membership level not found.', 'oba-apis-integration' ),
-				[ 'status' => 404 ]
-			);
-		}
+        // Get all available gateways
+        $gateways = pmpro_gateways();
 
-		// Get available payment gateways
-		$gateways = pmpro_gateways();
-		$available_gateways = [];
-		foreach ( $gateways as $gateway => $gateway_name ) {
-			$available_gateways[] = [
-				'id' => $gateway,
-				'name' => $gateway_name,
-				'is_active' => pmpro_isGatewayActive( $gateway ),
-			];
-		}
+        // Get the main and additional enabled gateways from settings
+        $primary_gateway   = pmpro_getOption( 'gateway' );
+        $enabled_gateways  = pmpro_getOption( 'gateways' ); // may be array or string
 
-		// Get custom fields if PMPro Custom Fields addon is active
-		$custom_fields = [];
-		if ( class_exists( 'PMPro_Custom_Fields' ) ) {
-			$custom_fields = $this->get_custom_fields( $level_id );
-		}
+        if ( ! is_array( $enabled_gateways ) ) {
+            $enabled_gateways = $enabled_gateways ? [ $enabled_gateways ] : [];
+        }
 
-		$form_data = [
-			'level' => [
-				'id' => $level->id,
-				'name' => $level->name,
-				'description' => $level->description,
-				'initial_payment' => $level->initial_payment,
-				'billing_amount' => $level->billing_amount,
-				'billing_limit' => $level->billing_limit,
-				'cycle_number' => $level->cycle_number,
-				'cycle_period' => $level->cycle_period,
-				'trial_amount' => $level->trial_amount,
-				'trial_limit' => $level->trial_limit,
-				'expiration_number' => $level->expiration_number,
-				'expiration_period' => $level->expiration_period,
-			],
-			'gateways' => $available_gateways,
-			'custom_fields' => $custom_fields,
-			'required_fields' => [
-				'username',
-				'email',
-				'password',
-				'confirm_password',
-				'first_name',
-				'last_name',
-				'billing_address_1',
-				'billing_city',
-				'billing_state',
-				'billing_postcode',
-				'billing_country',
-			],
-		];
+        // Build only active gateways list
+        $available_gateways = [];
+        foreach ( $gateways as $slug => $name ) {
+            if ( $slug === $primary_gateway || in_array( $slug, $enabled_gateways, true ) ) {
+                $available_gateways[] = [
+                    'id'        => $slug,
+                    'name'      => $name,
+                    'is_active' => true,
+                ];
+            }
+        }
 
-		return new WP_REST_Response( [
-			'success' => true,
-			'data' => $form_data,
-		], 200 );
-	}
+        // Get custom fields if PMPro Custom Fields addon is active
+        $custom_fields = [];
+        if ( class_exists( 'PMPro_Custom_Fields' ) ) {
+            $custom_fields = $this->get_custom_fields( $level_id );
+        }
+
+        $form_data = [
+            'level' => [
+                'id'                => $level->id,
+                'name'              => $level->name,
+                'description'       => $level->description,
+                'initial_payment'   => $level->initial_payment,
+                'billing_amount'    => $level->billing_amount,
+                'billing_limit'     => $level->billing_limit,
+                'cycle_number'      => $level->cycle_number,
+                'cycle_period'      => $level->cycle_period,
+                'trial_amount'      => $level->trial_amount,
+                'trial_limit'       => $level->trial_limit,
+                'expiration_number' => $level->expiration_number,
+                'expiration_period' => $level->expiration_period,
+            ],
+            'gateways'        => $available_gateways,
+            'custom_fields'   => $custom_fields,
+            'required_fields' => [
+                'username',
+                'email',
+                'password',
+                'confirm_password',
+                'first_name',
+                'last_name',
+                'billing_address_1',
+                'billing_city',
+                'billing_state',
+                'billing_postcode',
+                'billing_country',
+            ],
+        ];
+
+        return new WP_REST_Response(
+            [
+                'success' => true,
+                'data'    => $form_data,
+            ],
+            200
+        );
+    }
 
 	/**
 	 * Process membership signup
