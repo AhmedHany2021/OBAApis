@@ -200,6 +200,10 @@ class Plugin
         // Add activation hook
         register_activation_hook(ABSPATH . 'wp-content/plugins/oba-apis-integration/oba-apis-integration.php',
             [$this, 'activate_plugin']);
+            
+        // Add deactivation hook
+        register_deactivation_hook(ABSPATH . 'wp-content/plugins/oba-apis-integration/oba-apis-integration.php',
+            [$this, 'deactivate_plugin']);
     }
 
     /**
@@ -208,7 +212,72 @@ class Plugin
     public function activate_plugin()
     {
         // Initialize database tables
+        \OBA\APIsIntegration\Database\Migration::create_tables();
         \OBA\APIsIntegration\Database\CartTable::init();
+        
+        // Set default options
+        $this->set_default_options();
+        
+        // Flush rewrite rules for REST API
+        flush_rewrite_rules();
+    }
+
+    /**
+     * Plugin deactivation hook
+     */
+    public function deactivate_plugin()
+    {
+        // Flush rewrite rules
+        flush_rewrite_rules();
+        
+        // Note: We don't drop tables on deactivation to preserve data
+        // Tables will be dropped only on uninstall if needed
+    }
+
+    /**
+     * Set default plugin options
+     */
+    private function set_default_options()
+    {
+        // JWT settings
+        if ( ! get_option( 'oba_jwt_secret' ) ) {
+            update_option( 'oba_jwt_secret', wp_generate_password( 64, false ) );
+        }
+        
+        if ( ! get_option( 'oba_jwt_access_expiration' ) ) {
+            update_option( 'oba_jwt_access_expiration', 3600 ); // 1 hour
+        }
+        
+        if ( ! get_option( 'oba_jwt_refresh_expiration' ) ) {
+            update_option( 'oba_jwt_refresh_expiration', 604800 ); // 7 days
+        }
+        
+        // Rate limiting settings
+        if ( ! get_option( 'oba_rate_limit_enabled' ) ) {
+            update_option( 'oba_rate_limit_enabled', true );
+        }
+        
+        if ( ! get_option( 'oba_rate_limit_requests' ) ) {
+            update_option( 'oba_rate_limit_requests', 60 ); // 60 requests per minute
+        }
+        
+        // CORS settings
+        if ( ! get_option( 'oba_cors_enabled' ) ) {
+            update_option( 'oba_cors_enabled', true );
+        }
+        
+        if ( ! get_option( 'oba_cors_allowed_origins' ) ) {
+            update_option( 'oba_cors_allowed_origins', '*' );
+        }
+        
+        // API logging settings
+        if ( ! get_option( 'oba_api_logging_enabled' ) ) {
+            update_option( 'oba_api_logging_enabled', true );
+        }
+        
+        if ( ! get_option( 'oba_api_log_retention_days' ) ) {
+            update_option( 'oba_api_log_retention_days', 30 );
+        }
     }
 
     /**
