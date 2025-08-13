@@ -12,6 +12,8 @@ use OBA\APIsIntegration\Services\OrderService;
 use OBA\APIsIntegration\Services\ProductService;
 use OBA\APIsIntegration\Services\VendorService;
 use OBA\APIsIntegration\Services\MembershipService;
+use OBA\APIsIntegration\Services\CartService;
+use OBA\APIsIntegration\Services\CheckoutService;
 
 /**
  * Main plugin class
@@ -90,6 +92,8 @@ class Plugin {
 		$this->services['vendor'] = new VendorService();
 		$this->services['membership'] = new MembershipService();
         $this->services['survey'] = new SurveyService();
+        $this->services['cart'] = new CartService();
+        $this->services['checkout'] = new CheckoutService();
 	}
 
 	/**
@@ -135,6 +139,15 @@ class Plugin {
 		// Membership routes
 		$this->router->register_route( 'membership/status', 'GET', [ $this->services['membership'], 'get_status' ], [ AuthMiddleware::class ] );
 		$this->router->register_route( 'membership/plans', 'GET', [ $this->services['membership'], 'get_plans' ] );
+		$this->router->register_route( 'membership/signup-form', 'GET', [ $this->services['membership'], 'get_signup_form' ] );
+		$this->router->register_route( 'membership/signup', 'POST', [ $this->services['membership'], 'process_signup' ] );
+		$this->router->register_route( 'membership/change', 'POST', [ $this->services['membership'], 'change_membership' ], [ AuthMiddleware::class ] );
+		$this->router->register_route( 'membership/cancel', 'POST', [ $this->services['membership'], 'cancel_membership' ], [ AuthMiddleware::class ] );
+		$this->router->register_route( 'membership/gateways', 'GET', [ $this->services['membership'], 'get_payment_gateways' ] );
+		$this->router->register_route( 'membership/analytics', 'GET', [ $this->services['membership'], 'get_analytics' ] );
+		$this->router->register_route( 'membership/history', 'GET', [ $this->services['membership'], 'get_membership_history' ], [ AuthMiddleware::class ] );
+		$this->router->register_route( 'membership/invoices', 'GET', [ $this->services['membership'], 'get_invoices' ], [ AuthMiddleware::class ] );
+		$this->router->register_route( 'membership/profile', 'GET', [ $this->services['membership'], 'get_user_profile' ], [ AuthMiddleware::class ] );
 
         //survey routes
         $this->router->register_route( 'survey/{id}', 'GET', [ $this->services['survey'], 'get_survey' ] );
@@ -142,10 +155,16 @@ class Plugin {
 
         //cart routes
         $this->router->register_route( 'cart', 'GET', [ $this->services['cart'], 'get_cart' ], [ AuthMiddleware::class ] );
+        $this->router->register_route( 'cart/summary', 'GET', [ $this->services['cart'], 'get_cart_summary' ], [ AuthMiddleware::class ] );
         $this->router->register_route( 'cart/add', 'POST', [ $this->services['cart'], 'add_to_cart' ], [ AuthMiddleware::class ] );
         $this->router->register_route( 'cart/remove', 'POST', [ $this->services['cart'], 'remove_from_cart' ], [ AuthMiddleware::class ] );
         $this->router->register_route( 'cart/update', 'POST', [ $this->services['cart'], 'update_cart_item' ], [ AuthMiddleware::class ] );
         $this->router->register_route( 'cart/clear', 'POST', [ $this->services['cart'], 'clear_cart' ], [ AuthMiddleware::class ] );
+
+        //checkout routes
+        $this->router->register_route( 'checkout', 'GET', [ $this->services['checkout'], 'get_checkout_data' ], [ AuthMiddleware::class ] );
+        $this->router->register_route( 'checkout/process', 'POST', [ $this->services['checkout'], 'process_checkout' ], [ AuthMiddleware::class ] );
+        $this->router->register_route( 'checkout/validate', 'POST', [ $this->services['checkout'], 'validate_checkout' ], [ AuthMiddleware::class ] );
 
     }
 

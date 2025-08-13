@@ -397,7 +397,7 @@
                             "host": ["{{base_url}}"],
                             "path": ["membership", "status"]
                         },
-                        "description": "Get user's membership status"
+                        "description": "Get user's current membership status and details"
                     }
                 },
                 {
@@ -411,11 +411,236 @@
                             }
                         ],
                         "url": {
-                            "raw": "{{base_url}}/membership/plans",
+                            "raw": "{{base_url}}/membership/plans?page={{page}}&per_page={{per_page}}&active_only={{active_only}}",
                             "host": ["{{base_url}}"],
-                            "path": ["membership", "plans"]
+                            "path": ["membership", "plans"],
+                            "query": [
+                                {"key": "page", "value": "{{page}}"},
+                                {"key": "per_page", "value": "{{per_page}}"},
+                                {"key": "active_only", "value": "{{active_only}}"}
+                            ]
                         },
-                        "description": "Get list of available membership plans"
+                        "description": "Get list of available membership plans with pagination"
+                    }
+                },
+                {
+                    "name": "Get Signup Form",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/membership/signup-form?level_id={{level_id}}",
+                            "host": ["{{base_url}}"],
+                            "path": ["membership", "signup-form"],
+                            "query": [
+                                {"key": "level_id", "value": "{{level_id}}"}
+                            ]
+                        },
+                        "description": "Get signup form fields and configuration for a specific membership level"
+                    }
+                },
+                {
+                    "name": "Process Signup",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"level_id\": {{level_id}},\n    \"username\": \"{{username}}\",\n    \"email\": \"{{email}}\",\n    \"password\": \"{{password}}\",\n    \"first_name\": \"{{first_name}}\",\n    \"last_name\": \"{{last_name}}\",\n    \"billing_address\": {\n        \"address_1\": \"{{billing_address_1}}\",\n        \"city\": \"{{billing_city}}\",\n        \"state\": \"{{billing_state}}\",\n        \"postcode\": \"{{billing_postcode}}\",\n        \"country\": \"{{billing_country}}\",\n        \"phone\": \"{{billing_phone}}\"\n    },\n    \"custom_fields\": {\n        \"company\": \"{{company}}\",\n        \"phone\": \"{{phone}}\"\n    }\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/membership/signup",
+                            "host": ["{{base_url}}"],
+                            "path": ["membership", "signup"]
+                        },
+                        "description": "Process membership signup with user creation and payment data"
+                    }
+                },
+                {
+                    "name": "Change Membership",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"new_level_id\": {{new_level_id}}\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/membership/change",
+                            "host": ["{{base_url}}"],
+                            "path": ["membership", "change"]
+                        },
+                        "description": "Upgrade or downgrade existing membership level"
+                    }
+                },
+                {
+                    "name": "Cancel Membership",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"cancel_at_period_end\": true\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/membership/cancel",
+                            "host": ["{{base_url}}"],
+                            "path": ["membership", "cancel"]
+                        },
+                        "description": "Cancel current membership (immediately or at period end)"
+                    }
+                },
+                {
+                    "name": "Get Payment Gateways",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/membership/gateways",
+                            "host": ["{{base_url}}"],
+                            "path": ["membership", "gateways"]
+                        },
+                        "description": "Get available payment gateways and their capabilities"
+                    }
+                },
+                {
+                    "name": "Get Analytics",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/membership/analytics?start_date={{start_date}}&end_date={{end_date}}",
+                            "host": ["{{base_url}}"],
+                            "path": ["membership", "analytics"],
+                            "query": [
+                                {"key": "start_date", "value": "{{start_date}}"},
+                                {"key": "end_date", "value": "{{end_date}}"}
+                            ]
+                        },
+                        "description": "Get membership analytics and statistics for date range"
+                    }
+                },
+                {
+                    "name": "Get Membership History",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/membership/history",
+                            "host": ["{{base_url}}"],
+                            "path": ["membership", "history"]
+                        },
+                        "description": "Get user's membership history and level changes"
+                    }
+                },
+                {
+                    "name": "Get Invoices",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/membership/invoices?page={{page}}&per_page={{per_page}}",
+                            "host": ["{{base_url}}"],
+                            "path": ["membership", "invoices"],
+                            "query": [
+                                {"key": "page", "value": "{{page}}"},
+                                {"key": "per_page", "value": "{{per_page}}"}
+                            ]
+                        },
+                        "description": "Get user's membership invoices and payment history"
+                    }
+                },
+                {
+                    "name": "Get User Profile",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/membership/profile",
+                            "host": ["{{base_url}}"],
+                            "path": ["membership", "profile"]
+                        },
+                        "description": "Get comprehensive user profile including custom fields, membership data, and addresses"
                     }
                 }
             ]
@@ -492,7 +717,27 @@
                             "host": ["{{base_url}}"],
                             "path": ["cart"]
                         },
-                        "description": "Get current cart contents"
+                        "description": "Get current cart contents with detailed item information"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Cart Summary",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/cart/summary",
+                            "host": ["{{base_url}}"],
+                            "path": ["cart", "summary"]
+                        },
+                        "description": "Get cart summary (item count and total quantity)"
                     },
                     "response": []
                 },
@@ -505,6 +750,10 @@
                                 "key": "Authorization",
                                 "value": "Bearer {{access_token}}",
                                 "type": "text"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
                             }
                         ],
                         "body": {
@@ -521,7 +770,7 @@
                             "host": ["{{base_url}}"],
                             "path": ["cart", "add"]
                         },
-                        "description": "Add product to cart"
+                        "description": "Add product to cart or update quantity if already exists"
                     },
                     "response": []
                 },
@@ -534,11 +783,15 @@
                                 "key": "Authorization",
                                 "value": "Bearer {{access_token}}",
                                 "type": "text"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
                             }
                         ],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n    \"cart_item_key\": \"{{cart_item_key}}\"\n}",
+                            "raw": "{\n    \"cart_item_id\": {{cart_item_id}}\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -550,7 +803,40 @@
                             "host": ["{{base_url}}"],
                             "path": ["cart", "remove"]
                         },
-                        "description": "Remove product from cart"
+                        "description": "Remove product from cart using cart item ID"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Remove from Cart (by product)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}",
+                                "type": "text"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"product_id\": {{product_id}},\n    \"variation_id\": {{variation_id}}\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/cart/remove",
+                            "host": ["{{base_url}}"],
+                            "path": ["cart", "remove"]
+                        },
+                        "description": "Remove product from cart using product ID and variation ID"
                     },
                     "response": []
                 },
@@ -563,11 +849,15 @@
                                 "key": "Authorization",
                                 "value": "Bearer {{access_token}}",
                                 "type": "text"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
                             }
                         ],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n    \"cart_item_key\": \"{{cart_item_key}}\",\n    \"quantity\": 2\n}",
+                            "raw": "{\n    \"cart_item_id\": {{cart_item_id}},\n    \"quantity\": 2\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -579,7 +869,40 @@
                             "host": ["{{base_url}}"],
                             "path": ["cart", "update"]
                         },
-                        "description": "Update cart item quantity"
+                        "description": "Update cart item quantity using cart item ID"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Update Cart Item (by product)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}",
+                                "type": "text"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"product_id\": {{product_id}},\n    \"variation_id\": {{variation_id}},\n    \"quantity\": 3\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/cart/update",
+                            "host": ["{{base_url}}"],
+                            "path": ["cart", "update"]
+                        },
+                        "description": "Update cart item quantity using product ID and variation ID"
                     },
                     "response": []
                 },
@@ -600,6 +923,97 @@
                             "path": ["cart", "clear"]
                         },
                         "description": "Clear the entire cart"
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Checkout",
+            "item": [
+                {
+                    "name": "Get Checkout Data",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/checkout",
+                            "host": ["{{base_url}}"],
+                            "path": ["checkout"]
+                        },
+                        "description": "Get checkout data including cart summary, addresses, payment methods, and shipping methods"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Validate Checkout",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}",
+                                "type": "text"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"billing_address\": {\n        \"first_name\": \"John\",\n        \"last_name\": \"Doe\",\n        \"company\": \"\",\n        \"address_1\": \"123 Main St\",\n        \"address_2\": \"\",\n        \"city\": \"New York\",\n        \"state\": \"NY\",\n        \"postcode\": \"10001\",\n        \"country\": \"US\",\n        \"email\": \"john@example.com\",\n        \"phone\": \"+1234567890\"\n    },\n    \"shipping_address\": {\n        \"first_name\": \"John\",\n        \"last_name\": \"Doe\",\n        \"company\": \"\",\n        \"address_1\": \"123 Main St\",\n        \"address_2\": \"\",\n        \"city\": \"New York\",\n        \"state\": \"NY\",\n        \"postcode\": \"10001\",\n        \"country\": \"US\"\n    },\n    \"payment_method\": \"stripe\",\n    \"shipping_method\": \"flat_rate\",\n    \"order_notes\": \"Please deliver in the morning\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/checkout/validate",
+                            "host": ["{{base_url}}"],
+                            "path": ["checkout", "validate"]
+                        },
+                        "description": "Validate checkout data before processing"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Process Checkout",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}",
+                                "type": "text"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"billing_address\": {\n        \"first_name\": \"John\",\n        \"last_name\": \"Doe\",\n        \"company\": \"\",\n        \"address_1\": \"123 Main St\",\n        \"address_2\": \"\",\n        \"city\": \"New York\",\n        \"state\": \"NY\",\n        \"postcode\": \"10001\",\n        \"country\": \"US\",\n        \"email\": \"john@example.com\",\n        \"phone\": \"+1234567890\"\n    },\n    \"shipping_address\": {\n        \"first_name\": \"John\",\n        \"last_name\": \"Doe\",\n        \"company\": \"\",\n        \"address_1\": \"123 Main St\",\n        \"address_2\": \"\",\n        \"city\": \"New York\",\n        \"state\": \"NY\",\n        \"postcode\": \"10001\",\n        \"country\": \"US\"\n    },\n    \"payment_method\": \"stripe\",\n    \"shipping_method\": \"flat_rate\",\n    \"order_notes\": \"Please deliver in the morning\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/checkout/process",
+                            "host": ["{{base_url}}"],
+                            "path": ["checkout", "process"]
+                        },
+                        "description": "Process checkout and create order"
                     },
                     "response": []
                 }

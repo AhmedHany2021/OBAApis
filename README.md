@@ -231,6 +231,364 @@ Create new order (requires authentication).
 }
 ```
 
+### Cart
+
+#### GET /wp-json/oba/v1/cart
+Get user cart contents with detailed item information (requires authentication).
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "items": [
+      {
+        "id": 1,
+        "product_id": 123,
+        "variation_id": 456,
+        "quantity": 2,
+        "name": "Product Name",
+        "price": 29.99,
+        "subtotal": 59.98,
+        "image": "https://example.com/image.jpg",
+        "options": {},
+        "stock_status": "instock",
+        "stock_quantity": 10,
+        "created_at": "2024-01-01 10:00:00",
+        "updated_at": "2024-01-01 10:00:00"
+      }
+    ],
+    "subtotal": 59.98,
+    "total": 59.98,
+    "currency": "USD",
+    "currency_symbol": "$",
+    "item_count": 1,
+    "total_quantity": 2
+  }
+}
+```
+
+#### GET /wp-json/oba/v1/cart/summary
+Get cart summary (item count and total quantity) (requires authentication).
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "item_count": 3,
+    "total_quantity": 5
+  }
+}
+```
+
+#### POST /wp-json/oba/v1/cart/add
+Add product to cart or update quantity if already exists (requires authentication).
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "product_id": 123,
+  "quantity": 2,
+  "variation_id": 456,
+  "options": {}
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Product added to cart successfully.",
+  "data": {
+    "product_id": 123,
+    "variation_id": 456,
+    "quantity": 2,
+    "cart": {
+      "items": [...],
+      "subtotal": 59.98,
+      "total": 59.98,
+      "currency": "USD",
+      "currency_symbol": "$",
+      "item_count": 1,
+      "total_quantity": 2
+    }
+  }
+}
+```
+
+#### POST /wp-json/oba/v1/cart/remove
+Remove product from cart (requires authentication). Supports both cart item ID and product ID methods.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+**Method 1 - Using Cart Item ID:**
+```json
+{
+  "cart_item_id": 1
+}
+```
+
+**Method 2 - Using Product ID:**
+```json
+{
+  "product_id": 123,
+  "variation_id": 456
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Product removed from cart successfully.",
+  "data": {
+    "cart": {
+      "items": [...],
+      "subtotal": 0,
+      "total": 0,
+      "currency": "USD",
+      "currency_symbol": "$",
+      "item_count": 0,
+      "total_quantity": 0
+    }
+  }
+}
+```
+
+#### POST /wp-json/oba/v1/cart/update
+Update cart item quantity (requires authentication). Supports both cart item ID and product ID methods.
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+**Method 1 - Using Cart Item ID:**
+```json
+{
+  "cart_item_id": 1,
+  "quantity": 3
+}
+```
+
+**Method 2 - Using Product ID:**
+```json
+{
+  "product_id": 123,
+  "variation_id": 456,
+  "quantity": 3
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Cart item quantity updated successfully.",
+  "data": {
+    "quantity": 3,
+    "cart": {
+      "items": [...],
+      "subtotal": 89.97,
+      "total": 89.97,
+      "currency": "USD",
+      "currency_symbol": "$",
+      "item_count": 1,
+      "total_quantity": 3
+    }
+  }
+}
+```
+
+#### POST /wp-json/oba/v1/cart/clear
+Clear entire cart (requires authentication).
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Cart cleared successfully.",
+  "data": {
+    "cart": {
+      "items": [],
+      "subtotal": 0,
+      "total": 0,
+      "currency": "USD",
+      "currency_symbol": "$",
+      "item_count": 0
+    }
+  }
+}
+```
+
+### Checkout
+
+#### GET /wp-json/oba/v1/checkout
+Get checkout data including cart summary, addresses, payment methods, and shipping methods (requires authentication).
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "cart": {
+      "items": [...],
+      "subtotal": 99.99,
+      "shipping_total": 5.99,
+      "tax_total": 8.99,
+      "total": 114.97,
+      "currency": "USD",
+      "currency_symbol": "$"
+    },
+    "payment_methods": {
+      "stripe": {
+        "id": "stripe",
+        "title": "Credit Card (Stripe)",
+        "description": "Pay securely with your credit card."
+      }
+    },
+    "shipping_methods": {
+      "flat_rate": {
+        "id": "flat_rate",
+        "title": "Flat Rate",
+        "description": "Fixed shipping cost."
+      }
+    },
+    "addresses": {
+      "billing": {...},
+      "shipping": {...}
+    }
+  }
+}
+```
+
+#### POST /wp-json/oba/v1/checkout/validate
+Validate checkout data before processing (requires authentication).
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "billing_address": {
+    "first_name": "John",
+    "last_name": "Doe",
+    "address_1": "123 Main St",
+    "city": "New York",
+    "state": "NY",
+    "postcode": "10001",
+    "country": "US",
+    "email": "john@example.com",
+    "phone": "+1234567890"
+  },
+  "shipping_address": {
+    "first_name": "John",
+    "last_name": "Doe",
+    "address_1": "123 Main St",
+    "city": "New York",
+    "state": "NY",
+    "postcode": "10001",
+    "country": "US"
+  },
+  "payment_method": "stripe",
+  "shipping_method": "flat_rate",
+  "order_notes": "Please deliver in the morning"
+}
+```
+
+#### POST /wp-json/oba/v1/checkout/process
+Process checkout and create order (requires authentication).
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "billing_address": {
+    "first_name": "John",
+    "last_name": "Doe",
+    "address_1": "123 Main St",
+    "city": "New York",
+    "state": "NY",
+    "postcode": "10001",
+    "country": "US",
+    "email": "john@example.com",
+    "phone": "+1234567890"
+  },
+  "shipping_address": {
+    "first_name": "John",
+    "last_name": "Doe",
+    "address_1": "123 Main St",
+    "city": "New York",
+    "state": "NY",
+    "postcode": "10001",
+    "country": "US"
+  },
+  "payment_method": "stripe",
+  "shipping_method": "flat_rate",
+  "order_notes": "Please deliver in the morning"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Order created successfully.",
+  "data": {
+    "id": 123,
+    "number": "123",
+    "status": "pending",
+    "total": 114.97,
+    "currency": "USD",
+    "billing_address": {...},
+    "shipping_address": {...},
+    "payment_method": "stripe",
+    "items": [...]
+  }
+}
+```
+
 ### Vendors (Dokan)
 
 #### GET /wp-json/oba/v1/vendors
@@ -258,20 +616,429 @@ Get vendor products.
 ### Membership (Paid Memberships Pro)
 
 #### GET /wp-json/oba/v1/membership/status
-Get user membership status (requires authentication).
+Get user's current membership status and details (requires authentication).
 
 **Headers:**
 ```
 Authorization: Bearer <access_token>
 ```
 
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "has_membership": true,
+    "level_id": 1,
+    "level_name": "Premium",
+    "level_description": "Premium membership with full access",
+    "level_cost": 99.00,
+    "level_billing_amount": 9.99,
+    "level_billing_limit": 12,
+    "level_cycle_number": 1,
+    "level_cycle_period": "Month",
+    "level_trial_amount": 0.00,
+    "level_trial_limit": 0,
+    "start_date": "2024-01-01 00:00:00",
+    "end_date": "2024-12-31 23:59:59",
+    "status": "active",
+    "is_active": true,
+    "days_remaining": 365
+  }
+}
+```
+
 #### GET /wp-json/oba/v1/membership/plans
-Get membership plans.
+Get list of available membership plans with pagination.
 
 **Query Parameters:**
-- `page` (optional): Page number
-- `per_page` (optional): Items per page
+- `page` (optional): Page number (default: 1)
+- `per_page` (optional): Items per page (default: 10, max: 50)
 - `active_only` (optional): Show only active plans (default: true)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "name": "Basic",
+      "description": "Basic membership",
+      "initial_payment": 29.99,
+      "billing_amount": 9.99,
+      "billing_limit": 12,
+      "cycle_number": 1,
+      "cycle_period": "Month",
+      "trial_amount": 0.00,
+      "trial_limit": 0,
+      "allow_signups": true,
+      "expiration_number": 12,
+      "expiration_period": "Month"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "per_page": 10,
+    "total": 5,
+    "total_pages": 1
+  }
+}
+```
+
+#### GET /wp-json/oba/v1/membership/signup-form
+Get signup form fields and configuration for a specific membership level.
+
+**Query Parameters:**
+- `level_id` (required): Membership level ID
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "level": {
+      "id": 1,
+      "name": "Premium",
+      "description": "Premium membership",
+      "initial_payment": 99.00,
+      "billing_amount": 9.99,
+      "billing_limit": 12,
+      "cycle_number": 1,
+      "cycle_period": "Month",
+      "trial_amount": 0.00,
+      "trial_limit": 0,
+      "expiration_number": 12,
+      "expiration_period": "Month"
+    },
+    "gateways": [
+      {
+        "id": "stripe",
+        "name": "Stripe",
+        "is_active": true
+      }
+    ],
+    "custom_fields": [],
+    "required_fields": [
+      "username",
+      "email",
+      "password",
+      "confirm_password",
+      "first_name",
+      "last_name",
+      "billing_address_1",
+      "billing_city",
+      "billing_state",
+      "billing_postcode",
+      "billing_country"
+    ]
+  }
+}
+```
+
+#### POST /wp-json/oba/v1/membership/signup
+Process membership signup with user creation and payment data.
+
+**Request Body:**
+```json
+{
+  "level_id": 1,
+  "username": "john_doe",
+  "email": "john@example.com",
+  "password": "securepassword123",
+  "first_name": "John",
+  "last_name": "Doe",
+  "billing_address": {
+    "address_1": "123 Main St",
+    "city": "New York",
+    "state": "NY",
+    "postcode": "10001",
+    "country": "US",
+    "phone": "+1234567890"
+  },
+  "custom_fields": {
+    "company": "ACME Corp",
+    "phone": "+1234567890"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Membership signup completed successfully.",
+  "data": {
+    "id": 123,
+    "username": "john_doe",
+    "email": "john@example.com",
+    "first_name": "John",
+    "last_name": "Doe",
+    "membership": {
+      "user_id": 123,
+      "level_id": 1,
+      "status": "active",
+      "start_date": "2024-01-01 10:00:00",
+      "end_date": "2024-12-31 23:59:59"
+    }
+  }
+}
+```
+
+#### POST /wp-json/oba/v1/membership/change
+Upgrade or downgrade existing membership level (requires authentication).
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "new_level_id": 2
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Membership level changed successfully.",
+  "data": {
+    "level_id": 2,
+    "level_name": "Premium Plus",
+    "status": "active",
+    "start_date": "2024-01-01 10:00:00",
+    "end_date": "2024-12-31 23:59:59"
+  }
+}
+```
+
+#### POST /wp-json/oba/v1/membership/cancel
+Cancel current membership (immediately or at period end) (requires authentication).
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "cancel_at_period_end": true
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Membership cancelled successfully.",
+  "data": {
+    "cancelled": true,
+    "cancel_at_period_end": true
+  }
+}
+```
+
+#### GET /wp-json/oba/v1/membership/gateways
+Get available payment gateways and their capabilities.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "stripe",
+      "name": "Stripe",
+      "is_active": true,
+      "description": "Credit card payments via Stripe",
+      "supports_recurring": true,
+      "supports_trial": true
+    },
+    {
+      "id": "paypal",
+      "name": "PayPal",
+      "is_active": true,
+      "description": "PayPal payments",
+      "supports_recurring": true,
+      "supports_trial": true
+    }
+  ]
+}
+```
+
+#### GET /wp-json/oba/v1/membership/analytics
+Get membership analytics and statistics for date range.
+
+**Query Parameters:**
+- `start_date` (optional): Start date (default: 30 days ago)
+- `end_date` (optional): End date (default: today)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "total_members": 1500,
+    "active_members": 1200,
+    "expired_members": 200,
+    "cancelled_members": 80,
+    "pending_members": 20,
+    "new_members_today": 5,
+    "revenue_today": 299.95,
+    "level_distribution": []
+  }
+}
+```
+
+#### GET /wp-json/oba/v1/membership/history
+Get user's membership history and level changes (requires authentication).
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "level_id": 1,
+      "level_name": "Basic",
+      "start_date": "2023-01-01 00:00:00",
+      "end_date": "2023-12-31 23:59:59",
+      "status": "expired",
+      "is_current": false
+    },
+    {
+      "level_id": 2,
+      "level_name": "Premium",
+      "start_date": "2024-01-01 00:00:00",
+      "end_date": "2024-12-31 23:59:59",
+      "status": "active",
+      "is_current": true
+    }
+  ]
+}
+```
+
+#### GET /wp-json/oba/v1/membership/invoices
+Get user's membership invoices and payment history (requires authentication).
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Query Parameters:**
+- `page` (optional): Page number (default: 1)
+- `per_page` (optional): Items per page (default: 10, max: 50)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "code": "INV-001",
+      "user_id": 123,
+      "membership_id": 1,
+      "gateway": "stripe",
+      "gateway_environment": "live",
+      "amount": 99.00,
+      "subtotal": 99.00,
+      "tax": 0.00,
+      "status": "completed",
+      "date": "2024-01-01 10:00:00",
+      "notes": "Initial payment"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "per_page": 10,
+    "total": 5,
+    "total_pages": 1
+  }
+}
+```
+
+#### GET /wp-json/oba/v1/membership/profile
+Get comprehensive user profile including custom fields, membership data, and addresses (requires authentication).
+
+**Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 123,
+    "username": "john_doe",
+    "email": "john@example.com",
+    "first_name": "John",
+    "last_name": "Doe",
+    "display_name": "John Doe",
+    "website": "https://example.com",
+    "date_registered": "2024-01-01 10:00:00",
+    "last_login": "2024-01-15 14:30:00",
+    "membership": {
+      "level_id": 1,
+      "level_name": "Premium",
+      "status": "active",
+      "start_date": "2024-01-01 10:00:00",
+      "end_date": "2024-12-31 23:59:59",
+      "is_active": true
+    },
+    "billing_address": {
+      "first_name": "John",
+      "last_name": "Doe",
+      "company": "ACME Corp",
+      "address_1": "123 Main St",
+      "city": "New York",
+      "state": "NY",
+      "postcode": "10001",
+      "country": "US",
+      "phone": "+1234567890",
+      "email": "john@example.com"
+    },
+    "shipping_address": {
+      "first_name": "John",
+      "last_name": "Doe",
+      "company": "ACME Corp",
+      "address_1": "123 Main St",
+      "city": "New York",
+      "state": "NY",
+      "postcode": "10001",
+      "country": "US"
+    },
+    "custom_fields": {
+      "phone": {
+        "value": "+1234567890",
+        "type": "tel"
+      },
+      "company": {
+        "value": "ACME Corp",
+        "type": "text"
+      },
+      "website": {
+        "value": "https://example.com",
+        "type": "url"
+      }
+    }
+  }
+}
+```
 
 ## Error Handling
 
