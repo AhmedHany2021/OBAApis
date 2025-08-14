@@ -66,28 +66,18 @@ class CartService
             );
         }
 
+        // Cart item data
         $cart_item_data = [];
 
         if ($purchase_type === 'subscription') {
+            // Matches All Products for Subscriptions form field names
             $cart_item_data['_wcsatt_purchase_type'] = 'subscription';
 
-            // Allow subscription without plan_id if product has default
             if (!empty($subscription_plan_id)) {
                 $schemes = get_post_meta($product_id, '_wcsatt_schemes', true);
 
                 if (is_array($schemes) && array_key_exists($subscription_plan_id, $schemes)) {
                     $cart_item_data['_wcsatt_scheme'] = $subscription_plan_id;
-
-                    // 🔹 Manually set subscription_data like frontend does
-                    $scheme_data = $schemes[$subscription_plan_id];
-                    $cart_item_data['subscription_data'] = [
-                        'subscription_period'  => $scheme_data['subscription_period'] ?? 'month',
-                        'subscription_interval'=> (int) ($scheme_data['subscription_interval'] ?? 1),
-                        'subscription_length'  => (int) ($scheme_data['subscription_length'] ?? 0),
-                        'trial_length'         => (int) ($scheme_data['subscription_trial_length'] ?? 0),
-                        'trial_period'         => $scheme_data['subscription_trial_period'] ?? '',
-                        'sign_up_fee'          => (float) ($scheme_data['subscription_sign_up_fee'] ?? 0),
-                    ];
                 } else {
                     return new \WP_Error(
                         'invalid_scheme',
@@ -97,7 +87,7 @@ class CartService
                 }
             }
         } else {
-            $cart_item_data['_wcsatt_purchase_type'] = 'one-time';
+            $cart_item_data['wcsatt_purchase_type'] = 'one-time';
         }
 
         // Add to cart
