@@ -56,7 +56,7 @@ class CartService
         $variation_id         = (int) $request->get_param('variation_id');
         $variations           = (array) $request->get_param('variations');
         $purchase_type        = $request->get_param('purchase_type') ? sanitize_text_field($request->get_param('purchase_type')) : 'one-time';
-        $subscription_plan_id = $request->get_param('subscription_plan_id'); // This should be scheme key
+        $subscription_plan_id = sanitize_text_field($request->get_param('subscription_plan_id')); // Example: "1_month_5"
 
         if (!$product_id) {
             return new \WP_Error(
@@ -68,29 +68,23 @@ class CartService
 
         $cart_item_data = [];
 
-        // Handle subscription type
         if ($purchase_type === 'subscription') {
             $cart_item_data['_wcsatt_purchase_type'] = 'subscription';
 
-            if (!empty($subscription_plan_id) || $subscription_plan_id === "0") {
+            // Allow subscription without plan_id if product has default
+            if (!empty($subscription_plan_id)) {
                 $schemes = get_post_meta($product_id, '_wcsatt_schemes', true);
 
-                if (!empty($schemes) && is_array($schemes) && isset($schemes[$subscription_plan_id])) {
-                    $cart_item_data['_wcsatt_purchase_type'] = 'subscription';
-                    $cart_item_data['_wcsatt_scheme'] = (string) $subscription_plan_id;
+                // Make sure scheme exists for this product
+                if (is_array($schemes) && array_key_exists($subscription_plan_id, $schemes)) {
+                    $cart_item_data['_wcsatt_scheme'] = $subscription_plan_id;
                 } else {
                     return new \WP_Error(
                         'invalid_scheme',
-                        __('Invalid subscription plan ID for this product.', 'oba-apis-integration'),
+                        __('Invalid subscription plan for this product.', 'oba-apis-integration'),
                         ['status' => 400]
                     );
                 }
-            } else {
-                return new \WP_Error(
-                    'missing_scheme',
-                    __('Subscription plan ID is required for subscription purchases.', 'oba-apis-integration'),
-                    ['status' => 400]
-                );
             }
         } else {
             $cart_item_data['_wcsatt_purchase_type'] = 'one-time';
