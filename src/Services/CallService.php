@@ -48,7 +48,7 @@ class CallService
             $wpdb->prepare(
                 "SELECT call_status 
              FROM `$table_name` 
-             WHERE `appointment_id` = %d 
+             WHERE `id` = %d 
              LIMIT 1",
                 $appointment_id
             ),
