@@ -1,1023 +1,1023 @@
 {
-    "info": {
-        "_postman_id": "5c501050-4461-43ad-9d5b-6de1c89ee054",
-        "name": "OBA APIs Integration",
-        "description": "Complete API collection for testing the OBA APIs Integration WordPress plugin. This collection includes all authentication, user management, product, order, vendor, and membership endpoints.",
-        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
-    },
-    "item": [
+  "info": {
+    "_postman_id": "5c501050-4461-43ad-9d5b-6de1c89ee054",
+    "name": "OBA APIs Integration",
+    "description": "Complete API collection for testing the OBA APIs Integration WordPress plugin. This collection includes all authentication, user management, product, order, vendor, and membership endpoints.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
         {
-            "name": "Authentication",
-            "item": [
-                {
-                    "name": "Login",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n    \"email\": \"{{email}}\",\n    \"password\": \"{{password}}\"\n}"
-                        },
-                        "url": {
-                            "raw": "{{base_url}}/auth/login",
-                            "host": ["{{base_url}}"],
-                            "path": ["auth", "login"]
-                        },
-                        "description": "Authenticate user with email and password. Returns access and refresh tokens."
-                    }
-                },
-                {
-                    "name": "Logout",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            },
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n    \"refresh_token\": \"{{refresh_token}}\"\n}"
-                        },
-                        "url": {
-                            "raw": "{{base_url}}/auth/logout",
-                            "host": ["{{base_url}}"],
-                            "path": ["auth", "logout"]
-                        },
-                        "description": "Logout user and blacklist tokens."
-                    }
-                },
-                {
-                    "name": "Refresh Token",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n    \"refresh_token\": \"{{refresh_token}}\"\n}"
-                        },
-                        "url": {
-                            "raw": "{{base_url}}/auth/refresh",
-                            "host": ["{{base_url}}"],
-                            "path": ["auth", "refresh"]
-                        },
-                        "description": "Refresh access token using refresh token."
-                    }
-                }
-            ]
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"{{email}}\",\n    \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Authenticate user with email and password. Returns access and refresh tokens."
+          }
         },
         {
-            "name": "User",
-            "item": [
-                {
-                    "name": "Get Current User",
-                    "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            },
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/user/me",
-                            "host": ["{{base_url}}"],
-                            "path": ["user", "me"]
-                        },
-                        "description": "Get current authenticated user information."
-                    }
-                },
-                {
-                    "name": "Update Profile",
-                    "request": {
-                        "method": "PUT",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            },
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n    \"first_name\": \"{{first_name}}\",\n    \"last_name\": \"{{last_name}}\",\n    \"display_name\": \"{{display_name}}\",\n    \"billing\": {\n        \"first_name\": \"{{billing_first_name}}\",\n        \"last_name\": \"{{billing_last_name}}\",\n        \"address_1\": \"{{billing_address_1}}\",\n        \"address_2\": \"{{billing_address_2}}\",\n        \"city\": \"{{billing_city}}\",\n        \"state\": \"{{billing_state}}\",\n        \"postcode\": \"{{billing_postcode}}\",\n        \"country\": \"{{billing_country}}\",\n        \"email\": \"{{billing_email}}\",\n        \"phone\": \"{{billing_phone}}\"\n    },\n    \"shipping\": {\n        \"first_name\": \"{{shipping_first_name}}\",\n        \"last_name\": \"{{shipping_last_name}}\",\n        \"address_1\": \"{{shipping_address_1}}\",\n        \"address_2\": \"{{shipping_address_2}}\",\n        \"city\": \"{{shipping_city}}\",\n        \"state\": \"{{shipping_state}}\",\n        \"postcode\": \"{{shipping_postcode}}\",\n        \"country\": \"{{shipping_country}}\"\n    }\n}"
-                        },
-                        "url": {
-                            "raw": "{{base_url}}/user/profile",
-                            "host": ["{{base_url}}"],
-                            "path": ["user", "profile"]
-                        },
-                        "description": "Update user profile information including billing and shipping addresses."
-                    }
-                }
-            ]
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"refresh_token\": \"{{refresh_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "logout"]
+            },
+            "description": "Logout user and blacklist tokens."
+          }
         },
         {
-            "name": "Products",
-            "item": [
-                {
-                    "name": "Get Products",
-                    "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/products?page={{page}}&per_page={{per_page}}&category={{category}}&search={{search}}&min_price={{min_price}}&max_price={{max_price}}&orderby={{orderby}}&order={{order}}",
-                            "host": ["{{base_url}}"],
-                            "path": ["products"],
-                            "query": [
-                                {"key": "page", "value": "{{page}}"},
-                                {"key": "per_page", "value": "{{per_page}}"},
-                                {"key": "category", "value": "{{category}}"},
-                                {"key": "search", "value": "{{search}}"},
-                                {"key": "min_price", "value": "{{min_price}}"},
-                                {"key": "max_price", "value": "{{max_price}}"},
-                                {"key": "orderby", "value": "{{orderby}}"},
-                                {"key": "order", "value": "{{order}}"}
-                            ]
-                        },
-                        "description": "Get list of products with optional filters"
-                    }
-                },
-                {
-                    "name": "Get Product",
-                    "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/products/{{product_id}}",
-                            "host": ["{{base_url}}"],
-                            "path": ["products", "{{product_id}}"]
-                        },
-                        "description": "Get single product details"
-                    }
-                },
-                {
-                    "name": "Get Categories",
-                    "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/products/categories",
-                            "host": ["{{base_url}}"],
-                            "path": ["products", "categories"]
-                        },
-                        "description": "Get list of product categories"
-                    }
-                },
-                {
-                    "name": "Check Survey",
-                    "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            },
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/products/check-survey?survey_id={{survey_id}}&product_id={{product_id}}",
-                            "host": ["{{base_url}}"],
-                            "path": ["products", "check-survey"],
-                            "query": [
-                                {"key": "survey_id", "value": "{{survey_id}}"},
-                                {"key": "product_id", "value": "{{product_id}}"}
-                            ]
-                        },
-                        "description": "Check if user needs to complete survey for product"
-                    }
-                }
-            ]
-        },
-        {
-            "name": "Orders",
-            "item": [
-                {
-                    "name": "Get Orders",
-                    "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            },
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/orders?page={{page}}&per_page={{per_page}}",
-                            "host": ["{{base_url}}"],
-                            "path": ["orders"],
-                            "query": [
-                                {"key": "page", "value": "{{page}}"},
-                                {"key": "per_page", "value": "{{per_page}}"}
-                            ]
-                        },
-                        "description": "Get list of user's orders"
-                    }
-                },
-                {
-                    "name": "Get Order",
-                    "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            },
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/orders/{{order_id}}",
-                            "host": ["{{base_url}}"],
-                            "path": ["orders", "{{order_id}}"]
-                        },
-                        "description": "Get single order details"
-                    }
-                },
-                {
-                    "name": "Create Order",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            },
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n    \"line_items\": [{\n        \"product_id\": {{product_id}},\n        \"quantity\": {{quantity}}\n    }],\n    \"shipping_address\": {\n        \"first_name\": \"{{shipping_first_name}}\",\n        \"last_name\": \"{{shipping_last_name}}\",\n        \"address_1\": \"{{shipping_address_1}}\",\n        \"city\": \"{{shipping_city}}\",\n        \"state\": \"{{shipping_state}}\",\n        \"postcode\": \"{{shipping_postcode}}\",\n        \"country\": \"{{shipping_country}}\"\n    },\n    \"billing_address\": {\n        \"first_name\": \"{{billing_first_name}}\",\n        \"last_name\": \"{{billing_last_name}}\",\n        \"address_1\": \"{{billing_address_1}}\",\n        \"city\": \"{{billing_city}}\",\n        \"state\": \"{{billing_state}}\",\n        \"postcode\": \"{{billing_postcode}}\",\n        \"country\": \"{{billing_country}}\"\n    }\n}"
-                        },
-                        "url": {
-                            "raw": "{{base_url}}/orders",
-                            "host": ["{{base_url}}"],
-                            "path": ["orders"]
-                        },
-                        "description": "Create new order"
-                    }
-                }
-            ]
-        },
-        {
-            "name": "Vendors",
-            "item": [
-                {
-                    "name": "Get Vendors",
-                    "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/vendors?page={{page}}&per_page={{per_page}}",
-                            "host": ["{{base_url}}"],
-                            "path": ["vendors"],
-                            "query": [
-                                {"key": "page", "value": "{{page}}"},
-                                {"key": "per_page", "value": "{{per_page}}"}
-                            ]
-                        },
-                        "description": "Get list of vendors"
-                    }
-                },
-                {
-                    "name": "Get Vendor",
-                    "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/vendors/{{vendor_id}}",
-                            "host": ["{{base_url}}"],
-                            "path": ["vendors", "{{vendor_id}}"]
-                        },
-                        "description": "Get single vendor details"
-                    }
-                },
-                {
-                    "name": "Get Vendor Products",
-                    "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/vendors/{{vendor_id}}/products?page={{page}}&per_page={{per_page}}",
-                            "host": ["{{base_url}}"],
-                            "path": ["vendors", "{{vendor_id}}", "products"],
-                            "query": [
-                                {"key": "page", "value": "{{page}}"},
-                                {"key": "per_page", "value": "{{per_page}}"}
-                            ]
-                        },
-                        "description": "Get list of products for specific vendor"
-                    }
-                }
-            ]
-        },
-        {
-            "name": "Membership",
-            "item": [
-                {
-                    "name": "Get Status",
-                    "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            },
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/membership/status",
-                            "host": ["{{base_url}}"],
-                            "path": ["membership", "status"]
-                        },
-                        "description": "Get user's current membership status and details"
-                    }
-                },
-                {
-                    "name": "Get Plans",
-                    "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/membership/plans?page={{page}}&per_page={{per_page}}&active_only={{active_only}}",
-                            "host": ["{{base_url}}"],
-                            "path": ["membership", "plans"],
-                            "query": [
-                                {"key": "page", "value": "{{page}}"},
-                                {"key": "per_page", "value": "{{per_page}}"},
-                                {"key": "active_only", "value": "{{active_only}}"}
-                            ]
-                        },
-                        "description": "Get list of available membership plans with pagination"
-                    }
-                },
-                {
-                    "name": "Get Signup Form",
-                    "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/membership/signup-form?level_id={{level_id}}",
-                            "host": ["{{base_url}}"],
-                            "path": ["membership", "signup-form"],
-                            "query": [
-                                {"key": "level_id", "value": "{{level_id}}"}
-                            ]
-                        },
-                        "description": "Get signup form fields and configuration for a specific membership level"
-                    }
-                },
-                {
-                    "name": "Process Signup",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n    \"level_id\": {{level_id}},\n    \"username\": \"{{username}}\",\n    \"email\": \"{{email}}\",\n    \"password\": \"{{password}}\",\n    \"first_name\": \"{{first_name}}\",\n    \"last_name\": \"{{last_name}}\",\n    \"billing_address\": {\n        \"address_1\": \"{{billing_address_1}}\",\n        \"city\": \"{{billing_city}}\",\n        \"state\": \"{{billing_state}}\",\n        \"postcode\": \"{{billing_postcode}}\",\n        \"country\": \"{{billing_country}}\",\n        \"phone\": \"{{billing_phone}}\"\n    },\n    \"custom_fields\": {\n        \"company\": \"{{company}}\",\n        \"phone\": \"{{phone}}\"\n    }\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        },
-                        "url": {
-                            "raw": "{{base_url}}/membership/signup",
-                            "host": ["{{base_url}}"],
-                            "path": ["membership", "signup"]
-                        },
-                        "description": "Process membership signup with user creation and payment data"
-                    }
-                },
-                {
-                    "name": "Change Membership",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            },
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n    \"new_level_id\": {{new_level_id}}\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        },
-                        "url": {
-                            "raw": "{{base_url}}/membership/change",
-                            "host": ["{{base_url}}"],
-                            "path": ["membership", "change"]
-                        },
-                        "description": "Upgrade or downgrade existing membership level"
-                    }
-                },
-                {
-                    "name": "Cancel Membership",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            },
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n    \"cancel_at_period_end\": true\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        },
-                        "url": {
-                            "raw": "{{base_url}}/membership/cancel",
-                            "host": ["{{base_url}}"],
-                            "path": ["membership", "cancel"]
-                        },
-                        "description": "Cancel current membership (immediately or at period end)"
-                    }
-                },
-                {
-                    "name": "Get Payment Gateways",
-                    "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/membership/gateways",
-                            "host": ["{{base_url}}"],
-                            "path": ["membership", "gateways"]
-                        },
-                        "description": "Get available payment gateways and their capabilities"
-                    }
-                },
-                {
-                    "name": "Get Analytics",
-                    "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/membership/analytics?start_date={{start_date}}&end_date={{end_date}}",
-                            "host": ["{{base_url}}"],
-                            "path": ["membership", "analytics"],
-                            "query": [
-                                {"key": "start_date", "value": "{{start_date}}"},
-                                {"key": "end_date", "value": "{{end_date}}"}
-                            ]
-                        },
-                        "description": "Get membership analytics and statistics for date range"
-                    }
-                },
-                {
-                    "name": "Get Membership History",
-                    "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            },
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/membership/history",
-                            "host": ["{{base_url}}"],
-                            "path": ["membership", "history"]
-                        },
-                        "description": "Get user's membership history and level changes"
-                    }
-                },
-                {
-                    "name": "Get Invoices",
-                    "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            },
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/membership/invoices?page={{page}}&per_page={{per_page}}",
-                            "host": ["{{base_url}}"],
-                            "path": ["membership", "invoices"],
-                            "query": [
-                                {"key": "page", "value": "{{page}}"},
-                                {"key": "per_page", "value": "{{per_page}}"}
-                            ]
-                        },
-                        "description": "Get user's membership invoices and payment history"
-                    }
-                },
-                {
-                    "name": "Get User Profile",
-                    "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            },
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/membership/profile",
-                            "host": ["{{base_url}}"],
-                            "path": ["membership", "profile"]
-                        },
-                        "description": "Get comprehensive user profile including custom fields, membership data, and addresses"
-                    }
-                }
-            ]
-        },
-        {
-            "name": "Survey",
-            "item": [
-                {
-                    "name": "Get Survey",
-                    "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            },
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/survey/{{survey_id}}",
-                            "host": ["{{base_url}}"],
-                            "path": ["survey", "{{survey_id}}"]
-                        },
-                        "description": "Get survey details including questions and answers"
-                    }
-                },
-                {
-                    "name": "Submit Survey",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            },
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{access_token}}"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n    \"survey_id\": {{survey_id}},\n    \"answers\": {\n        \"60\": [\"154\", \"156\"],\n        \"61\": \"Metformin 500mg, Lisinopril 10mg\",\n        \"62\": \"157\",\n        \"63\": \"Penicillin\",\n        \"64\": \"159\",\n        \"65\": \"172\"\n    },\n    \"product_id\": {{product_id}}\n}"
-                        },
-                        "url": {
-                            "raw": "{{base_url}}/survey/submit",
-                            "host": ["{{base_url}}"],
-                            "path": ["survey", "submit"]
-                        },
-                        "description": "Submit survey answers with product ID"
-                    }
-                }
-            ]
-        },
-        {
-            "name": "Cart",
-            "item": [
-                {
-                    "name": "Get Cart",
-                    "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{access_token}}",
-                                "type": "text"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/cart",
-                            "host": ["{{base_url}}"],
-                            "path": ["cart"]
-                        },
-                        "description": "Get current cart contents with detailed item information"
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Get Cart Summary",
-                    "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{access_token}}",
-                                "type": "text"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/cart/summary",
-                            "host": ["{{base_url}}"],
-                            "path": ["cart", "summary"]
-                        },
-                        "description": "Get cart summary (item count and total quantity)"
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Add to Cart",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{access_token}}",
-                                "type": "text"
-                            },
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n    \"product_id\": {{product_id}},\n    \"quantity\": 1,\n    \"variation_id\": {{variation_id}},\n    \"options\": {}\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        },
-                        "url": {
-                            "raw": "{{base_url}}/cart/add",
-                            "host": ["{{base_url}}"],
-                            "path": ["cart", "add"]
-                        },
-                        "description": "Add product to cart or update quantity if already exists"
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Remove from Cart",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{access_token}}",
-                                "type": "text"
-                            },
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n    \"cart_item_id\": {{cart_item_id}}\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        },
-                        "url": {
-                            "raw": "{{base_url}}/cart/remove",
-                            "host": ["{{base_url}}"],
-                            "path": ["cart", "remove"]
-                        },
-                        "description": "Remove product from cart using cart item ID"
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Remove from Cart (by product)",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{access_token}}",
-                                "type": "text"
-                            },
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n    \"product_id\": {{product_id}},\n    \"variation_id\": {{variation_id}}\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        },
-                        "url": {
-                            "raw": "{{base_url}}/cart/remove",
-                            "host": ["{{base_url}}"],
-                            "path": ["cart", "remove"]
-                        },
-                        "description": "Remove product from cart using product ID and variation ID"
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Update Cart Item",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{access_token}}",
-                                "type": "text"
-                            },
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n    \"cart_item_id\": {{cart_item_id}},\n    \"quantity\": 2\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        },
-                        "url": {
-                            "raw": "{{base_url}}/cart/update",
-                            "host": ["{{base_url}}"],
-                            "path": ["cart", "update"]
-                        },
-                        "description": "Update cart item quantity using cart item ID"
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Update Cart Item (by product)",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{access_token}}",
-                                "type": "text"
-                            },
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n    \"product_id\": {{product_id}},\n    \"variation_id\": {{variation_id}},\n    \"quantity\": 3\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        },
-                        "url": {
-                            "raw": "{{base_url}}/cart/update",
-                            "host": ["{{base_url}}"],
-                            "path": ["cart", "update"]
-                        },
-                        "description": "Update cart item quantity using product ID and variation ID"
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Clear Cart",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{access_token}}",
-                                "type": "text"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/cart/clear",
-                            "host": ["{{base_url}}"],
-                            "path": ["cart", "clear"]
-                        },
-                        "description": "Clear the entire cart"
-                    },
-                    "response": []
-                }
-            ]
-        },
-        {
-            "name": "Checkout",
-            "item": [
-                {
-                    "name": "Get Checkout Data",
-                    "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{access_token}}",
-                                "type": "text"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{base_url}}/checkout",
-                            "host": ["{{base_url}}"],
-                            "path": ["checkout"]
-                        },
-                        "description": "Get checkout data including cart summary, addresses, payment methods, and shipping methods"
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Validate Checkout",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{access_token}}",
-                                "type": "text"
-                            },
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n    \"billing_address\": {\n        \"first_name\": \"John\",\n        \"last_name\": \"Doe\",\n        \"company\": \"\",\n        \"address_1\": \"123 Main St\",\n        \"address_2\": \"\",\n        \"city\": \"New York\",\n        \"state\": \"NY\",\n        \"postcode\": \"10001\",\n        \"country\": \"US\",\n        \"email\": \"john@example.com\",\n        \"phone\": \"+1234567890\"\n    },\n    \"shipping_address\": {\n        \"first_name\": \"John\",\n        \"last_name\": \"Doe\",\n        \"company\": \"\",\n        \"address_1\": \"123 Main St\",\n        \"address_2\": \"\",\n        \"city\": \"New York\",\n        \"state\": \"NY\",\n        \"postcode\": \"10001\",\n        \"country\": \"US\"\n    },\n    \"payment_method\": \"stripe\",\n    \"shipping_method\": \"flat_rate\",\n    \"order_notes\": \"Please deliver in the morning\"\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        },
-                        "url": {
-                            "raw": "{{base_url}}/checkout/validate",
-                            "host": ["{{base_url}}"],
-                            "path": ["checkout", "validate"]
-                        },
-                        "description": "Validate checkout data before processing"
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Process Checkout",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer {{access_token}}",
-                                "type": "text"
-                            },
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n    \"billing_address\": {\n        \"first_name\": \"John\",\n        \"last_name\": \"Doe\",\n        \"company\": \"\",\n        \"address_1\": \"123 Main St\",\n        \"address_2\": \"\",\n        \"city\": \"New York\",\n        \"state\": \"NY\",\n        \"postcode\": \"10001\",\n        \"country\": \"US\",\n        \"email\": \"john@example.com\",\n        \"phone\": \"+1234567890\"\n    },\n    \"shipping_address\": {\n        \"first_name\": \"John\",\n        \"last_name\": \"Doe\",\n        \"company\": \"\",\n        \"address_1\": \"123 Main St\",\n        \"address_2\": \"\",\n        \"city\": \"New York\",\n        \"state\": \"NY\",\n        \"postcode\": \"10001\",\n        \"country\": \"US\"\n    },\n    \"payment_method\": \"stripe\",\n    \"shipping_method\": \"flat_rate\",\n    \"order_notes\": \"Please deliver in the morning\"\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        },
-                        "url": {
-                            "raw": "{{base_url}}/checkout/process",
-                            "host": ["{{base_url}}"],
-                            "path": ["checkout", "process"]
-                        },
-                        "description": "Process checkout and create order"
-                    },
-                    "response": []
-                }
-            ]
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"refresh_token\": \"{{refresh_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/refresh",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "refresh"]
+            },
+            "description": "Refresh access token using refresh token."
+          }
         }
-    ]
+      ]
+    },
+    {
+      "name": "User",
+      "item": [
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/user/me",
+              "host": ["{{base_url}}"],
+              "path": ["user", "me"]
+            },
+            "description": "Get current authenticated user information."
+          }
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"first_name\": \"{{first_name}}\",\n    \"last_name\": \"{{last_name}}\",\n    \"display_name\": \"{{display_name}}\",\n    \"billing\": {\n        \"first_name\": \"{{billing_first_name}}\",\n        \"last_name\": \"{{billing_last_name}}\",\n        \"address_1\": \"{{billing_address_1}}\",\n        \"address_2\": \"{{billing_address_2}}\",\n        \"city\": \"{{billing_city}}\",\n        \"state\": \"{{billing_state}}\",\n        \"postcode\": \"{{billing_postcode}}\",\n        \"country\": \"{{billing_country}}\",\n        \"email\": \"{{billing_email}}\",\n        \"phone\": \"{{billing_phone}}\"\n    },\n    \"shipping\": {\n        \"first_name\": \"{{shipping_first_name}}\",\n        \"last_name\": \"{{shipping_last_name}}\",\n        \"address_1\": \"{{shipping_address_1}}\",\n        \"address_2\": \"{{shipping_address_2}}\",\n        \"city\": \"{{shipping_city}}\",\n        \"state\": \"{{shipping_state}}\",\n        \"postcode\": \"{{shipping_postcode}}\",\n        \"country\": \"{{shipping_country}}\"\n    }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/user/profile",
+              "host": ["{{base_url}}"],
+              "path": ["user", "profile"]
+            },
+            "description": "Update user profile information including billing and shipping addresses."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Products",
+      "item": [
+        {
+          "name": "Get Products",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/products?page={{page}}&per_page={{per_page}}&category={{category}}&search={{search}}&min_price={{min_price}}&max_price={{max_price}}&orderby={{orderby}}&order={{order}}",
+              "host": ["{{base_url}}"],
+              "path": ["products"],
+              "query": [
+                {"key": "page", "value": "{{page}}"},
+                {"key": "per_page", "value": "{{per_page}}"},
+                {"key": "category", "value": "{{category}}"},
+                {"key": "search", "value": "{{search}}"},
+                {"key": "min_price", "value": "{{min_price}}"},
+                {"key": "max_price", "value": "{{max_price}}"},
+                {"key": "orderby", "value": "{{orderby}}"},
+                {"key": "order", "value": "{{order}}"}
+              ]
+            },
+            "description": "Get list of products with optional filters"
+          }
+        },
+        {
+          "name": "Get Product",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/products/{{product_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["products", "{{product_id}}"]
+            },
+            "description": "Get single product details"
+          }
+        },
+        {
+          "name": "Get Categories",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/products/categories",
+              "host": ["{{base_url}}"],
+              "path": ["products", "categories"]
+            },
+            "description": "Get list of product categories"
+          }
+        },
+        {
+          "name": "Check Survey",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/products/check-survey?survey_id={{survey_id}}&product_id={{product_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["products", "check-survey"],
+              "query": [
+                {"key": "survey_id", "value": "{{survey_id}}"},
+                {"key": "product_id", "value": "{{product_id}}"}
+              ]
+            },
+            "description": "Check if user needs to complete survey for product"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Orders",
+      "item": [
+        {
+          "name": "Get Orders",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/orders?page={{page}}&per_page={{per_page}}",
+              "host": ["{{base_url}}"],
+              "path": ["orders"],
+              "query": [
+                {"key": "page", "value": "{{page}}"},
+                {"key": "per_page", "value": "{{per_page}}"}
+              ]
+            },
+            "description": "Get list of user's orders"
+          }
+        },
+        {
+          "name": "Get Order",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/orders/{{order_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["orders", "{{order_id}}"]
+            },
+            "description": "Get single order details"
+          }
+        },
+        {
+          "name": "Create Order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"line_items\": [{\n        \"product_id\": {{product_id}},\n        \"quantity\": {{quantity}}\n    }],\n    \"shipping_address\": {\n        \"first_name\": \"{{shipping_first_name}}\",\n        \"last_name\": \"{{shipping_last_name}}\",\n        \"address_1\": \"{{shipping_address_1}}\",\n        \"city\": \"{{shipping_city}}\",\n        \"state\": \"{{shipping_state}}\",\n        \"postcode\": \"{{shipping_postcode}}\",\n        \"country\": \"{{shipping_country}}\"\n    },\n    \"billing_address\": {\n        \"first_name\": \"{{billing_first_name}}\",\n        \"last_name\": \"{{billing_last_name}}\",\n        \"address_1\": \"{{billing_address_1}}\",\n        \"city\": \"{{billing_city}}\",\n        \"state\": \"{{billing_state}}\",\n        \"postcode\": \"{{billing_postcode}}\",\n        \"country\": \"{{billing_country}}\"\n    }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/orders",
+              "host": ["{{base_url}}"],
+              "path": ["orders"]
+            },
+            "description": "Create new order"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Vendors",
+      "item": [
+        {
+          "name": "Get Vendors",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/vendors?page={{page}}&per_page={{per_page}}",
+              "host": ["{{base_url}}"],
+              "path": ["vendors"],
+              "query": [
+                {"key": "page", "value": "{{page}}"},
+                {"key": "per_page", "value": "{{per_page}}"}
+              ]
+            },
+            "description": "Get list of vendors"
+          }
+        },
+        {
+          "name": "Get Vendor",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/vendors/{{vendor_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["vendors", "{{vendor_id}}"]
+            },
+            "description": "Get single vendor details"
+          }
+        },
+        {
+          "name": "Get Vendor Products",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/vendors/{{vendor_id}}/products?page={{page}}&per_page={{per_page}}",
+              "host": ["{{base_url}}"],
+              "path": ["vendors", "{{vendor_id}}", "products"],
+              "query": [
+                {"key": "page", "value": "{{page}}"},
+                {"key": "per_page", "value": "{{per_page}}"}
+              ]
+            },
+            "description": "Get list of products for specific vendor"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Membership",
+      "item": [
+        {
+          "name": "Get Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/membership/status",
+              "host": ["{{base_url}}"],
+              "path": ["membership", "status"]
+            },
+            "description": "Get user's current membership status and details"
+          }
+        },
+        {
+          "name": "Get Plans",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/membership/plans?page={{page}}&per_page={{per_page}}&active_only={{active_only}}",
+              "host": ["{{base_url}}"],
+              "path": ["membership", "plans"],
+              "query": [
+                {"key": "page", "value": "{{page}}"},
+                {"key": "per_page", "value": "{{per_page}}"},
+                {"key": "active_only", "value": "{{active_only}}"}
+              ]
+            },
+            "description": "Get list of available membership plans with pagination"
+          }
+        },
+        {
+          "name": "Get Signup Form",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/membership/signup-form?level_id={{level_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["membership", "signup-form"],
+              "query": [
+                {"key": "level_id", "value": "{{level_id}}"}
+              ]
+            },
+            "description": "Get signup form fields and configuration for a specific membership level"
+          }
+        },
+        {
+          "name": "Process Signup",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"level_id\": {{level_id}},\n    \"username\": \"{{username}}\",\n    \"email\": \"{{email}}\",\n    \"password\": \"{{password}}\",\n    \"first_name\": \"{{first_name}}\",\n    \"last_name\": \"{{last_name}}\",\n    \"billing_address\": {\n        \"address_1\": \"{{billing_address_1}}\",\n        \"city\": \"{{billing_city}}\",\n        \"state\": \"{{billing_state}}\",\n        \"postcode\": \"{{billing_postcode}}\",\n        \"country\": \"{{billing_country}}\",\n        \"phone\": \"{{billing_phone}}\"\n    },\n    \"custom_fields\": {\n        \"company\": \"{{company}}\",\n        \"phone\": \"{{phone}}\"\n    }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/membership/signup",
+              "host": ["{{base_url}}"],
+              "path": ["membership", "signup"]
+            },
+            "description": "Process membership signup with user creation and payment data"
+          }
+        },
+        {
+          "name": "Change Membership",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"new_level_id\": {{new_level_id}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/membership/change",
+              "host": ["{{base_url}}"],
+              "path": ["membership", "change"]
+            },
+            "description": "Upgrade or downgrade existing membership level"
+          }
+        },
+        {
+          "name": "Cancel Membership",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"cancel_at_period_end\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/membership/cancel",
+              "host": ["{{base_url}}"],
+              "path": ["membership", "cancel"]
+            },
+            "description": "Cancel current membership (immediately or at period end)"
+          }
+        },
+        {
+          "name": "Get Payment Gateways",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/membership/gateways",
+              "host": ["{{base_url}}"],
+              "path": ["membership", "gateways"]
+            },
+            "description": "Get available payment gateways and their capabilities"
+          }
+        },
+        {
+          "name": "Get Analytics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/membership/analytics?start_date={{start_date}}&end_date={{end_date}}",
+              "host": ["{{base_url}}"],
+              "path": ["membership", "analytics"],
+              "query": [
+                {"key": "start_date", "value": "{{start_date}}"},
+                {"key": "end_date", "value": "{{end_date}}"}
+              ]
+            },
+            "description": "Get membership analytics and statistics for date range"
+          }
+        },
+        {
+          "name": "Get Membership History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/membership/history",
+              "host": ["{{base_url}}"],
+              "path": ["membership", "history"]
+            },
+            "description": "Get user's membership history and level changes"
+          }
+        },
+        {
+          "name": "Get Invoices",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/membership/invoices?page={{page}}&per_page={{per_page}}",
+              "host": ["{{base_url}}"],
+              "path": ["membership", "invoices"],
+              "query": [
+                {"key": "page", "value": "{{page}}"},
+                {"key": "per_page", "value": "{{per_page}}"}
+              ]
+            },
+            "description": "Get user's membership invoices and payment history"
+          }
+        },
+        {
+          "name": "Get User Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/membership/profile",
+              "host": ["{{base_url}}"],
+              "path": ["membership", "profile"]
+            },
+            "description": "Get comprehensive user profile including custom fields, membership data, and addresses"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Survey",
+      "item": [
+        {
+          "name": "Get Survey",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/survey/{{survey_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["survey", "{{survey_id}}"]
+            },
+            "description": "Get survey details including questions and answers"
+          }
+        },
+        {
+          "name": "Submit Survey",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"survey_id\": {{survey_id}},\n    \"answers\": {\n        \"60\": [\"154\", \"156\"],\n        \"61\": \"Metformin 500mg, Lisinopril 10mg\",\n        \"62\": \"157\",\n        \"63\": \"Penicillin\",\n        \"64\": \"159\",\n        \"65\": \"172\"\n    },\n    \"product_id\": {{product_id}}\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/survey/submit",
+              "host": ["{{base_url}}"],
+              "path": ["survey", "submit"]
+            },
+            "description": "Submit survey answers with product ID"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cart",
+      "item": [
+        {
+          "name": "Get Cart",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cart",
+              "host": ["{{base_url}}"],
+              "path": ["cart"]
+            },
+            "description": "Get current cart contents with detailed item information"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Cart Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cart/summary",
+              "host": ["{{base_url}}"],
+              "path": ["cart", "summary"]
+            },
+            "description": "Get cart summary (item count and total quantity)"
+          },
+          "response": []
+        },
+        {
+          "name": "Add to Cart",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"product_id\": {{product_id}},\n    \"quantity\": 1,\n    \"variation_id\": {{variation_id}},\n    \"options\": {}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/cart/add",
+              "host": ["{{base_url}}"],
+              "path": ["cart", "add"]
+            },
+            "description": "Add product to cart or update quantity if already exists"
+          },
+          "response": []
+        },
+        {
+          "name": "Remove from Cart",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"cart_item_id\": {{cart_item_id}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/cart/remove",
+              "host": ["{{base_url}}"],
+              "path": ["cart", "remove"]
+            },
+            "description": "Remove product from cart using cart item ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Remove from Cart (by product)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"product_id\": {{product_id}},\n    \"variation_id\": {{variation_id}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/cart/remove",
+              "host": ["{{base_url}}"],
+              "path": ["cart", "remove"]
+            },
+            "description": "Remove product from cart using product ID and variation ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Cart Item",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"cart_item_id\": {{cart_item_id}},\n    \"quantity\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/cart/update",
+              "host": ["{{base_url}}"],
+              "path": ["cart", "update"]
+            },
+            "description": "Update cart item quantity using cart item ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Cart Item (by product)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"product_id\": {{product_id}},\n    \"variation_id\": {{variation_id}},\n    \"quantity\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/cart/update",
+              "host": ["{{base_url}}"],
+              "path": ["cart", "update"]
+            },
+            "description": "Update cart item quantity using product ID and variation ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Clear Cart",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cart/clear",
+              "host": ["{{base_url}}"],
+              "path": ["cart", "clear"]
+            },
+            "description": "Clear the entire cart"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Checkout",
+      "item": [
+        {
+          "name": "Get Checkout Data",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/checkout",
+              "host": ["{{base_url}}"],
+              "path": ["checkout"]
+            },
+            "description": "Get checkout data including cart summary, addresses, payment methods, and shipping methods"
+          },
+          "response": []
+        },
+        {
+          "name": "Validate Checkout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"billing_address\": {\n        \"first_name\": \"John\",\n        \"last_name\": \"Doe\",\n        \"company\": \"\",\n        \"address_1\": \"123 Main St\",\n        \"address_2\": \"\",\n        \"city\": \"New York\",\n        \"state\": \"NY\",\n        \"postcode\": \"10001\",\n        \"country\": \"US\",\n        \"email\": \"john@example.com\",\n        \"phone\": \"+1234567890\"\n    },\n    \"shipping_address\": {\n        \"first_name\": \"John\",\n        \"last_name\": \"Doe\",\n        \"company\": \"\",\n        \"address_1\": \"123 Main St\",\n        \"address_2\": \"\",\n        \"city\": \"New York\",\n        \"state\": \"NY\",\n        \"postcode\": \"10001\",\n        \"country\": \"US\"\n    },\n    \"payment_method\": \"stripe\",\n    \"shipping_method\": \"flat_rate\",\n    \"order_notes\": \"Please deliver in the morning\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/checkout/validate",
+              "host": ["{{base_url}}"],
+              "path": ["checkout", "validate"]
+            },
+            "description": "Validate checkout data before processing"
+          },
+          "response": []
+        },
+        {
+          "name": "Process Checkout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"billing_address\": {\n        \"first_name\": \"John\",\n        \"last_name\": \"Doe\",\n        \"company\": \"\",\n        \"address_1\": \"123 Main St\",\n        \"address_2\": \"\",\n        \"city\": \"New York\",\n        \"state\": \"NY\",\n        \"postcode\": \"10001\",\n        \"country\": \"US\",\n        \"email\": \"john@example.com\",\n        \"phone\": \"+1234567890\"\n    },\n    \"shipping_address\": {\n        \"first_name\": \"John\",\n        \"last_name\": \"Doe\",\n        \"company\": \"\",\n        \"address_1\": \"123 Main St\",\n        \"address_2\": \"\",\n        \"city\": \"New York\",\n        \"state\": \"NY\",\n        \"postcode\": \"10001\",\n        \"country\": \"US\"\n    },\n    \"payment_method\": \"stripe\",\n    \"shipping_method\": \"flat_rate\",\n    \"order_notes\": \"Please deliver in the morning\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/checkout/process",
+              "host": ["{{base_url}}"],
+              "path": ["checkout", "process"]
+            },
+            "description": "Process checkout and create order"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
 }
