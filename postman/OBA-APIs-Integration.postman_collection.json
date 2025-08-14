@@ -1013,7 +1013,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"product_id\": {{product_id}},\n    \"quantity\": 1,\n    \"variation_id\": {{variation_id}},\n    \"options\": {}\n}",
+              "raw": "{\n    \"product_id\": {{product_id}},\n    \"quantity\": 1,\n    \"variation_id\": {{variation_id}},\n    \"variations\": {},\n    \"purchase_type\": \"{{purchase_type}}\",\n    \"subscription_plan_id\": \"{{subscription_plan_id}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1030,7 +1030,7 @@
                 "add"
               ]
             },
-            "description": "Add product to cart or update quantity if already exists"
+            "description": "Add product to cart or update quantity if already exists. If 'purchase_type' is 'subscription', you can optionally send 'subscription_plan_id' (scheme key)."
           },
           "response": []
         },

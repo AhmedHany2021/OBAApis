@@ -221,9 +221,20 @@ class ProductService {
 
         // ✅ Detailed data
         if ($detailed) {
-            $subscription_plans = get_post_meta($id, '_wcsatt_schemes', true) ?: false;
+            $subscription_plans_meta = get_post_meta($id, '_wcsatt_schemes', true) ?: [];
+
+            $subscription_plans = [];
+            if (is_array($subscription_plans_meta) && !empty($subscription_plans_meta)) {
+                foreach ($subscription_plans_meta as $plan_id => $plan_data) {
+                    $subscription_plans[] = array_merge(
+                        ['plan_id' => $plan_id],
+                        $plan_data
+                    );
+                }
+            }
+
             $product_data['subscription_plans'] = [
-                'enabled'                  => (bool) $subscription_plans,
+                'enabled'                  => !empty($subscription_plans),
                 'subscription_plans'       => $subscription_plans,
                 'allow_one_time_purchase'  => get_post_meta($id, '_wcsatt_force_subscription', true) === 'no',
                 'one_time_purchase_prompt' => get_post_meta($id, '_wcsatt_subscription_prompt', true) ?: false,
