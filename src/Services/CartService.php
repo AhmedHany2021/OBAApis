@@ -44,17 +44,19 @@ class CartService
      */
     public function add_to_cart(WP_REST_Request $request)
     {
+        // Authenticate user
         $user_id = $this->get_authenticated_user($request);
         if (is_wp_error($user_id)) {
             return $user_id;
         }
 
-        $product_id    = (int) $request->get_param('product_id');
-        $quantity      = (int) $request->get_param('quantity') ?: 1;
-        $variation_id  = (int) $request->get_param('variation_id');
-        $variations    = (array) $request->get_param('variations');
-        $purchase_type = $request->get_param('purchase_type') ? sanitize_text_field($request->get_param('purchase_type')) : false;
-        $subscription_plan_id = $request->get_param('subscription_plan_id');
+        // Request params
+        $product_id           = (int) $request->get_param('product_id');
+        $quantity             = (int) $request->get_param('quantity') ?: 1;
+        $variation_id         = (int) $request->get_param('variation_id');
+        $variations           = (array) $request->get_param('variations');
+        $purchase_type        = $request->get_param('purchase_type') ? sanitize_text_field($request->get_param('purchase_type')) : 'one-time';
+        $subscription_plan_id = $request->get_param('subscription_plan_id'); // This should be scheme key
 
         if (!$product_id) {
             return new \WP_Error(
@@ -64,23 +66,37 @@ class CartService
             );
         }
 
-        // Prepare cart item data for WCSATT
         $cart_item_data = [];
 
-        if ($purchase_type) {
-            if ($purchase_type === 'subscription') {
-                $cart_item_data['_wcsatt_purchase_type'] = 'subscription';
+        // Handle subscription type
+        if ($purchase_type === 'subscription') {
+            $cart_item_data['_wcsatt_purchase_type'] = 'subscription';
 
-                // If a plan ID (scheme key) is provided, use it
-                if (!empty($subscription_plan_id)) {
+            if (!empty($subscription_plan_id) || $subscription_plan_id === "0") {
+                $schemes = get_post_meta($product_id, '_wcsatt_schemes', true);
+
+                if (!empty($schemes) && is_array($schemes) && isset($schemes[$subscription_plan_id])) {
+                    // Valid scheme key
                     $cart_item_data['_wcsatt_scheme'] = (string) $subscription_plan_id;
+                } else {
+                    return new \WP_Error(
+                        'invalid_scheme',
+                        __('Invalid subscription plan ID for this product.', 'oba-apis-integration'),
+                        ['status' => 400]
+                    );
                 }
             } else {
-                // Default to one-time purchase
-                $cart_item_data['_wcsatt_purchase_type'] = 'one-time';
+                return new \WP_Error(
+                    'missing_scheme',
+                    __('Subscription plan ID is required for subscription purchases.', 'oba-apis-integration'),
+                    ['status' => 400]
+                );
             }
+        } else {
+            $cart_item_data['_wcsatt_purchase_type'] = 'one-time';
         }
 
+        // Add to cart
         $added = WC()->cart->add_to_cart(
             $product_id,
             $quantity,
@@ -97,7 +113,6 @@ class CartService
             );
         }
 
-        // Recalculate totals
         WC()->cart->calculate_totals();
 
         return new WP_REST_Response([
