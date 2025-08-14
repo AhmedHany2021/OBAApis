@@ -398,7 +398,7 @@ trait SurveyRelationsHelper
 
     private function CreateRetakeMedicationRequest($submission, $oba_request_id, $status = "pending approval")
     {
-        $survey_data = $this->GetUserAnswers($submission);
+        $survey_data = $this->GetUserAnswers($submission->id);
         $response = wp_remote_post(
             site_url('/wp-json/mdclara/v1/createOrUpdateMedication/?key=' . MDCLARA_KEY . '&instance_name=' . MDCLARA_INSTANCE_NAME),
             [
@@ -418,7 +418,7 @@ trait SurveyRelationsHelper
             ]
         );
         echo "<pre>";
-        var_dump($submission , $oba_request_id);
+        var_dump($submission->id , $oba_request_id);
         die();
     }
 
