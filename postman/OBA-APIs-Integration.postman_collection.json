@@ -1,9 +1,10 @@
 {
   "info": {
-    "_postman_id": "5c501050-4461-43ad-9d5b-6de1c89ee054",
+    "_postman_id": "39b40623-d5f9-48f1-ac8e-99deb4d49b7e",
     "name": "OBA APIs Integration",
     "description": "Complete API collection for testing the OBA APIs Integration WordPress plugin. This collection includes all authentication, user management, product, order, vendor, and membership endpoints.",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "42474376"
   },
   "item": [
     {
@@ -25,11 +26,17 @@
             },
             "url": {
               "raw": "{{base_url}}/auth/login",
-              "host": ["{{base_url}}"],
-              "path": ["auth", "login"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
             },
             "description": "Authenticate user with email and password. Returns access and refresh tokens."
-          }
+          },
+          "response": []
         },
         {
           "name": "Logout",
@@ -51,11 +58,17 @@
             },
             "url": {
               "raw": "{{base_url}}/auth/logout",
-              "host": ["{{base_url}}"],
-              "path": ["auth", "logout"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
             },
             "description": "Logout user and blacklist tokens."
-          }
+          },
+          "response": []
         },
         {
           "name": "Refresh Token",
@@ -73,11 +86,17 @@
             },
             "url": {
               "raw": "{{base_url}}/auth/refresh",
-              "host": ["{{base_url}}"],
-              "path": ["auth", "refresh"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ]
             },
             "description": "Refresh access token using refresh token."
-          }
+          },
+          "response": []
         }
       ]
     },
@@ -100,11 +119,17 @@
             ],
             "url": {
               "raw": "{{base_url}}/user/me",
-              "host": ["{{base_url}}"],
-              "path": ["user", "me"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "user",
+                "me"
+              ]
             },
             "description": "Get current authenticated user information."
-          }
+          },
+          "response": []
         },
         {
           "name": "Update Profile",
@@ -126,11 +151,17 @@
             },
             "url": {
               "raw": "{{base_url}}/user/profile",
-              "host": ["{{base_url}}"],
-              "path": ["user", "profile"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "user",
+                "profile"
+              ]
             },
             "description": "Update user profile information including billing and shipping addresses."
-          }
+          },
+          "response": []
         }
       ]
     },
@@ -149,21 +180,50 @@
             ],
             "url": {
               "raw": "{{base_url}}/products?page={{page}}&per_page={{per_page}}&category={{category}}&search={{search}}&min_price={{min_price}}&max_price={{max_price}}&orderby={{orderby}}&order={{order}}",
-              "host": ["{{base_url}}"],
-              "path": ["products"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products"
+              ],
               "query": [
-                {"key": "page", "value": "{{page}}"},
-                {"key": "per_page", "value": "{{per_page}}"},
-                {"key": "category", "value": "{{category}}"},
-                {"key": "search", "value": "{{search}}"},
-                {"key": "min_price", "value": "{{min_price}}"},
-                {"key": "max_price", "value": "{{max_price}}"},
-                {"key": "orderby", "value": "{{orderby}}"},
-                {"key": "order", "value": "{{order}}"}
+                {
+                  "key": "page",
+                  "value": "{{page}}"
+                },
+                {
+                  "key": "per_page",
+                  "value": "{{per_page}}"
+                },
+                {
+                  "key": "category",
+                  "value": "{{category}}"
+                },
+                {
+                  "key": "search",
+                  "value": "{{search}}"
+                },
+                {
+                  "key": "min_price",
+                  "value": "{{min_price}}"
+                },
+                {
+                  "key": "max_price",
+                  "value": "{{max_price}}"
+                },
+                {
+                  "key": "orderby",
+                  "value": "{{orderby}}"
+                },
+                {
+                  "key": "order",
+                  "value": "{{order}}"
+                }
               ]
             },
             "description": "Get list of products with optional filters"
-          }
+          },
+          "response": []
         },
         {
           "name": "Get Product",
@@ -177,11 +237,17 @@
             ],
             "url": {
               "raw": "{{base_url}}/products/{{product_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["products", "{{product_id}}"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products",
+                "{{product_id}}"
+              ]
             },
             "description": "Get single product details"
-          }
+          },
+          "response": []
         },
         {
           "name": "Get Categories",
@@ -195,11 +261,17 @@
             ],
             "url": {
               "raw": "{{base_url}}/products/categories",
-              "host": ["{{base_url}}"],
-              "path": ["products", "categories"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products",
+                "categories"
+              ]
             },
             "description": "Get list of product categories"
-          }
+          },
+          "response": []
         },
         {
           "name": "Check Survey",
@@ -217,15 +289,27 @@
             ],
             "url": {
               "raw": "{{base_url}}/products/check-survey?survey_id={{survey_id}}&product_id={{product_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["products", "check-survey"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products",
+                "check-survey"
+              ],
               "query": [
-                {"key": "survey_id", "value": "{{survey_id}}"},
-                {"key": "product_id", "value": "{{product_id}}"}
+                {
+                  "key": "survey_id",
+                  "value": "{{survey_id}}"
+                },
+                {
+                  "key": "product_id",
+                  "value": "{{product_id}}"
+                }
               ]
             },
             "description": "Check if user needs to complete survey for product"
-          }
+          },
+          "response": []
         }
       ]
     },
@@ -248,15 +332,26 @@
             ],
             "url": {
               "raw": "{{base_url}}/orders?page={{page}}&per_page={{per_page}}",
-              "host": ["{{base_url}}"],
-              "path": ["orders"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders"
+              ],
               "query": [
-                {"key": "page", "value": "{{page}}"},
-                {"key": "per_page", "value": "{{per_page}}"}
+                {
+                  "key": "page",
+                  "value": "{{page}}"
+                },
+                {
+                  "key": "per_page",
+                  "value": "{{per_page}}"
+                }
               ]
             },
             "description": "Get list of user's orders"
-          }
+          },
+          "response": []
         },
         {
           "name": "Get Order",
@@ -274,11 +369,17 @@
             ],
             "url": {
               "raw": "{{base_url}}/orders/{{order_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["orders", "{{order_id}}"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{order_id}}"
+              ]
             },
             "description": "Get single order details"
-          }
+          },
+          "response": []
         },
         {
           "name": "Create Order",
@@ -300,11 +401,16 @@
             },
             "url": {
               "raw": "{{base_url}}/orders",
-              "host": ["{{base_url}}"],
-              "path": ["orders"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders"
+              ]
             },
             "description": "Create new order"
-          }
+          },
+          "response": []
         }
       ]
     },
@@ -323,15 +429,26 @@
             ],
             "url": {
               "raw": "{{base_url}}/vendors?page={{page}}&per_page={{per_page}}",
-              "host": ["{{base_url}}"],
-              "path": ["vendors"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vendors"
+              ],
               "query": [
-                {"key": "page", "value": "{{page}}"},
-                {"key": "per_page", "value": "{{per_page}}"}
+                {
+                  "key": "page",
+                  "value": "{{page}}"
+                },
+                {
+                  "key": "per_page",
+                  "value": "{{per_page}}"
+                }
               ]
             },
             "description": "Get list of vendors"
-          }
+          },
+          "response": []
         },
         {
           "name": "Get Vendor",
@@ -345,11 +462,17 @@
             ],
             "url": {
               "raw": "{{base_url}}/vendors/{{vendor_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["vendors", "{{vendor_id}}"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vendors",
+                "{{vendor_id}}"
+              ]
             },
             "description": "Get single vendor details"
-          }
+          },
+          "response": []
         },
         {
           "name": "Get Vendor Products",
@@ -363,15 +486,28 @@
             ],
             "url": {
               "raw": "{{base_url}}/vendors/{{vendor_id}}/products?page={{page}}&per_page={{per_page}}",
-              "host": ["{{base_url}}"],
-              "path": ["vendors", "{{vendor_id}}", "products"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "vendors",
+                "{{vendor_id}}",
+                "products"
+              ],
               "query": [
-                {"key": "page", "value": "{{page}}"},
-                {"key": "per_page", "value": "{{per_page}}"}
+                {
+                  "key": "page",
+                  "value": "{{page}}"
+                },
+                {
+                  "key": "per_page",
+                  "value": "{{per_page}}"
+                }
               ]
             },
             "description": "Get list of products for specific vendor"
-          }
+          },
+          "response": []
         }
       ]
     },
@@ -394,11 +530,17 @@
             ],
             "url": {
               "raw": "{{base_url}}/membership/status",
-              "host": ["{{base_url}}"],
-              "path": ["membership", "status"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "membership",
+                "status"
+              ]
             },
             "description": "Get user's current membership status and details"
-          }
+          },
+          "response": []
         },
         {
           "name": "Get Plans",
@@ -412,16 +554,31 @@
             ],
             "url": {
               "raw": "{{base_url}}/membership/plans?page={{page}}&per_page={{per_page}}&active_only={{active_only}}",
-              "host": ["{{base_url}}"],
-              "path": ["membership", "plans"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "membership",
+                "plans"
+              ],
               "query": [
-                {"key": "page", "value": "{{page}}"},
-                {"key": "per_page", "value": "{{per_page}}"},
-                {"key": "active_only", "value": "{{active_only}}"}
+                {
+                  "key": "page",
+                  "value": "{{page}}"
+                },
+                {
+                  "key": "per_page",
+                  "value": "{{per_page}}"
+                },
+                {
+                  "key": "active_only",
+                  "value": "{{active_only}}"
+                }
               ]
             },
             "description": "Get list of available membership plans with pagination"
-          }
+          },
+          "response": []
         },
         {
           "name": "Get Signup Form",
@@ -435,14 +592,23 @@
             ],
             "url": {
               "raw": "{{base_url}}/membership/signup-form?level_id={{level_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["membership", "signup-form"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "membership",
+                "signup-form"
+              ],
               "query": [
-                {"key": "level_id", "value": "{{level_id}}"}
+                {
+                  "key": "level_id",
+                  "value": "{{level_id}}"
+                }
               ]
             },
             "description": "Get signup form fields and configuration for a specific membership level"
-          }
+          },
+          "response": []
         },
         {
           "name": "Process Signup",
@@ -465,11 +631,17 @@
             },
             "url": {
               "raw": "{{base_url}}/membership/signup",
-              "host": ["{{base_url}}"],
-              "path": ["membership", "signup"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "membership",
+                "signup"
+              ]
             },
             "description": "Process membership signup with user creation and payment data"
-          }
+          },
+          "response": []
         },
         {
           "name": "Change Membership",
@@ -496,11 +668,17 @@
             },
             "url": {
               "raw": "{{base_url}}/membership/change",
-              "host": ["{{base_url}}"],
-              "path": ["membership", "change"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "membership",
+                "change"
+              ]
             },
             "description": "Upgrade or downgrade existing membership level"
-          }
+          },
+          "response": []
         },
         {
           "name": "Cancel Membership",
@@ -527,11 +705,17 @@
             },
             "url": {
               "raw": "{{base_url}}/membership/cancel",
-              "host": ["{{base_url}}"],
-              "path": ["membership", "cancel"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "membership",
+                "cancel"
+              ]
             },
             "description": "Cancel current membership (immediately or at period end)"
-          }
+          },
+          "response": []
         },
         {
           "name": "Get Payment Gateways",
@@ -545,11 +729,17 @@
             ],
             "url": {
               "raw": "{{base_url}}/membership/gateways",
-              "host": ["{{base_url}}"],
-              "path": ["membership", "gateways"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "membership",
+                "gateways"
+              ]
             },
             "description": "Get available payment gateways and their capabilities"
-          }
+          },
+          "response": []
         },
         {
           "name": "Get Analytics",
@@ -563,15 +753,27 @@
             ],
             "url": {
               "raw": "{{base_url}}/membership/analytics?start_date={{start_date}}&end_date={{end_date}}",
-              "host": ["{{base_url}}"],
-              "path": ["membership", "analytics"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "membership",
+                "analytics"
+              ],
               "query": [
-                {"key": "start_date", "value": "{{start_date}}"},
-                {"key": "end_date", "value": "{{end_date}}"}
+                {
+                  "key": "start_date",
+                  "value": "{{start_date}}"
+                },
+                {
+                  "key": "end_date",
+                  "value": "{{end_date}}"
+                }
               ]
             },
             "description": "Get membership analytics and statistics for date range"
-          }
+          },
+          "response": []
         },
         {
           "name": "Get Membership History",
@@ -589,11 +791,17 @@
             ],
             "url": {
               "raw": "{{base_url}}/membership/history",
-              "host": ["{{base_url}}"],
-              "path": ["membership", "history"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "membership",
+                "history"
+              ]
             },
             "description": "Get user's membership history and level changes"
-          }
+          },
+          "response": []
         },
         {
           "name": "Get Invoices",
@@ -611,15 +819,27 @@
             ],
             "url": {
               "raw": "{{base_url}}/membership/invoices?page={{page}}&per_page={{per_page}}",
-              "host": ["{{base_url}}"],
-              "path": ["membership", "invoices"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "membership",
+                "invoices"
+              ],
               "query": [
-                {"key": "page", "value": "{{page}}"},
-                {"key": "per_page", "value": "{{per_page}}"}
+                {
+                  "key": "page",
+                  "value": "{{page}}"
+                },
+                {
+                  "key": "per_page",
+                  "value": "{{per_page}}"
+                }
               ]
             },
             "description": "Get user's membership invoices and payment history"
-          }
+          },
+          "response": []
         },
         {
           "name": "Get User Profile",
@@ -637,11 +857,17 @@
             ],
             "url": {
               "raw": "{{base_url}}/membership/profile",
-              "host": ["{{base_url}}"],
-              "path": ["membership", "profile"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "membership",
+                "profile"
+              ]
             },
             "description": "Get comprehensive user profile including custom fields, membership data, and addresses"
-          }
+          },
+          "response": []
         }
       ]
     },
@@ -664,11 +890,17 @@
             ],
             "url": {
               "raw": "{{base_url}}/survey/{{survey_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["survey", "{{survey_id}}"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "survey",
+                "{{survey_id}}"
+              ]
             },
             "description": "Get survey details including questions and answers"
-          }
+          },
+          "response": []
         },
         {
           "name": "Submit Survey",
@@ -690,11 +922,17 @@
             },
             "url": {
               "raw": "{{base_url}}/survey/submit",
-              "host": ["{{base_url}}"],
-              "path": ["survey", "submit"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "survey",
+                "submit"
+              ]
             },
             "description": "Submit survey answers with product ID"
-          }
+          },
+          "response": []
         }
       ]
     },
@@ -714,8 +952,12 @@
             ],
             "url": {
               "raw": "{{base_url}}/cart",
-              "host": ["{{base_url}}"],
-              "path": ["cart"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cart"
+              ]
             },
             "description": "Get current cart contents with detailed item information"
           },
@@ -734,8 +976,13 @@
             ],
             "url": {
               "raw": "{{base_url}}/cart/summary",
-              "host": ["{{base_url}}"],
-              "path": ["cart", "summary"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cart",
+                "summary"
+              ]
             },
             "description": "Get cart summary (item count and total quantity)"
           },
@@ -767,8 +1014,13 @@
             },
             "url": {
               "raw": "{{base_url}}/cart/add",
-              "host": ["{{base_url}}"],
-              "path": ["cart", "add"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cart",
+                "add"
+              ]
             },
             "description": "Add product to cart or update quantity if already exists"
           },
@@ -800,8 +1052,13 @@
             },
             "url": {
               "raw": "{{base_url}}/cart/remove",
-              "host": ["{{base_url}}"],
-              "path": ["cart", "remove"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cart",
+                "remove"
+              ]
             },
             "description": "Remove product from cart using cart item ID"
           },
@@ -833,8 +1090,13 @@
             },
             "url": {
               "raw": "{{base_url}}/cart/remove",
-              "host": ["{{base_url}}"],
-              "path": ["cart", "remove"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cart",
+                "remove"
+              ]
             },
             "description": "Remove product from cart using product ID and variation ID"
           },
@@ -866,8 +1128,13 @@
             },
             "url": {
               "raw": "{{base_url}}/cart/update",
-              "host": ["{{base_url}}"],
-              "path": ["cart", "update"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cart",
+                "update"
+              ]
             },
             "description": "Update cart item quantity using cart item ID"
           },
@@ -899,8 +1166,13 @@
             },
             "url": {
               "raw": "{{base_url}}/cart/update",
-              "host": ["{{base_url}}"],
-              "path": ["cart", "update"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cart",
+                "update"
+              ]
             },
             "description": "Update cart item quantity using product ID and variation ID"
           },
@@ -919,8 +1191,13 @@
             ],
             "url": {
               "raw": "{{base_url}}/cart/clear",
-              "host": ["{{base_url}}"],
-              "path": ["cart", "clear"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cart",
+                "clear"
+              ]
             },
             "description": "Clear the entire cart"
           },
@@ -944,8 +1221,12 @@
             ],
             "url": {
               "raw": "{{base_url}}/checkout",
-              "host": ["{{base_url}}"],
-              "path": ["checkout"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "checkout"
+              ]
             },
             "description": "Get checkout data including cart summary, addresses, payment methods, and shipping methods"
           },
@@ -977,8 +1258,13 @@
             },
             "url": {
               "raw": "{{base_url}}/checkout/validate",
-              "host": ["{{base_url}}"],
-              "path": ["checkout", "validate"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "checkout",
+                "validate"
+              ]
             },
             "description": "Validate checkout data before processing"
           },
@@ -1010,10 +1296,185 @@
             },
             "url": {
               "raw": "{{base_url}}/checkout/process",
-              "host": ["{{base_url}}"],
-              "path": ["checkout", "process"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "checkout",
+                "process"
+              ]
             },
             "description": "Process checkout and create order"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Appointments",
+      "item": [
+        {
+          "name": "Create Appointment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"doctor_id\": \"{{doctor_id}}\",\n    \"clinic_id\": \"{{clinic_id}}\",\n    \"patient_id\": \"{{patient_id}}\",\n    \"appointment_date\": \"{{appointment_date}}\",\n    \"appointment_time\": \"{{appointment_time}}\",\n    \"appointment_id\": \"{{appointment_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/appointments",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "appointments"
+              ]
+            },
+            "description": "Create a new medical appointment.\n\nRequired Parameters:\n- doctor_id: ID of the doctor\n- clinic_id: ID of the clinic\n- patient_id: ID of the patient\n- appointment_date: Date of appointment (YYYY-MM-DD)\n- appointment_time: Time of appointment (HH:MM)\n- appointment_id: Unique appointment identifier"
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Appointments",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/appointments",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "appointments"
+              ]
+            },
+            "description": "Get all appointments for the current user"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Appointment Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/appointments/{{id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "appointments",
+                "{{id}}"
+              ]
+            },
+            "description": "Get details of a specific appointment by ID"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Calls",
+      "item": [
+        {
+          "name": "Check Pending Call",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/call/pending",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "call",
+                "pending"
+              ]
+            },
+            "description": "Check if there's a pending call for the current user"
+          },
+          "response": []
+        },
+        {
+          "name": "Check Call End Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/call/end/{{appointment_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "call",
+                "end",
+                "{{appointment_id}}"
+              ]
+            },
+            "description": "Check the end status of a call for a specific appointment\n\nNote: The 'appointment_id' parameter refers to the appointment ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Call ID",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"call_id\": \"{{call_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/call/update/{{appointment_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "call",
+                "update",
+                "{{appointment_id}}"
+              ]
+            },
+            "description": "Update the call ID for a specific appointment\n\nNote: The 'appointment_id' parameter refers to the appointment ID"
           },
           "response": []
         }
