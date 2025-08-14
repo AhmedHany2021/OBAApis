@@ -1,6 +1,6 @@
 {
   "info": {
-    "_postman_id": "2e937fce-1a75-4752-8cf4-95ebe95b53de",
+    "_postman_id": "c7080cb3-3423-48e0-b906-27fda667ebd7",
     "name": "OBA APIs Integration",
     "description": "Complete API collection for testing the OBA APIs Integration WordPress plugin. This collection includes all authentication, user management, product, order, vendor, and membership endpoints.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
@@ -1434,6 +1434,7 @@
                 "{{base_url}}"
               ],
               "path": [
+                "call",
                 "feedback",
                 "submit"
               ]

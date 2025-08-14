@@ -166,12 +166,13 @@ class CallService
 
     public function submit_feedback(WP_REST_Request $request)
     {
-        $patient_id = $request->get_param('patient_id');
-        if (is_wp_error($patient_id)) {
-            return $patient_id;
-        }
 
         $user_id = $request->get_param('current_user')->ID;
+        if (is_wp_error($user_id)) {
+            return $user_id;
+        }
+        $patient_id = get_usermeta('mdclara_patient_id', true);
+
 
         // Required fields
         $required_fields = [
