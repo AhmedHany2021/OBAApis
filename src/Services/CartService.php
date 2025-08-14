@@ -66,17 +66,29 @@ class CartService
             );
         }
 
+        // Get product
+        $product = wc_get_product($product_id);
+        if (!$product) {
+            return new \WP_Error(
+                'invalid_product',
+                __('Product not found.', 'oba-apis-integration'),
+                ['status' => 400]
+            );
+        }
+
         // Prepare cart item data
         $cart_item_data = [];
 
         if ($purchase_type === 'subscription') {
-            $cart_item_data['_wcsatt_purchase_type'] = 'subscription';
+            if ($subscription_plan_id > -1) {
+                // Get available subscription schemes for this product
+                $schemes = \WCS_ATT_Product_Schemes::get_subscription_schemes($product);
 
-            if (!empty($subscription_plan_id)) {
-                $schemes = get_post_meta($product_id, '_wcsatt_schemes', true);
-
-                if (is_array($schemes) && array_key_exists($subscription_plan_id, $schemes)) {
-                    $cart_item_data['_wcsatt_scheme'] = $subscription_plan_id;
+                if (!empty($schemes) && array_key_exists($subscription_plan_id, $schemes)) {
+                    // Use the plugin's proper way to set subscription scheme
+                    $cart_item_data['wcsatt_data'] = [
+                        'active_subscription_scheme' => $subscription_plan_id
+                    ];
                 } else {
                     return new \WP_Error(
                         'invalid_scheme',
@@ -85,9 +97,6 @@ class CartService
                     );
                 }
             }
-        } else {
-            // Correct key for one-time purchases
-            $cart_item_data['_wcsatt_purchase_type'] = 'one-time';
         }
 
         // Add product to cart
@@ -107,29 +116,30 @@ class CartService
             );
         }
 
-        // Make sure subscription data is set properly
-        $cart_item_key = WC()->cart->generate_cart_id($product_id, $variation_id, $variations, $cart_item_data);
-        if (isset(WC()->cart->cart_contents[$cart_item_key])) {
-            $item =& WC()->cart->cart_contents[$cart_item_key];
-            if ($purchase_type === 'subscription' && !empty($subscription_plan_id)) {
-                $item['_wcsatt_purchase_type'] = 'subscription';
-                $item['_wcsatt_scheme']        = $subscription_plan_id;
-            }
-        }
-
         // Recalculate totals
         WC()->cart->calculate_totals();
+
+        // Get the cart item key
+        $cart_item_key = WC()->cart->generate_cart_id($product_id, $variation_id, $variations, $cart_item_data);
+
+        // Ensure the cart item has the subscription data
+        if (isset(WC()->cart->cart_contents[$cart_item_key])) {
+            $item = &WC()->cart->cart_contents[$cart_item_key];
+            if ($purchase_type === 'subscription' && !empty($subscription_plan_id)) {
+                $item['wcsatt_data'] = [
+                    'active_subscription_scheme' => $subscription_plan_id
+                ];
+            }
+        }
 
         return new WP_REST_Response([
             'success' => true,
             'message' => __('Product added to cart successfully.', 'oba-apis-integration'),
             'data'    => $this->get_cart_data_array()
         ]);
-    }
-
-    /**
-     * Remove product from cart
-     */
+    }    /**
+ * Remove product from cart
+ */
     public function remove_from_cart(WP_REST_Request $request)
     {
         $user_id = $this->get_authenticated_user($request);
@@ -256,11 +266,6 @@ class CartService
             // Default values
             $subscription_data = null;
 
-            // Check if subscription extension data exists
-            if (!empty($item['extensions']['woocommerce-subscriptions']['subscription_scheme'])) {
-                $subscription_data = $item['extensions']['woocommerce-subscriptions']['subscription_scheme'];
-            }
-
             $cart_items[] = [
                 'cart_item_key'     => $cart_item_key,
                 'product_id'        => $product->get_id(),
@@ -270,7 +275,6 @@ class CartService
                 'subtotal'          => $item['line_subtotal'],
                 'total'             => $item['line_total'],
                 'thumbnail'         => wp_get_attachment_image_url($product->get_image_id(), 'thumbnail'),
-                'subscription_data' => $subscription_data // NEW: includes subscription details if present
             ];
         }
 
