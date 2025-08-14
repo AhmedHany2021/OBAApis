@@ -66,11 +66,10 @@ class CartService
             );
         }
 
-        // Cart item data
+        // Prepare cart item data
         $cart_item_data = [];
 
         if ($purchase_type === 'subscription') {
-            // Matches All Products for Subscriptions form field names
             $cart_item_data['_wcsatt_purchase_type'] = 'subscription';
 
             if (!empty($subscription_plan_id)) {
@@ -87,10 +86,11 @@ class CartService
                 }
             }
         } else {
-            $cart_item_data['wcsatt_purchase_type'] = 'one-time';
+            // Correct key for one-time purchases
+            $cart_item_data['_wcsatt_purchase_type'] = 'one-time';
         }
 
-        // Add to cart
+        // Add product to cart
         $added = WC()->cart->add_to_cart(
             $product_id,
             $quantity,
@@ -107,6 +107,17 @@ class CartService
             );
         }
 
+        // Make sure subscription data is set properly
+        $cart_item_key = WC()->cart->generate_cart_id($product_id, $variation_id, $variations, $cart_item_data);
+        if (isset(WC()->cart->cart_contents[$cart_item_key])) {
+            $item =& WC()->cart->cart_contents[$cart_item_key];
+            if ($purchase_type === 'subscription' && !empty($subscription_plan_id)) {
+                $item['_wcsatt_purchase_type'] = 'subscription';
+                $item['_wcsatt_scheme']        = $subscription_plan_id;
+            }
+        }
+
+        // Recalculate totals
         WC()->cart->calculate_totals();
 
         return new WP_REST_Response([
