@@ -418,7 +418,7 @@ trait SurveyRelationsHelper
             ]
         );
         echo "<pre>";
-        var_dump($response['body'] , $oba_request_id);
+        var_dump($submission , $oba_request_id);
         die();
     }
 
