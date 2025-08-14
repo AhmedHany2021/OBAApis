@@ -105,7 +105,7 @@ class CallService
      * 
      * Note: The 'id' parameter in the request refers to the appointment ID
      */
-    public function update_call_id(WP_REST_Request $request)
+    public function update_appointment_call_id(WP_REST_Request $request)
     {
         global $wpdb;
 
