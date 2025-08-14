@@ -5,6 +5,8 @@ namespace OBA\APIsIntegration\Traits;
 trait CallHelper
 {
     private $feedback_table_name = 'mdclara_feedback';
+    private $appointment_table_name = 'mdclara_appointments';
+
     /**
      * Get appointment by ID
      *
