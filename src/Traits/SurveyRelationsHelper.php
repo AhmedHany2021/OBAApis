@@ -211,15 +211,15 @@ trait SurveyRelationsHelper
         $survey_data = $this->GetUserAnswers($submission);
 
         $response = wp_remote_post(
-            site_url('/wp-json/mdclara/v1/createOrUpdateMedication/'),
+            site_url('/wp-json/mdclara/v1/createOrUpdateMedication/?key=' . MDCLARA_KEY . '&instance_name=' . MDCLARA_INSTANCE_NAME),
             [
                 'method'  => 'POST',
                 'headers' => [
                     'Content-Type' => 'application/json',
-                    'key' => MDCLARA_KEY,
-                    'instance_name' => MDCLARA_INSTANCE_NAME,
                 ],
                 'body' => json_encode([
+                    'key' => MDCLARA_KEY,
+                    'instance_name' => MDCLARA_INSTANCE_NAME,
                     'patient_id' => $patient_id,
                     'product_id' => $product_id,
                     'survey'     => $survey_data,
@@ -404,8 +404,8 @@ trait SurveyRelationsHelper
                 'method'  => 'POST',
                 'headers' => [
                     'Content-Type' => 'application/json',
-                    'key' => MDCLARA_KEY,
-                    'instance_name' => MDCLARA_INSTANCE_NAME,
+//                    'key' => MDCLARA_KEY,
+//                    'instance_name' => MDCLARA_INSTANCE_NAME,
                 ],
                 'body'    => json_encode([
                     'survey'         => $survey_data,
