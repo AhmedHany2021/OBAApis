@@ -49,29 +49,55 @@ class CartService
             return $user_id;
         }
 
-        $product_id = (int) $request->get_param('product_id');
-        $quantity   = (int) $request->get_param('quantity') ?: 1;
-        $variation_id = (int) $request->get_param('variation_id');
-        $variations   = (array) $request->get_param('variations');
+        $product_id    = (int) $request->get_param('product_id');
+        $quantity      = (int) $request->get_param('quantity') ?: 1;
+        $variation_id  = (int) $request->get_param('variation_id');
+        $variations    = (array) $request->get_param('variations');
+        $purchase_type = $request->get_param('purchase_type') ? sanitize_text_field($request->get_param('purchase_type')) : false;
+        $subscription_plan_id = $request->get_param('subscription_plan_id');
 
         if (!$product_id) {
-            return new WP_Error(
+            return new \WP_Error(
                 'invalid_product',
                 __('Product ID is required.', 'oba-apis-integration'),
                 ['status' => 400]
             );
         }
 
-        $added = WC()->cart->add_to_cart($product_id, $quantity, $variation_id, $variations);
+        // Prepare cart item data for WCSATT
+        $cart_item_data = [];
+
+        if ($purchase_type) {
+            if ($purchase_type === 'subscription') {
+                $cart_item_data['_wcsatt_purchase_type'] = 'subscription';
+
+                // If a plan ID (scheme key) is provided, use it
+                if (!empty($subscription_plan_id)) {
+                    $cart_item_data['_wcsatt_scheme'] = (string) $subscription_plan_id;
+                }
+            } else {
+                // Default to one-time purchase
+                $cart_item_data['_wcsatt_purchase_type'] = 'one-time';
+            }
+        }
+
+        $added = WC()->cart->add_to_cart(
+            $product_id,
+            $quantity,
+            $variation_id,
+            $variations,
+            $cart_item_data
+        );
 
         if (!$added) {
-            return new WP_Error(
+            return new \WP_Error(
                 'add_to_cart_failed',
                 __('Unable to add product to cart.', 'oba-apis-integration'),
                 ['status' => 500]
             );
         }
 
+        // Recalculate totals
         WC()->cart->calculate_totals();
 
         return new WP_REST_Response([
