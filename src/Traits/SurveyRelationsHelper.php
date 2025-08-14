@@ -417,9 +417,6 @@ trait SurveyRelationsHelper
                 'timeout' => 15,
             ]
         );
-        echo "<pre>";
-        var_dump($submission->id , $oba_request_id);
-        die();
     }
 
 }
