@@ -231,6 +231,7 @@ trait SurveyRelationsHelper
             ]
         );
 
+
         if (is_wp_error($response)) {
             return false;
         }
@@ -271,7 +272,7 @@ trait SurveyRelationsHelper
         WHERE sq.submission_id = %d
     ";
 
-        $results = $wpdb->get_results($wpdb->prepare($query, $submission->id), ARRAY_A);
+        $results = $wpdb->get_results($wpdb->prepare($query, $submission), ARRAY_A);
 
         foreach ($results as $row) {
             $category_name = $row['category_name'] ?: 'Uncategorized';
@@ -399,15 +400,15 @@ trait SurveyRelationsHelper
     {
         $survey_data = $this->GetUserAnswers($submission);
         $response = wp_remote_post(
-            site_url('/wp-json/mdclara/v1/createOrUpdateMedication/'),
+            site_url('/wp-json/mdclara/v1/createOrUpdateMedication/?key=' . MDCLARA_KEY . '&instance_name=' . MDCLARA_INSTANCE_NAME),
             [
                 'method'  => 'POST',
                 'headers' => [
                     'Content-Type' => 'application/json',
-//                    'key' => MDCLARA_KEY,
-//                    'instance_name' => MDCLARA_INSTANCE_NAME,
                 ],
                 'body'    => json_encode([
+                    'key' => MDCLARA_KEY,
+                    'instance_name' => MDCLARA_INSTANCE_NAME,
                     'survey'         => $survey_data,
                     'oba_request_id' => $oba_request_id,
                     'status'         => $status,
