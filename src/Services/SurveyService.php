@@ -384,7 +384,7 @@ class SurveyService
             $inserted = $wpdb->insert($wpdb->prefix . 'ayssurvey_submissions', $submission_data);
             if (!$inserted) {
                 $wpdb->query('ROLLBACK');
-                return new WP_Error(
+                return new \WP_Error(
                     'submission_failed',
                     __('Failed to create survey submission.', 'oba-apis-integration'),
                     ['status' => 500]

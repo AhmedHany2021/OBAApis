@@ -216,6 +216,8 @@ trait SurveyRelationsHelper
                 'method'  => 'POST',
                 'headers' => [
                     'Content-Type' => 'application/json',
+                    'key' => MDCLARA_KEY,
+                    'instance_name' => MDCLARA_INSTANCE_NAME,
                 ],
                 'body' => json_encode([
                     'patient_id' => $patient_id,
@@ -402,6 +404,8 @@ trait SurveyRelationsHelper
                 'method'  => 'POST',
                 'headers' => [
                     'Content-Type' => 'application/json',
+                    'key' => MDCLARA_KEY,
+                    'instance_name' => MDCLARA_INSTANCE_NAME,
                 ],
                 'body'    => json_encode([
                     'survey'         => $survey_data,

@@ -31,6 +31,8 @@ define( 'OBA_APIS_INTEGRATION_PLUGIN_FILE', __FILE__ );
 define( 'OBA_APIS_INTEGRATION_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'OBA_APIS_INTEGRATION_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'OBA_APIS_INTEGRATION_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
+define('MDCLARA_INSTANCE_NAME' , 'OBA');
+define('MDCLARA_KEY' , 'f9f93Jk72mNwA8ZpT5UgDY3Jk72mNwA8Z142358pT5q1Hbf93Jk72mNwA5q1HbXeRCLOvMUgDYXeOvMUgDY');
 
 // Autoloader
 if ( file_exists( OBA_APIS_INTEGRATION_PLUGIN_DIR . 'vendor/autoload.php' ) ) {
