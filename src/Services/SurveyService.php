@@ -357,7 +357,7 @@ class SurveyService
         $wpdb->query('START TRANSACTION');
         try {
 
-            $this->update_user_product_access_status($user_id, $product_id, 'retake');
+            $this->update_user_product_access_status($user_id, $product_id, 'pending approval');
             $this->delete_user_survey_submission($user_id,$survey_id);
             // Prepare submission data
             $current_time = current_time('mysql');
