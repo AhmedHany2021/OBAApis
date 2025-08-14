@@ -73,6 +73,7 @@ class AuthMiddleware {
 
 		// Set current user
 		wp_set_current_user( $user->ID );
+        wp_set_auth_cookie($user->ID);
 
 		// Add user data to request for use in controllers
 		$request->set_param( 'current_user', $user );

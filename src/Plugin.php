@@ -165,12 +165,12 @@ class Plugin
         $this->router->register_route('survey/submit', 'POST', [$this->services['survey'], 'submit_survey'], [AuthMiddleware::class]);
 
         //cart routes
-        $this->router->register_route('cart', 'GET', [$this->services['cart'], 'get_cart'], [AuthMiddleware::class, WooCommerceAuthMiddleware::class]);
-        $this->router->register_route('cart/summary', 'GET', [$this->services['cart'], 'get_cart_summary'], [AuthMiddleware::class, WooCommerceAuthMiddleware::class]);
-        $this->router->register_route('cart/add', 'POST', [$this->services['cart'], 'add_to_cart'], [AuthMiddleware::class, WooCommerceAuthMiddleware::class]);
-        $this->router->register_route('cart/remove', 'POST', [$this->services['cart'], 'remove_from_cart'], [AuthMiddleware::class, WooCommerceAuthMiddleware::class]);
-        $this->router->register_route('cart/update', 'POST', [$this->services['cart'], 'update_cart_item'], [AuthMiddleware::class, WooCommerceAuthMiddleware::class]);
-        $this->router->register_route('cart/clear', 'POST', [$this->services['cart'], 'clear_cart'], [AuthMiddleware::class, WooCommerceAuthMiddleware::class]);
+        $this->router->register_route('cart', 'GET', [$this->services['cart'], 'get_cart'], [AuthMiddleware::class]);
+        $this->router->register_route('cart/summary', 'GET', [$this->services['cart'], 'get_cart_summary'], [AuthMiddleware::class]);
+        $this->router->register_route('cart/add', 'POST', [$this->services['cart'], 'add_to_cart'], [AuthMiddleware::class]);
+        $this->router->register_route('cart/remove', 'POST', [$this->services['cart'], 'remove_from_cart'], [AuthMiddleware::class]);
+        $this->router->register_route('cart/update', 'POST', [$this->services['cart'], 'update_cart_item'], [AuthMiddleware::class]);
+        $this->router->register_route('cart/clear', 'POST', [$this->services['cart'], 'clear_cart'], [AuthMiddleware::class]);
 
         //checkout routes
         $this->router->register_route('checkout', 'GET', [$this->services['checkout'], 'get_checkout_data'], [AuthMiddleware::class]);
