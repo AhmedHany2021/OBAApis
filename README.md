@@ -59,6 +59,59 @@ A comprehensive WordPress plugin that provides a secure, scalable backend API se
 
 ## API Endpoints
 
+### Appointments
+
+#### POST /wp-json/oba/v1/appointments
+Create a new medical appointment.
+
+**Required Parameters:**
+- doctor_id: ID of the doctor
+- clinic_id: ID of the clinic
+- patient_id: ID of the patient
+- appointment_date: Date of appointment (YYYY-MM-DD)
+- appointment_time: Time of appointment (HH:MM)
+- appointment_id: Unique appointment identifier
+
+**Request Body:**
+```json
+{
+    "doctor_id": "{{doctor_id}}",
+    "clinic_id": "{{clinic_id}}",
+    "patient_id": "{{patient_id}}",
+    "appointment_date": "{{appointment_date}}",
+    "appointment_time": "{{appointment_time}}",
+    "appointment_id": "{{appointment_id}}"
+}
+```
+
+#### GET /wp-json/oba/v1/appointments
+Get all appointments for the current user.
+
+#### GET /wp-json/oba/v1/appointments/{id}
+Get details of a specific appointment.
+
+### Calls
+
+#### GET /wp-json/oba/v1/call/pending
+Check if there's a pending call for the current user.
+
+#### GET /wp-json/oba/v1/call/end/{appointment_id}
+Check the end status of a call for a specific appointment.
+
+**Note:** The 'appointment_id' parameter refers to the appointment ID.
+
+#### POST /wp-json/oba/v1/call/update/{appointment_id}
+Update the call ID for a specific appointment.
+
+**Request Body:**
+```json
+{
+    "call_id": "{{call_id}}"
+}
+```
+
+**Note:** The 'appointment_id' parameter in the URL refers to the appointment ID.
+
 ### Authentication
 
 #### POST /wp-json/oba/v1/auth/login

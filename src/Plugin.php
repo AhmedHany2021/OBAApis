@@ -5,7 +5,9 @@ namespace OBA\APIsIntegration;
 use OBA\APIsIntegration\Core\Options;
 use OBA\APIsIntegration\API\Router;
 use OBA\APIsIntegration\API\Middleware\AuthMiddleware;
+use OBA\APIsIntegration\Services\AppointmentService;
 use OBA\APIsIntegration\Services\AuthService;
+use OBA\APIsIntegration\Services\CallService;
 use OBA\APIsIntegration\Services\SurveyService;
 use OBA\APIsIntegration\Services\UserService;
 use OBA\APIsIntegration\Services\OrderService;
@@ -98,6 +100,8 @@ class Plugin
         $this->services['survey'] = new SurveyService();
         $this->services['cart'] = new CartService();
         $this->services['checkout'] = new CheckoutService();
+        $this->services['appointment'] = new AppointmentService();
+        $this->services['call'] = new CallService();
     }
 
     /**
@@ -172,6 +176,15 @@ class Plugin
         $this->router->register_route('checkout/process', 'POST', [$this->services['checkout'], 'process_checkout'], [AuthMiddleware::class]);
         $this->router->register_route('checkout/validate', 'POST', [$this->services['checkout'], 'validate_checkout'], [AuthMiddleware::class]);
 
+        //Appointment
+        $this->router->register_route('appointments','POST',[$this->services['appointment'] , 'create'] , [AuthMiddleware::class]);
+        $this->router->register_route('appointments','GET',[$this->services['appointment'] , 'get_appointments'] , [AuthMiddleware::class]);
+        $this->router->register_route('appointments/{id}','GET',[$this->services['appointment'] , 'get_appointment'] , [AuthMiddleware::class]);
+
+        //Call
+        $this->router->register_route('call/pending','GET',[$this->services['call'] , 'check_call_status'] , [AuthMiddleware::class]);
+        $this->router->register_route('call/end/{id}','GET',[$this->services['call'] , 'check_call_end_status'] , [AuthMiddleware::class]);
+        $this->router->register_route('call/update/{id}','POST',[$this->services['call'] , 'update_appointment_call_id'] , [AuthMiddleware::class]);
     }
 
     /**
