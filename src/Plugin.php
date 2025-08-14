@@ -5,6 +5,7 @@ namespace OBA\APIsIntegration;
 use OBA\APIsIntegration\Core\Options;
 use OBA\APIsIntegration\API\Router;
 use OBA\APIsIntegration\API\Middleware\AuthMiddleware;
+use OBA\APIsIntegration\Middleware\WooCommerceAuthMiddleware;
 use OBA\APIsIntegration\Services\AppointmentService;
 use OBA\APIsIntegration\Services\AuthService;
 use OBA\APIsIntegration\Services\CallService;
