@@ -362,4 +362,57 @@ trait SurveyRelationsHelper
         return $survey;
     }
 
+    private function update_user_product_access_status($user_id,$product_id,$status)
+    {
+        global $wpdb;
+        $product_access_table = $wpdb->prefix . 'survey_maker_woo_product_access';
+        $deleted = $wpdb->update(
+            $product_access_table,
+            array(
+                'status' => $status
+            ),
+            array(
+                'user_id' => $user_id,
+                'product_id' => $product_id
+            ),
+            array('%s'),
+            array('%d', '%d')
+        );
+    }
+    private function delete_user_survey_submission($user_id,$survey_id)
+    {
+        global $wpdb;
+        $submissions_table = $wpdb->prefix . 'ayssurvey_submissions';
+        $updated = $wpdb->delete(
+            $submissions_table,
+            array(
+                'survey_id' => $survey_id,
+                'user_id' => $user_id
+            ),
+            array('%d', '%d')
+        );
+    }
+
+    private function CreateRetakeMedicationRequest($submission, $oba_request_id, $status = "pending approval")
+    {
+        $survey_data = $this->GetUserAnswers($submission);
+        $response = wp_remote_post(
+            site_url('/wp-json/mdclara/v1/createOrUpdateMedication/'),
+            [
+                'method'  => 'POST',
+                'headers' => [
+                    'Content-Type' => 'application/json',
+                ],
+                'body'    => json_encode([
+                    'survey'         => $survey_data,
+                    'oba_request_id' => $oba_request_id,
+                    'status'         => $status,
+                    'update' => true,
+                ]),
+                'timeout' => 15,
+            ]
+        );
+        echo "<pre>";
+    }
+
 }

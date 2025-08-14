@@ -314,4 +314,158 @@ class SurveyService
             );
         }
     }
+
+    public function retake_survey(WP_REST_Request $request)
+    {
+        $survey_id = (int)$request->get_param('survey_id');
+        $user_id = $request->get_param('current_user')->ID;
+        $answers = $request->get_param('answers');
+        $product_id = $request->get_param('product_id');
+
+        if (!$survey_id || !is_array($answers)) {
+            return new WP_Error(
+                'survey_submit_required',
+                __('Survey id or answers are missing.', 'oba-apis-integration'),
+                ['status' => 400]
+            );
+        }
+        if (!$product_id) {
+            return new WP_Error(
+                'product_id_required',
+                __('product id is missing.', 'oba-apis-integration'),
+                ['status' => 400]
+            );
+        }
+        global $wpdb;
+        $survey = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}ayssurvey_surveys WHERE id = %d", $survey_id));
+        if (!$survey) {
+            return new WP_Error(
+                'survey_not_found',
+                __('Survey not found.', 'oba-apis-integration'),
+                ['status' => 404]
+            );
+        }
+        $user = get_userdata($user_id);
+        if (!$user) {
+            return new WP_Error(
+                'user_not_found',
+                __('User not found.', 'oba-apis-integration'),
+                ['status' => 404]
+            );
+        }
+
+        $wpdb->query('START TRANSACTION');
+        try {
+
+            $this->update_user_product_access_status($user_id, $product_id, 'retake');
+            $this->delete_user_survey_submission($user_id,$survey_id);
+            // Prepare submission data
+            $current_time = current_time('mysql');
+            $submission_data = [
+                'survey_id' => $survey_id,
+                'user_id' => $user_id,
+                'user_ip' => $_SERVER['REMOTE_ADDR'],
+                'user_name' => $user->display_name,
+                'user_email' => $user->user_email,
+                'start_date' => $current_time,
+                'end_date' => $current_time,
+                'submission_date' => $current_time,
+                'status' => 'published',
+                'options' => maybe_serialize([
+                    'product_id' => $product_id
+                ]),
+                'point' => 0,
+                'changed' => 0,
+                'post_id' => 0,
+                'admin_note' => ''
+            ];
+
+            // Insert submission record
+            $inserted = $wpdb->insert($wpdb->prefix . 'ayssurvey_submissions', $submission_data);
+            if (!$inserted) {
+                $wpdb->query('ROLLBACK');
+                return new WP_Error(
+                    'submission_failed',
+                    __('Failed to create survey submission.', 'oba-apis-integration'),
+                    ['status' => 500]
+                );
+            }
+
+            $submission_id = $wpdb->insert_id;
+
+            // Insert answers for each question
+            $questions_table = $wpdb->prefix . 'ayssurvey_submissions_questions';
+
+            foreach ($answers as $question_id => $value) {
+                // If value is an array (multiple answers), join them with comma
+                if (is_array($value)) {
+                    $value = implode(',', $value);
+                }
+
+                // Get question details to determine type and section
+                $question = $wpdb->get_row($wpdb->prepare(
+                    "SELECT section_id, type FROM {$wpdb->prefix}ayssurvey_questions WHERE id = %d",
+                    $question_id
+                ));
+
+                if (!$question) {
+                    continue;
+                }
+
+                // Debug: Log question details
+
+                // Prepare the insert query with proper escaping
+                $insert_sql = $wpdb->prepare(
+                    "INSERT INTO $questions_table 
+                     (submission_id, question_id, section_id, survey_id, user_id, 
+                      answer_id, user_answer, user_variant, user_explanation, type, 
+                      options, point) 
+                     VALUES (%d, %d, %d, %d, %d, %s, %s, %s, %s, %s, %s, %d)",
+                    $submission_id,
+                    $question_id,
+                    $question->section_id,
+                    $survey_id,
+                    $user_id,
+                    is_numeric($value) ? absint($value) : 0,
+                    $value,
+                    '',
+                    '',
+                    $question->type,
+                    '',
+                    0
+                );
+
+
+                // Execute the query
+                $result = $wpdb->query($insert_sql);
+
+                if ($result === false) {
+                    $wpdb->query('ROLLBACK');
+                    return new WP_Error(
+                        'submission_failed',
+                        __('Failed to save survey answers: ' . $wpdb->last_error, 'oba-apis-integration'),
+                        ['status' => 500]
+                    );
+                }
+
+            }
+            $submission = $this->CheckUserSubmissions($user_id, $survey_id);
+            $existing_request = $this->CheckMedicationRequestExists($user_id, $product_id);
+            $this->CreateRetakeMedicationRequest($submission,  $existing_request['id'] , 'pending approval');
+            $wpdb->query('COMMIT');
+            return new WP_REST_Response([
+                'success' => true,
+                'message' => 'Survey retake submitted successfully.',
+            ]);
+
+        } catch (Exception $e) {
+            $wpdb->query('ROLLBACK');
+            return new WP_Error(
+                'submission_failed',
+                __('Failed to submit survey: ' . $e->getMessage(), 'oba-apis-integration'),
+                ['status' => 500]
+            );
+        }
+
+    }
 }

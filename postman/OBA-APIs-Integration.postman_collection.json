@@ -933,36 +933,44 @@
             "description": "Submit survey answers with product ID"
           },
           "response": []
+        },
+        {
+          "name": "Retake Survey",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"survey_id\": {{survey_id}},\n    \"answers\": {\n        \"60\": [\"154\", \"156\"],\n        \"61\": \"Metformin 500mg, Lisinopril 10mg\",\n        \"62\": \"157\",\n        \"63\": \"Penicillin\",\n        \"64\": \"159\",\n        \"65\": \"172\"\n    },\n    \"product_id\": {{product_id}}\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/survey/submit",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "survey",
+                "submit"
+              ]
+            },
+            "description": "Re-suubmit survey answers with product ID"
+          },
+          "response": []
         }
       ]
     },
     {
       "name": "Cart",
       "item": [
-        {
-          "name": "Get Cart",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/cart",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "cart"
-              ]
-            },
-            "description": "Get current cart contents with detailed item information"
-          },
-          "response": []
-        },
         {
           "name": "Get Cart Summary",
           "request": {
@@ -1043,7 +1051,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"cart_item_id\": {{cart_item_id}}\n}",
+              "raw": "{\n    \"cart_item_key\": \"{{cart_item_id}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1065,44 +1073,6 @@
           "response": []
         },
         {
-          "name": "Remove from Cart (by product)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"product_id\": {{product_id}},\n    \"variation_id\": {{variation_id}}\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/cart/remove",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "cart",
-                "remove"
-              ]
-            },
-            "description": "Remove product from cart using product ID and variation ID"
-          },
-          "response": []
-        },
-        {
           "name": "Update Cart Item",
           "request": {
             "method": "POST",
@@ -1119,7 +1089,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"cart_item_id\": {{cart_item_id}},\n    \"quantity\": 2\n}",
+              "raw": "{\n    \"cart_item_key\": \"{{cart_item_id}}\",\n    \"quantity\": 2\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1137,44 +1107,6 @@
               ]
             },
             "description": "Update cart item quantity using cart item ID"
-          },
-          "response": []
-        },
-        {
-          "name": "Update Cart Item (by product)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}",
-                "type": "text"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"product_id\": {{product_id}},\n    \"variation_id\": {{variation_id}},\n    \"quantity\": 3\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/cart/update",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "cart",
-                "update"
-              ]
-            },
-            "description": "Update cart item quantity using product ID and variation ID"
           },
           "response": []
         },
