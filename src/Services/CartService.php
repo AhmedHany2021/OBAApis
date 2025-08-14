@@ -255,9 +255,9 @@ class CartService
                 'product_id'        => $product->get_id(),
                 'name'              => $product->get_name(),
                 'quantity'          => $item['quantity'],
-                'price'             => wc_price($product->get_price()),
-                'subtotal'          => wc_price($item['line_subtotal']),
-                'total'             => wc_price($item['line_total']),
+                'price'             => $product->get_price(),
+                'subtotal'          => $item['line_subtotal'],
+                'total'             => $item['line_total'],
                 'thumbnail'         => wp_get_attachment_image_url($product->get_image_id(), 'thumbnail'),
                 'subscription_data' => $subscription_data // NEW: includes subscription details if present
             ];
@@ -265,8 +265,8 @@ class CartService
 
         return [
             'items'      => $cart_items,
-            'subtotal'   => wc_price(WC()->cart->get_subtotal()),
-            'total'      => wc_price(WC()->cart->get_total('edit')),
+            'subtotal'   => WC()->cart->get_subtotal(),
+            'total'      => WC()->cart->get_total('edit'),
             'currency'   => get_woocommerce_currency(),
             'item_count' => WC()->cart->get_cart_contents_count(),
         ];
