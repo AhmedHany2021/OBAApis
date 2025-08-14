@@ -164,6 +164,7 @@ class Plugin
         $this->router->register_route('survey/{id}', 'GET', [$this->services['survey'], 'get_survey']);
         $this->router->register_route('survey/submit', 'POST', [$this->services['survey'], 'submit_survey'], [AuthMiddleware::class]);
 
+
         //cart routes
         $this->router->register_route('cart', 'GET', [$this->services['cart'], 'get_cart'], [AuthMiddleware::class]);
         $this->router->register_route('cart/summary', 'GET', [$this->services['cart'], 'get_cart_summary'], [AuthMiddleware::class]);
