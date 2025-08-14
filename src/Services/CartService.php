@@ -76,7 +76,7 @@ class CartService
                 $schemes = get_post_meta($product_id, '_wcsatt_schemes', true);
 
                 if (!empty($schemes) && is_array($schemes) && isset($schemes[$subscription_plan_id])) {
-                    // Valid scheme key
+                    $cart_item_data['_wcsatt_purchase_type'] = 'subscription';
                     $cart_item_data['_wcsatt_scheme'] = (string) $subscription_plan_id;
                 } else {
                     return new \WP_Error(
