@@ -121,6 +121,67 @@ class CartService
     }
 
     /**
+     * Clear the entire cart
+     */
+    public function clear_cart(WP_REST_Request $request)
+    {
+        $user_id = $this->get_authenticated_user($request);
+        if (is_wp_error($user_id)) {
+            return $user_id;
+        }
+
+        WC()->cart->empty_cart();
+        WC()->cart->calculate_totals();
+
+        return new WP_REST_Response([
+            'success' => true,
+            'message' => __('Cart cleared successfully.', 'oba-apis-integration'),
+            'data'    => $this->get_cart_data_array()
+        ]);
+    }
+
+    /**
+     * Update cart item quantity
+     */
+    public function update_cart_item(WP_REST_Request $request)
+    {
+        $user_id = $this->get_authenticated_user($request);
+        if (is_wp_error($user_id)) {
+            return $user_id;
+        }
+
+        $cart_item_key = $request->get_param('cart_item_key');
+        $quantity = (int) $request->get_param('quantity');
+
+        if (!$cart_item_key || $quantity < 0) {
+            return new WP_Error(
+                'invalid_parameters',
+                __('Cart item key and valid quantity are required.', 'oba-apis-integration'),
+                ['status' => 400]
+            );
+        }
+
+        $updated = WC()->cart->set_quantity($cart_item_key, $quantity, true);
+
+        if (!$updated && $quantity > 0) {
+            return new WP_Error(
+                'update_quantity_failed',
+                __('Unable to update quantity for this item.', 'oba-apis-integration'),
+                ['status' => 500]
+            );
+        }
+
+        WC()->cart->calculate_totals();
+
+        return new WP_REST_Response([
+            'success' => true,
+            'message' => __('Cart item quantity updated successfully.', 'oba-apis-integration'),
+            'data'    => $this->get_cart_data_array()
+        ]);
+    }
+
+
+    /**
      * Get cart summary
      */
     public function get_cart_summary(WP_REST_Request $request)
