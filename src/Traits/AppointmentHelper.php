@@ -49,7 +49,7 @@ trait AppointmentHelper
         );
 
         if (!$ids) {
-            return new WP_Error('no_appointment', 'No appointment found for this call_id');
+            return new \WP_Error('no_appointment', 'No appointment found for this call_id');
         }
 
         // Get corresponding WP user IDs
@@ -67,19 +67,19 @@ trait AppointmentHelper
         );
 
         if (!$patient_id || !$doctor_user_id) {
-            return new WP_Error('no_user', 'Patient or doctor user not found');
+            return new \WP_Error('no_user', 'Patient or doctor user not found');
         }
 
         // Get price from doctor's profile
         $price = (float) get_user_meta($doctor_user_id, 'appointment_price', true);
         if ($price <= 0) {
-            return new WP_Error('no_price', 'No appointment price set for doctor');
+            return new \WP_Error('no_price', 'No appointment price set for doctor');
         }
 
         // Get API keys
         $wps_keys = get_option('wps_wsfw_wallet_rest_api_keys');
         if (empty($wps_keys['consumer_key']) || empty($wps_keys['consumer_secret'])) {
-            return new WP_Error('no_keys', 'Wallet API keys not set');
+            return new \WP_Error('no_keys', 'Wallet API keys not set');
         }
 
         // Call wallet API
