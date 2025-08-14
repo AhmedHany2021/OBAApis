@@ -66,18 +66,18 @@ class CartService
             );
         }
 
+        // Cart item data
         $cart_item_data = [];
 
         if ($purchase_type === 'subscription') {
-            $cart_item_data['_wcsatt_purchase_type'] = 'subscription';
+            // Matches All Products for Subscriptions form field names
+            $cart_item_data['wcsatt_purchase_type'] = 'subscription';
 
-            // Allow subscription without plan_id if product has default
             if (!empty($subscription_plan_id)) {
                 $schemes = get_post_meta($product_id, '_wcsatt_schemes', true);
 
-                // Make sure scheme exists for this product
                 if (is_array($schemes) && array_key_exists($subscription_plan_id, $schemes)) {
-                    $cart_item_data['_wcsatt_scheme'] = $subscription_plan_id;
+                    $cart_item_data['wcsatt_scheme'] = $subscription_plan_id;
                 } else {
                     return new \WP_Error(
                         'invalid_scheme',
@@ -87,7 +87,7 @@ class CartService
                 }
             }
         } else {
-            $cart_item_data['_wcsatt_purchase_type'] = 'one-time';
+            $cart_item_data['wcsatt_purchase_type'] = 'one-time';
         }
 
         // Add to cart
