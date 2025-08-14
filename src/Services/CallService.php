@@ -171,7 +171,7 @@ class CallService
         if (is_wp_error($user_id)) {
             return $user_id;
         }
-        $patient_id = get_usermeta('mdclara_patient_id', true);
+        $patient_id =  get_user_meta( $user_id, 'mdclara_patient_id', true );
 
 
         // Required fields
