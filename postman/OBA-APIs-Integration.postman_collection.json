@@ -1409,6 +1409,38 @@
             "description": "Update the call ID for a specific appointment\n\nNote: The 'appointment_id' parameter refers to the appointment ID"
           },
           "response": []
+        },
+        {
+          "name": "Submit Feedback",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"appointment_id\": {{appointment_id}},\n  \"overall_satisfaction\": {{overall_satisfaction}},\n  \"doctor_professionalism\": {{doctor_professionalism}},\n  \"platform_experience\": {{platform_experience}},\n  \"likelihood_reuse\": {{likelihood_reuse}},\n  \"additional_comments\": \"{{additional_comments}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/call/feedback/submit",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "feedback",
+                "submit"
+              ]
+            },
+            "description": "Submit patient feedback for a specific appointment"
+          },
+          "response": []
         }
       ]
     }

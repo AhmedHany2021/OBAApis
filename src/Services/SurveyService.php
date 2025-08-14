@@ -133,16 +133,6 @@ class SurveyService
         return $this->response_data(false, false, false, 'un known error please contact support', 404);
     }
 
-    private function response_data($success = true, $not_submitted = false, $can_add = false, $message = '', $status = 200): WP_REST_Response
-    {
-        return new WP_REST_Response([
-            'success'       => $success,
-            'message'       => $message,
-            'not_submitted' => $not_submitted,
-            'can_add'       => $can_add,
-        ], $status);
-    }
-
     /**
      * Submit a survey with answers.
      */
@@ -315,6 +305,9 @@ class SurveyService
         }
     }
 
+    /**
+     * Re-submit a survey with answers.
+     */
     public function retake_survey(WP_REST_Request $request)
     {
         $survey_id = (int)$request->get_param('survey_id');
@@ -468,4 +461,15 @@ class SurveyService
         }
 
     }
+
+    private function response_data($success = true, $not_submitted = false, $can_add = false, $message = '', $status = 200): WP_REST_Response
+    {
+        return new WP_REST_Response([
+            'success'       => $success,
+            'message'       => $message,
+            'not_submitted' => $not_submitted,
+            'can_add'       => $can_add,
+        ], $status);
+    }
+
 }

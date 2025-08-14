@@ -188,6 +188,7 @@ class Plugin
         $this->router->register_route('call/pending','GET',[$this->services['call'] , 'check_call_status'] , [AuthMiddleware::class]);
         $this->router->register_route('call/end/{id}','GET',[$this->services['call'] , 'check_call_end_status'] , [AuthMiddleware::class]);
         $this->router->register_route('call/update/{id}','POST',[$this->services['call'] , 'update_appointment_call_id'] , [AuthMiddleware::class]);
+        $this->router->register_route('call/feedback/submit','POST',[$this->services['call'] , 'submit_feedback'] , [AuthMiddleware::class]);
     }
 
     /**

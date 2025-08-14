@@ -1,6 +1,7 @@
 <?php
 
 namespace OBA\APIsIntegration\Services;
+use OBA\APIsIntegration\Traits\CallHelper;
 use WP_REST_Request;
 use WP_REST_Response;
 use WP_Error;
@@ -18,6 +19,7 @@ use WP_Error;
  */
 class CallService
 {
+    use CallHelper;
     /**
      * Check call end status
      * 
@@ -161,5 +163,104 @@ class CallService
             'call_id' => $call_id
         ], 200);
     }
+
+    public function submit_feedback(WP_REST_Request $request)
+    {
+        $patient_id = $request->get_param('patient_id');
+        if (is_wp_error($patient_id)) {
+            return $patient_id;
+        }
+
+        $user_id = $request->get_param('current_user')->ID;
+
+        // Required fields
+        $required_fields = [
+            'appointment_id',
+            'overall_satisfaction',
+            'doctor_professionalism',
+            'platform_experience',
+            'likelihood_reuse'
+        ];
+
+        foreach ($required_fields as $field) {
+            $value = $request->get_param($field);
+            if (!isset($value) || $value === '') {
+                return new WP_REST_Response([
+                    'success' => false,
+                    'message' => "Missing required field: $field"
+                ], 400);
+            }
+        }
+
+        // Validate ratings (1-5)
+        $rating_fields = ['overall_satisfaction', 'doctor_professionalism', 'platform_experience', 'likelihood_reuse'];
+        foreach ($rating_fields as $field) {
+            $value = intval($request->get_param($field));
+            if ($value < 1 || $value > 5) {
+                return new WP_REST_Response([
+                    'success' => false,
+                    'message' => "Invalid rating for $field. Must be between 1 and 5."
+                ], 400);
+            }
+        }
+
+        $appointment_id = intval($request->get_param('appointment_id'));
+
+        // Get appointment details
+        $appointment = $this->get_appointment($appointment_id);
+        if (!$appointment) {
+            return new WP_REST_Response([
+                'success' => false,
+                'message' => 'Appointment not found.'
+            ], 404);
+        }
+
+        // Verify appointment belongs to this patient
+        if ($appointment->patient_id !== $patient_id) {
+            return new WP_REST_Response([
+                'success' => false,
+                'message' => 'Unauthorized access to this appointment.'
+            ], 403);
+        }
+
+        // Check if feedback already exists
+        if ($this->feedback_exists($appointment_id)) {
+            return new WP_REST_Response([
+                'success' => false,
+                'message' => 'Feedback has already been submitted for this appointment.'
+            ], 409);
+        }
+
+        // Prepare feedback data
+        $feedback_data = [
+            'appointment_id' => $appointment_id,
+            'patient_id' => $patient_id,
+            'doctor_id' => $appointment->doctor_id,
+            'clinic_id' => $appointment->clinic_id,
+            'user_id' => $user_id,
+            'overall_satisfaction' => intval($request->get_param('overall_satisfaction')),
+            'doctor_professionalism' => intval($request->get_param('doctor_professionalism')),
+            'platform_experience' => intval($request->get_param('platform_experience')),
+            'likelihood_reuse' => intval($request->get_param('likelihood_reuse')),
+            'additional_comments' => $request->get_param('additional_comments') ? sanitize_textarea_field($request->get_param('additional_comments')) : null,
+        ];
+
+        // Save feedback
+        $feedback_id = $this->save_feedback($feedback_data);
+
+        if ($feedback_id) {
+            return new WP_REST_Response([
+                'success' => true,
+                'message' => 'Thank you for your feedback!',
+                'feedback_id' => $feedback_id
+            ], 200);
+        }
+
+        return new WP_REST_Response([
+            'success' => false,
+            'message' => 'Failed to save feedback. Please try again.'
+        ], 500);
+    }
+
 
 }
