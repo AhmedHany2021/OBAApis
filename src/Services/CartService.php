@@ -241,24 +241,31 @@ class CartService
 
         foreach (WC()->cart->get_cart() as $cart_item_key => $item) {
             $product = $item['data'];
+
+            // Detect subscription data (if available)
+            $purchase_type = isset($item['_wcsatt_purchase_type']) ? $item['_wcsatt_purchase_type'] : 'one-time';
+            $subscription_plan_id = isset($item['_wcsatt_scheme']) ? $item['_wcsatt_scheme'] : '';
+
             $cart_items[] = [
-                'cart_item_key' => $cart_item_key,
-                'product_id'    => $product->get_id(),
-                'name'          => $product->get_name(),
-                'quantity'      => $item['quantity'],
-                'price'         => $product->get_price(),
-                'subtotal'      => $item['line_subtotal'],
-                'total'         => $item['line_total'],
-                'thumbnail'     => wp_get_attachment_image_url($product->get_image_id(), 'thumbnail'),
+                'cart_item_key'       => $cart_item_key,
+                'product_id'          => $product->get_id(),
+                'name'                => $product->get_name(),
+                'quantity'            => $item['quantity'],
+                'price'               => $product->get_price(),
+                'subtotal'            => $item['line_subtotal'],
+                'total'               => $item['line_total'],
+                'thumbnail'           => wp_get_attachment_image_url($product->get_image_id(), 'thumbnail'),
+                'purchase_type'       => $purchase_type,
+                'subscription_plan_id'=> $subscription_plan_id,
             ];
         }
 
         return [
-            'items'     => $cart_items,
-            'subtotal'  => WC()->cart->get_subtotal(),
-            'total'     => WC()->cart->get_total('edit'),
-            'currency'  => get_woocommerce_currency(),
-            'item_count'=> WC()->cart->get_cart_contents_count(),
+            'items'      => $cart_items,
+            'subtotal'   => WC()->cart->get_subtotal(),
+            'total'      => WC()->cart->get_total('edit'),
+            'currency'   => get_woocommerce_currency(),
+            'item_count' => WC()->cart->get_cart_contents_count(),
         ];
     }
 }
