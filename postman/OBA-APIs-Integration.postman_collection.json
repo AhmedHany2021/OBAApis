@@ -1578,6 +1578,34 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "Medication Requests",
+      "item": [
+        {
+          "name": "Get medication requests",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/medication-requests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "medication-requests"
+              ]
+            },
+            "description": "Get all medication \n  requests pending->(pending approval - retake) \n approved -> (approved - complete) \n rejected -> (rejected)"
+          },
+          "response": []
+        }
+      ]
     }
   ]
 }

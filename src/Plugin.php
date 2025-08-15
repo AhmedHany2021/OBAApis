@@ -9,6 +9,7 @@ use OBA\APIsIntegration\Middleware\WooCommerceAuthMiddleware;
 use OBA\APIsIntegration\Services\AppointmentService;
 use OBA\APIsIntegration\Services\AuthService;
 use OBA\APIsIntegration\Services\CallService;
+use OBA\APIsIntegration\Services\MedicationRequestService;
 use OBA\APIsIntegration\Services\SurveyService;
 use OBA\APIsIntegration\Services\UserService;
 use OBA\APIsIntegration\Services\OrderService;
@@ -103,6 +104,7 @@ class Plugin
         $this->services['checkout'] = new CheckoutService();
         $this->services['appointment'] = new AppointmentService();
         $this->services['call'] = new CallService();
+        $this->services['medication'] = new MedicationRequestService();
     }
 
     /**
@@ -194,6 +196,9 @@ class Plugin
         $this->router->register_route('call/end/{id}','GET',[$this->services['call'] , 'check_call_end_status'] , [AuthMiddleware::class]);
         $this->router->register_route('call/update/{id}','POST',[$this->services['call'] , 'update_appointment_call_id'] , [AuthMiddleware::class]);
         $this->router->register_route('call/feedback/submit','POST',[$this->services['call'] , 'submit_feedback'] , [AuthMiddleware::class]);
+
+        //Medication Requests
+        $this->router->register_route('medication-requests','GET',[$this->services['medication'] , 'get_requests'] , [AuthMiddleware::class]);
     }
 
     /**
