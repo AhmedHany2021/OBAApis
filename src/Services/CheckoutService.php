@@ -5,577 +5,600 @@ namespace OBA\APIsIntegration\Services;
 use WP_REST_Request;
 use WP_REST_Response;
 use WP_Error;
-use OBA\APIsIntegration\Database\CartTable;
-use OBA\APIsIntegration\Helpers\CartHelper;
-
-/**
- * Checkout service
- *
- * @package OBA\APIsIntegration\Services
- */
-class CheckoutService {
-
-	/**
-	 * Cart table instance
-	 *
-	 * @var CartTable
-	 */
-	private $cart_table;
-
-	/**
-	 * Constructor
-	 */
-	public function __construct() {
-		$this->cart_table = new CartTable();
-	}
-
-	/**
-	 * Get checkout data (cart summary, addresses, payment methods)
-	 *
-	 * @param WP_REST_Request $request Request object.
-	 * @return WP_REST_Response|WP_Error
-	 */
-	public function get_checkout_data( $request ) {
-		$user_id = $this->get_authenticated_user( $request );
-		if ( is_wp_error( $user_id ) ) {
-			return $user_id;
-		}
-
-		if ( ! class_exists( 'WC_Cart' ) ) {
-			return new WP_Error(
-				'woocommerce_required',
-				__( 'WooCommerce is required for checkout operations.', 'oba-apis-integration' ),
-				[ 'status' => 400 ]
-			);
-		}
-
-		// Get cart items
-		$cart_items = $this->cart_table->get_cart_items( $user_id );
-		if ( empty( $cart_items ) ) {
-			return new WP_Error(
-				'empty_cart',
-				__( 'Cart is empty. Cannot proceed with checkout.', 'oba-apis-integration' ),
-				[ 'status' => 400 ]
-			);
-		}
-
-		// Calculate totals
-		$subtotal = 0;
-		$shipping_total = 0;
-		$tax_total = 0;
-		$total = 0;
-		$formatted_items = [];
-
-		foreach ( $cart_items as $item ) {
-			$product = wc_get_product( $item->product_id );
-			if ( $product ) {
-				$item_total = $product->get_price() * $item->quantity;
-				$subtotal += $item_total;
-				$total += $item_total;
-
-				$formatted_items[] = [
-					'product_id' => $item->product_id,
-					'variation_id' => $item->variation_id,
-					'quantity' => $item->quantity,
-					'name' => $product->get_name(),
-					'price' => $product->get_price(),
-					'subtotal' => $item_total,
-					'image' => wp_get_attachment_image_src( $product->get_image_id() )[0] ?? '',
-					'options' => maybe_unserialize( $item->options ),
-				];
-			}
-		}
-
-		// Get available payment methods
-		$payment_methods = $this->get_available_payment_methods();
-
-		// Get available shipping methods
-		$shipping_methods = $this->get_available_shipping_methods();
-
-		// Get user addresses
-		$user_addresses = $this->get_user_addresses( $user_id );
-
-		return new WP_REST_Response( [
-			'success' => true,
-			'data' => [
-				'cart' => [
-					'items' => $formatted_items,
-					'subtotal' => $subtotal,
-					'shipping_total' => $shipping_total,
-					'tax_total' => $tax_total,
-					'total' => $total,
-					'currency' => get_woocommerce_currency(),
-					'currency_symbol' => get_woocommerce_currency_symbol(),
-				],
-				'payment_methods' => $payment_methods,
-				'shipping_methods' => $shipping_methods,
-				'addresses' => $user_addresses,
-			],
-		] );
-	}
-
-	/**
-	 * Process checkout and create order
-	 *
-	 * @param WP_REST_Request $request Request object.
-	 * @return WP_REST_Response|WP_Error
-	 */
-	public function process_checkout( $request ) {
-		$user_id = $this->get_authenticated_user( $request );
-		if ( is_wp_error( $user_id ) ) {
-			return $user_id;
-		}
-
-		if ( ! class_exists( 'WC_Order' ) ) {
-			return new WP_Error(
-				'woocommerce_required',
-				__( 'WooCommerce is required for checkout operations.', 'oba-apis-integration' ),
-				[ 'status' => 400 ]
-			);
-		}
-
-		// Get checkout data
-		$checkout_data = $request->get_json_params();
-		if ( empty( $checkout_data ) ) {
-			return new WP_Error(
-				'invalid_checkout_data',
-				__( 'Checkout data is required.', 'oba-apis-integration' ),
-				[ 'status' => 400 ]
-			);
-		}
-
-		// Validate required fields
-		$required_fields = [ 'billing_address', 'payment_method' ];
-		foreach ( $required_fields as $field ) {
-			if ( empty( $checkout_data[ $field ] ) ) {
-				return new WP_Error(
-					'missing_required_field',
-					sprintf( __( 'Missing required field: %s', 'oba-apis-integration' ), $field ),
-					[ 'status' => 400 ]
-				);
-			}
-		}
-
-		// Validate cart is not empty
-		$cart_items = $this->cart_table->get_cart_items( $user_id );
-		if ( empty( $cart_items ) ) {
-			return new WP_Error(
-				'empty_cart',
-				__( 'Cart is empty. Cannot proceed with checkout.', 'oba-apis-integration' ),
-				[ 'status' => 400 ]
-			);
-		}
-
-		try {
-			// Create order
-			$order = wc_create_order( [
-				'customer_id' => $user_id,
-			] );
-
-			// Add items from cart
-			foreach ( $cart_items as $item ) {
-				$product = wc_get_product( $item->product_id );
-				if ( ! $product ) {
-					$order->delete( true );
-					return new WP_Error(
-						'invalid_product',
-						sprintf( __( 'Invalid product ID: %d', 'oba-apis-integration' ), $item->product_id ),
-						[ 'status' => 400 ]
-					);
-				}
-
-				$order->add_product( $product, $item->quantity, [
-					'variation_id' => $item->variation_id,
-					'options' => maybe_unserialize( $item->options ),
-				] );
-			}
-
-			// Set billing address
-			$billing_address = $checkout_data['billing_address'];
-			$order->set_address( $billing_address, 'billing' );
-
-			// Set shipping address if provided
-			if ( ! empty( $checkout_data['shipping_address'] ) ) {
-				$order->set_address( $checkout_data['shipping_address'], 'shipping' );
-			} else {
-				// Use billing address as shipping address
-				$order->set_address( $billing_address, 'shipping' );
-			}
-
-			// Set payment method
-			$order->set_payment_method( $checkout_data['payment_method'] );
-
-			// Set shipping method if provided
-			if ( ! empty( $checkout_data['shipping_method'] ) ) {
-				$order->set_shipping_method( $checkout_data['shipping_method'] );
-			}
-
-			// Set order notes if provided
-			if ( ! empty( $checkout_data['order_notes'] ) ) {
-				$order->add_order_note( sanitize_textarea_field( $checkout_data['order_notes'] ) );
-			}
-
-			// Calculate totals
-			$order->calculate_totals();
-
-			// Set order status based on payment method
-			$payment_method = $checkout_data['payment_method'];
-			if ( in_array( $payment_method, [ 'stripe', 'paypal' ], true ) ) {
-				$order->set_status( 'pending' );
-			} else {
-				$order->set_status( 'processing' );
-			}
-
-			// Save order
-			$order->save();
-
-			// Clear cart after successful order creation
-			$this->cart_table->clear_cart( $user_id );
-
-			// Format order response
-			$formatted_order = $this->format_order( $order, true );
-
-			return new WP_REST_Response( [
-				'success' => true,
-				'message' => __( 'Order created successfully.', 'oba-apis-integration' ),
-				'data' => $formatted_order,
-			], 201 );
-
-		} catch ( \Exception $e ) {
-			return new WP_Error(
-				'checkout_failed',
-				$e->getMessage(),
-				[ 'status' => 500 ]
-			);
-		}
-	}
-
-	/**
-	 * Validate checkout data
-	 *
-	 * @param WP_REST_Request $request Request object.
-	 * @return WP_REST_Response|WP_Error
-	 */
-	public function validate_checkout( $request ) {
-		$user_id = $this->get_authenticated_user( $request );
-		if ( is_wp_error( $user_id ) ) {
-			return $user_id;
-		}
-
-		$checkout_data = $request->get_json_params();
-		if ( empty( $checkout_data ) ) {
-			return new WP_Error(
-				'invalid_checkout_data',
-				__( 'Checkout data is required.', 'oba-apis-integration' ),
-				[ 'status' => 400 ]
-			);
-		}
-
-		$errors = [];
-
-		// Validate billing address
-		if ( ! empty( $checkout_data['billing_address'] ) ) {
-			$billing_errors = $this->validate_address( $checkout_data['billing_address'], 'billing' );
-			if ( ! empty( $billing_errors ) ) {
-				$errors['billing_address'] = $billing_errors;
-			}
-		}
-
-		// Validate shipping address
-		if ( ! empty( $checkout_data['shipping_address'] ) ) {
-			$shipping_errors = $this->validate_address( $checkout_data['shipping_address'], 'shipping' );
-			if ( ! empty( $shipping_errors ) ) {
-				$errors['shipping_address'] = $shipping_errors;
-			}
-		}
-
-		// Validate payment method
-		if ( ! empty( $checkout_data['payment_method'] ) ) {
-			$payment_methods = $this->get_available_payment_methods();
-			if ( ! in_array( $checkout_data['payment_method'], array_keys( $payment_methods ), true ) ) {
-				$errors['payment_method'] = __( 'Invalid payment method.', 'oba-apis-integration' );
-			}
-		}
-
-		// Validate cart
-		$cart_items = $this->cart_table->get_cart_items( $user_id );
-		if ( empty( $cart_items ) ) {
-			$errors['cart'] = __( 'Cart is empty.', 'oba-apis-integration' );
-		}
-
-		if ( ! empty( $errors ) ) {
-			return new WP_REST_Response( [
-				'success' => false,
-				'errors' => $errors,
-			], 400 );
-		}
-
-		return new WP_REST_Response( [
-			'success' => true,
-			'message' => __( 'Checkout data is valid.', 'oba-apis-integration' ),
-		] );
-	}
-
-	/**
-	 * Get available payment methods
-	 *
-	 * @return array
-	 */
-	private function get_available_payment_methods() {
-		$payment_methods = [];
-
-		// Check if WooCommerce payment gateways are available
-		if ( class_exists( 'WC_Payment_Gateways' ) ) {
-			$gateways = WC()->payment_gateways()->payment_gateways();
-			foreach ( $gateways as $gateway ) {
-				if ( $gateway->enabled === 'yes' ) {
-					$payment_methods[ $gateway->id ] = [
-						'id' => $gateway->id,
-						'title' => $gateway->title,
-						'description' => $gateway->description,
-						'method_title' => $gateway->method_title,
-					];
-				}
-			}
-		}
-
-		// Add default payment methods if none found
-		if ( empty( $payment_methods ) ) {
-			$payment_methods = [
-				'stripe' => [
-					'id' => 'stripe',
-					'title' => 'Credit Card (Stripe)',
-					'description' => 'Pay securely with your credit card.',
-					'method_title' => 'Stripe',
-				],
-				'paypal' => [
-					'id' => 'paypal',
-					'title' => 'PayPal',
-					'description' => 'Pay with your PayPal account.',
-					'method_title' => 'PayPal',
-				],
-				'cod' => [
-					'id' => 'cod',
-					'title' => 'Cash on Delivery',
-					'description' => 'Pay when you receive your order.',
-					'method_title' => 'Cash on Delivery',
-				],
-			];
-		}
-
-		return $payment_methods;
-	}
-
-	/**
-	 * Get available shipping methods
-	 *
-	 * @return array
-	 */
-	private function get_available_shipping_methods() {
-		$shipping_methods = [];
-
-		// Check if WooCommerce shipping is available
-		if ( class_exists( 'WC_Shipping' ) ) {
-			$shipping = WC()->shipping();
-			$methods = $shipping->get_shipping_methods();
-
-			foreach ( $methods as $method ) {
-				if ( $method->enabled === 'yes' ) {
-					$shipping_methods[ $method->id ] = [
-						'id' => $method->id,
-						'title' => $method->title,
-						'description' => $method->description,
-						'method_title' => $method->method_title,
-					];
-				}
-			}
-		}
-
-		// Add default shipping methods if none found
-		if ( empty( $shipping_methods ) ) {
-			$shipping_methods = [
-				'flat_rate' => [
-					'id' => 'flat_rate',
-					'title' => 'Flat Rate',
-					'description' => 'Fixed shipping cost.',
-					'method_title' => 'Flat Rate',
-				],
-				'free_shipping' => [
-					'id' => 'free_shipping',
-					'title' => 'Free Shipping',
-					'description' => 'Free shipping for orders over a certain amount.',
-					'method_title' => 'Free Shipping',
-				],
-			];
-		}
-
-		return $shipping_methods;
-	}
-
-	/**
-	 * Get user addresses
-	 *
-	 * @param int $user_id User ID.
-	 * @return array
-	 */
-	private function get_user_addresses( $user_id ) {
-		$addresses = [];
-
-		if ( class_exists( 'WC_Customer' ) ) {
-			$customer = new \WC_Customer( $user_id );
-
-			$addresses['billing'] = [
-				'first_name' => $customer->get_billing_first_name(),
-				'last_name' => $customer->get_billing_last_name(),
-				'company' => $customer->get_billing_company(),
-				'address_1' => $customer->get_billing_address_1(),
-				'address_2' => $customer->get_billing_address_2(),
-				'city' => $customer->get_billing_city(),
-				'state' => $customer->get_billing_state(),
-				'postcode' => $customer->get_billing_postcode(),
-				'country' => $customer->get_billing_country(),
-				'email' => $customer->get_billing_email(),
-				'phone' => $customer->get_billing_phone(),
-			];
-
-			$addresses['shipping'] = [
-				'first_name' => $customer->get_shipping_first_name(),
-				'last_name' => $customer->get_shipping_last_name(),
-				'company' => $customer->get_shipping_company(),
-				'address_1' => $customer->get_shipping_address_1(),
-				'address_2' => $customer->get_shipping_address_2(),
-				'city' => $customer->get_shipping_city(),
-				'state' => $customer->get_shipping_state(),
-				'postcode' => $customer->get_shipping_postcode(),
-				'country' => $customer->get_shipping_country(),
-			];
-		}
-
-		return $addresses;
-	}
-
-	/**
-	 * Validate address
-	 *
-	 * @param array  $address Address data.
-	 * @param string $type Address type (billing or shipping).
-	 * @return array
-	 */
-	private function validate_address( $address, $type ) {
-		$errors = [];
-		$required_fields = [];
-
-		if ( 'billing' === $type ) {
-			$required_fields = [ 'first_name', 'last_name', 'address_1', 'city', 'state', 'postcode', 'country', 'email' ];
-		} else {
-			$required_fields = [ 'first_name', 'last_name', 'address_1', 'city', 'state', 'postcode', 'country' ];
-		}
-
-		foreach ( $required_fields as $field ) {
-			if ( empty( $address[ $field ] ) ) {
-				$errors[ $field ] = sprintf( __( '%s is required.', 'oba-apis-integration' ), ucfirst( str_replace( '_', ' ', $field ) ) );
-			}
-		}
-
-		// Validate email format for billing
-		if ( 'billing' === $type && ! empty( $address['email'] ) && ! is_email( $address['email'] ) ) {
-			$errors['email'] = __( 'Invalid email format.', 'oba-apis-integration' );
-		}
-
-		// Validate phone format for billing
-		if ( 'billing' === $type && ! empty( $address['phone'] ) && ! preg_match( '/^[\+]?[1-9][\d]{0,15}$/', $address['phone'] ) ) {
-			$errors['phone'] = __( 'Invalid phone number format.', 'oba-apis-integration' );
-		}
-
-		return $errors;
-	}
-
-	/**
-	 * Format order for API response
-	 *
-	 * @param \WC_Order $order Order object.
-	 * @param bool      $detailed Whether to include detailed information.
-	 * @return array
-	 */
-	private function format_order( $order, $detailed = false ) {
-		$order_data = [
-			'id' => $order->get_id(),
-			'number' => $order->get_order_number(),
-			'status' => $order->get_status(),
-			'date_created' => $order->get_date_created()->format( 'c' ),
-			'date_modified' => $order->get_date_modified()->format( 'c' ),
-			'total' => $order->get_total(),
-			'currency' => $order->get_currency(),
-			'customer_id' => $order->get_customer_id(),
-			'billing_address' => [
-				'first_name' => $order->get_billing_first_name(),
-				'last_name' => $order->get_billing_last_name(),
-				'company' => $order->get_billing_company(),
-				'address_1' => $order->get_billing_address_1(),
-				'address_2' => $order->get_billing_address_2(),
-				'city' => $order->get_billing_city(),
-				'state' => $order->get_billing_state(),
-				'postcode' => $order->get_billing_postcode(),
-				'country' => $order->get_billing_country(),
-				'email' => $order->get_billing_email(),
-				'phone' => $order->get_billing_phone(),
-			],
-			'shipping_address' => [
-				'first_name' => $order->get_shipping_first_name(),
-				'last_name' => $order->get_shipping_last_name(),
-				'company' => $order->get_shipping_company(),
-				'address_1' => $order->get_shipping_address_1(),
-				'address_2' => $order->get_shipping_address_2(),
-				'city' => $order->get_shipping_city(),
-				'state' => $order->get_shipping_state(),
-				'postcode' => $order->get_shipping_postcode(),
-				'country' => $order->get_shipping_country(),
-			],
-			'payment_method' => $order->get_payment_method(),
-			'payment_method_title' => $order->get_payment_method_title(),
-			'shipping_method' => $order->get_shipping_method(),
-			'subtotal' => $order->get_subtotal(),
-			'shipping_total' => $order->get_shipping_total(),
-			'tax_total' => $order->get_total_tax(),
-			'discount_total' => $order->get_total_discount(),
-		];
-
-		if ( $detailed ) {
-			// Add line items
-			$items = [];
-			foreach ( $order->get_items() as $item ) {
-				$items[] = [
-					'product_id' => $item->get_product_id(),
-					'variation_id' => $item->get_variation_id(),
-					'name' => $item->get_name(),
-					'quantity' => $item->get_quantity(),
-					'subtotal' => $item->get_subtotal(),
-					'total' => $item->get_total(),
-				];
-			}
-			$order_data['items'] = $items;
-		}
-
-		return $order_data;
-	}
-
-	/**
-	 * Get authenticated user from request
-	 *
-	 * @param WP_REST_Request $request Request object.
-	 * @return int|WP_Error
-	 */
-	private function get_authenticated_user( $request ) {
-		$user = $request->get_param( 'current_user' );
-		
-		if ( ! $user ) {
-			return new WP_Error(
-				'authentication_required',
-				__( 'Authentication required.', 'oba-apis-integration' ),
-				[ 'status' => 401 ]
-			);
-		}
-
-		return $user->ID;
-	}
-} 
+use WC_Checkout;
+
+class CheckoutService
+{
+    public function __construct()
+    {
+        $this->init_wc_context();
+    }
+
+    /**
+     * Ensure WC cart, customer, checkout exist (like CartService does for the cart)
+     */
+    private function init_wc_context()
+    {
+        if (function_exists('WC')) {
+            if (null === WC()->cart) {
+                wc_load_cart();
+            }
+            if (null === WC()->checkout) {
+                wc()->checkout = new WC_Checkout();
+            }
+        }
+    }
+
+    /**
+     * Helper: get authenticated user ID
+     */
+    private function get_authenticated_user(WP_REST_Request $request)
+    {
+        $user = $request->get_param('current_user');
+        if (!$user || !isset($user->ID)) {
+            return new WP_Error(
+                'authentication_required',
+                __('Authentication required.', 'oba-apis-integration'),
+                ['status' => 401]
+            );
+        }
+        return (int) $user->ID;
+    }
+
+    /**
+     * GET checkout data: cart, addresses, payment methods
+     */
+    public function get_checkout_data(WP_REST_Request $request)
+    {
+        $user_id = $this->get_authenticated_user($request);
+        if (is_wp_error($user_id)) return $user_id;
+
+        if (!class_exists('WC_Cart')) {
+            return new WP_Error(
+                'woocommerce_required',
+                __('WooCommerce is required for checkout operations.', 'oba-apis-integration'),
+                ['status' => 400]
+            );
+        }
+
+        if (WC()->cart->is_empty()) {
+            return new WP_Error(
+                'empty_cart',
+                __('Cart is empty. Cannot proceed with checkout.', 'oba-apis-integration'),
+                ['status' => 400]
+            );
+        }
+
+        // Recalculate to be safe
+        WC()->cart->calculate_fees();
+        WC()->cart->calculate_shipping();
+        WC()->cart->calculate_totals();
+
+        $cart = $this->format_cart();
+
+        return new WP_REST_Response([
+            'success' => true,
+            'data' => [
+                'cart'            => $cart,
+                'payment_methods' => $this->get_available_payment_methods(),
+                'shipping_methods'=> $this->list_current_package_methods(), // labels of currently calculated methods (if any)
+                'addresses'       => $this->get_user_addresses($user_id),
+            ],
+        ]);
+    }
+
+    /**
+     * Endpoint: get live shipping rates based on provided address
+     * Accepts: country, state, postcode, city (shipping_* or general keys)
+     */
+    public function get_shipping_rates(WP_REST_Request $request)
+    {
+        $user_id = $this->get_authenticated_user($request);
+        if (is_wp_error($user_id)) return $user_id;
+
+        if (WC()->cart->is_empty()) {
+            return new WP_Error('empty_cart', __('Cart is empty.', 'oba-apis-integration'), ['status' => 400]);
+        }
+
+        $country  = sanitize_text_field($request->get_param('country') ?: $request->get_param('shipping_country'));
+        $state    = sanitize_text_field($request->get_param('state') ?: $request->get_param('shipping_state'));
+        $postcode = sanitize_text_field($request->get_param('postcode') ?: $request->get_param('shipping_postcode'));
+        $city     = sanitize_text_field($request->get_param('city') ?: $request->get_param('shipping_city'));
+
+        // Update customer location (both billing & shipping to keep taxes coherent)
+        WC()->customer->set_shipping_country($country);
+        WC()->customer->set_shipping_state($state);
+        WC()->customer->set_shipping_postcode($postcode);
+        WC()->customer->set_shipping_city($city);
+
+        WC()->customer->set_billing_country($country);
+        WC()->customer->set_billing_state($state);
+        WC()->customer->set_billing_postcode($postcode);
+        WC()->customer->set_billing_city($city);
+        WC()->customer->save();
+
+        // Recalculate shipping & totals (ShipStation will be queried here)
+        $packages = WC()->cart->get_shipping_packages();
+        WC()->shipping()->calculate_shipping($packages);
+        WC()->cart->calculate_totals();
+
+        $rates_response = $this->collect_package_rates();
+
+        return new WP_REST_Response([
+            'success' => true,
+            'packages' => $rates_response['packages'],
+            'cart_totals' => [
+                'subtotal' => WC()->cart->get_subtotal(),
+                'shipping' => WC()->cart->get_shipping_total(),
+                'discount' => WC()->cart->get_discount_total(),
+                'tax'      => WC()->cart->get_total_tax(),
+                'total'    => WC()->cart->get_total('edit'),
+                'currency' => get_woocommerce_currency(),
+            ],
+        ]);
+    }
+
+    /**
+     * Endpoint: set chosen shipping method(s)
+     * Accepts:
+     * - rate_id (string) for single package carts
+     * - OR chosen (array of rate_ids keyed by package index) for Dokan multi-vendor multi-package
+     */
+    public function set_shipping_method(WP_REST_Request $request)
+    {
+        $user_id = $this->get_authenticated_user($request);
+        if (is_wp_error($user_id)) return $user_id;
+
+        if (WC()->cart->is_empty()) {
+            return new WP_Error('empty_cart', __('Cart is empty.', 'oba-apis-integration'), ['status' => 400]);
+        }
+
+        $chosen = $request->get_param('chosen'); // array of rate ids keyed by package index
+        $single = $request->get_param('rate_id'); // single rate id for one-package carts
+
+        $packages = WC()->cart->get_shipping_packages();
+
+        if (is_array($chosen) && !empty($chosen)) {
+            // Normalize to keep order with packages
+            $final = [];
+            foreach ($packages as $idx => $pkg) {
+                $final[$idx] = sanitize_text_field($chosen[$idx] ?? '');
+            }
+            WC()->session->set('chosen_shipping_methods', $final);
+        } else {
+            // Single
+            if (!$single) {
+                return new WP_Error('missing_rate_id', __('Shipping rate ID is required.', 'oba-apis-integration'), ['status' => 400]);
+            }
+            WC()->session->set('chosen_shipping_methods', [sanitize_text_field($single)]);
+        }
+
+        // Recalculate totals
+        WC()->cart->calculate_shipping();
+        WC()->cart->calculate_totals();
+
+        return new WP_REST_Response([
+            'success' => true,
+            'message' => __('Shipping method(s) updated.', 'oba-apis-integration'),
+            'cart_totals' => [
+                'subtotal' => WC()->cart->get_subtotal(),
+                'shipping' => WC()->cart->get_shipping_total(),
+                'discount' => WC()->cart->get_discount_total(),
+                'tax'      => WC()->cart->get_total_tax(),
+                'total'    => WC()->cart->get_total('edit'),
+                'currency' => get_woocommerce_currency(),
+            ],
+        ]);
+    }
+
+    /**
+     * Validate checkout payload (basic)
+     */
+    public function validate_checkout(WP_REST_Request $request)
+    {
+        $user_id = $this->get_authenticated_user($request);
+        if (is_wp_error($user_id)) return $user_id;
+
+        if (WC()->cart->is_empty()) {
+            return new WP_Error('empty_cart', __('Cart is empty.', 'oba-apis-integration'), ['status' => 400]);
+        }
+
+        $data = $request->get_json_params();
+        if (empty($data)) {
+            return new WP_Error('invalid_checkout_data', __('Checkout data is required.', 'oba-apis-integration'), ['status' => 400]);
+        }
+
+        $errors = [];
+        if (empty($data['billing'])) {
+            $errors['billing'] = __('Billing address is required.', 'oba-apis-integration');
+        } else {
+            $e = $this->validate_address($data['billing'], 'billing');
+            if (!empty($e)) $errors['billing'] = $e;
+        }
+
+        // Optional shipping; if provided, validate; if not, we’ll copy billing later
+        if (!empty($data['shipping'])) {
+            $e = $this->validate_address($data['shipping'], 'shipping');
+            if (!empty($e)) $errors['shipping'] = $e;
+        }
+
+        if (empty($data['payment_method'])) {
+            $errors['payment_method'] = __('Payment method is required.', 'oba-apis-integration');
+        } else {
+            $available = $this->get_available_payment_methods();
+            if (!isset($available[$data['payment_method']])) {
+                $errors['payment_method'] = __('Invalid payment method.', 'oba-apis-integration');
+            }
+        }
+
+        if (!empty($errors)) {
+            return new WP_REST_Response(['success' => false, 'errors' => $errors], 400);
+        }
+
+        return new WP_REST_Response(['success' => true, 'message' => __('Checkout data is valid.', 'oba-apis-integration')]);
+    }
+
+    /**
+     * Process checkout: creates order + handles COD/Stripe
+     * Request JSON fields (examples):
+     *  - billing: { first_name, last_name, address_1, city, state, postcode, country, email, phone, ... }
+     *  - shipping: (optional; if missing, billing is copied)
+     *  - payment_method: 'cod' | 'stripe'
+     *  - order_notes: (optional)
+     */
+    public function process_checkout(WP_REST_Request $request)
+    {
+        $user_id = $this->get_authenticated_user($request);
+        if (is_wp_error($user_id)) return $user_id;
+
+        if (!class_exists('WC_Order')) {
+            return new WP_Error('woocommerce_required', __('WooCommerce is required for checkout operations.', 'oba-apis-integration'), ['status' => 400]);
+        }
+
+        if (WC()->cart->is_empty()) {
+            return new WP_Error('empty_cart', __('Cart is empty. Cannot proceed with checkout.', 'oba-apis-integration'), ['status' => 400]);
+        }
+
+        $data = $request->get_json_params();
+        if (empty($data)) {
+            return new WP_Error('invalid_checkout_data', __('Checkout data is required.', 'oba-apis-integration'), ['status' => 400]);
+        }
+
+        $billing  = isset($data['billing'])  ? $this->sanitize_address($data['billing'])  : [];
+        $shipping = isset($data['shipping']) ? $this->sanitize_address($data['shipping']) : $billing;
+        $payment_method = sanitize_text_field($data['payment_method'] ?? '');
+
+        // Push fields into checkout context so WC_Checkout can build the order properly
+        $checkout_fields = array_merge($this->prefix_address($billing, 'billing_'), $this->prefix_address($shipping, 'shipping_'), [
+            'payment_method' => $payment_method,
+            'terms'          => 1,
+            'customer_id'    => $user_id,
+            'order_comments' => isset($data['order_notes']) ? sanitize_textarea_field($data['order_notes']) : '',
+        ]);
+
+        // Apply again to ensure totals (shipping already chosen via set_shipping_method)
+        WC()->cart->calculate_shipping();
+        WC()->cart->calculate_totals();
+
+        // Create the order from the current cart/session
+        $order_id = WC()->checkout()->create_order($checkout_fields);
+        if (is_wp_error($order_id)) {
+            return $order_id;
+        }
+
+        $order = wc_get_order($order_id);
+
+        // If shipping not explicitly set before, copy billing to shipping
+        if (!$order->get_shipping_first_name() && !empty($billing)) {
+            $order->set_address($shipping, 'shipping');
+        }
+
+        // Attach customer and notes
+        $order->set_customer_id($user_id);
+        if (!empty($data['order_notes'])) {
+            $order->add_order_note(sanitize_textarea_field($data['order_notes']));
+        }
+
+        // Final totals & save before payment
+        $order->calculate_totals();
+        $order->save();
+
+        // Handle payment
+        $gateways = WC()->payment_gateways->get_available_payment_gateways();
+        if (!isset($gateways[$payment_method])) {
+            // Fallback safety
+            return new WP_Error('invalid_payment_method', __('Selected payment method is not available.', 'oba-apis-integration'), ['status' => 400]);
+        }
+
+        if ($payment_method === 'cod') {
+            // For COD, mark as processing and empty the cart.
+            $order->update_status('processing', __('Cash on delivery order.', 'oba-apis-integration'));
+            WC()->cart->empty_cart();
+
+            return new WP_REST_Response([
+                'success' => true,
+                'message' => __('Order placed with Cash on Delivery.', 'oba-apis-integration'),
+                'order'   => $this->format_order($order, true),
+            ], 201);
+        }
+
+        if ($payment_method === 'stripe') {
+            // This will typically return ['result' => 'success', 'redirect' => 'https://checkout.stripe.com/...']
+            $result = $gateways['stripe']->process_payment($order_id);
+
+            // Do NOT empty cart yet; Stripe redirect flow empties after success webhook/return.
+            return new WP_REST_Response([
+                'success'        => true,
+                'message'        => __('Stripe payment initiated.', 'oba-apis-integration'),
+                'order_id'       => $order_id,
+                'payment_result' => $result, // app should open $result['redirect'] if present
+            ], 201);
+        }
+
+        // Unsupported method (shouldn’t reach here if validate_checkout used)
+        return new WP_Error('unsupported_payment', __('This payment method is not supported.', 'oba-apis-integration'), ['status' => 400]);
+    }
+
+    /* -------------------------- Helpers -------------------------- */
+
+    private function sanitize_address(array $addr): array
+    {
+        $out = [];
+        foreach ($addr as $k => $v) {
+            $out[$k] = is_string($v) ? sanitize_text_field($v) : $v;
+        }
+        // keep expected keys explicit if needed
+        return $out;
+    }
+
+    private function prefix_address(array $addr, string $prefix): array
+    {
+        $out = [];
+        foreach ($addr as $k => $v) {
+            $out[$prefix . $k] = $v;
+        }
+        return $out;
+    }
+
+    private function get_available_payment_methods(): array
+    {
+        $payment_methods = [];
+        if (class_exists('WC_Payment_Gateways')) {
+            $gateways = WC()->payment_gateways()->payment_gateways();
+            foreach ($gateways as $gateway) {
+                if ($gateway->enabled === 'yes') {
+                    $payment_methods[$gateway->id] = [
+                        'id'           => $gateway->id,
+                        'title'        => $gateway->title,
+                        'description'  => wp_kses_post($gateway->description),
+                        'method_title' => $gateway->method_title,
+                    ];
+                }
+            }
+        }
+        // Fallback examples (optional)
+        if (empty($payment_methods)) {
+            $payment_methods = [
+                'stripe' => [
+                    'id' => 'stripe',
+                    'title' => 'Credit Card (Stripe)',
+                    'description' => 'Pay securely with your card.',
+                    'method_title' => 'Stripe',
+                ],
+                'cod' => [
+                    'id' => 'cod',
+                    'title' => 'Cash on Delivery',
+                    'description' => 'Pay when you receive your order.',
+                    'method_title' => 'Cash on Delivery',
+                ],
+            ];
+        }
+        return $payment_methods;
+    }
+
+    private function get_user_addresses(int $user_id): array
+    {
+        $addresses = ['billing' => [], 'shipping' => []];
+        if (class_exists('WC_Customer')) {
+            $c = new \WC_Customer($user_id);
+            $addresses['billing'] = [
+                'first_name' => $c->get_billing_first_name(),
+                'last_name'  => $c->get_billing_last_name(),
+                'company'    => $c->get_billing_company(),
+                'address_1'  => $c->get_billing_address_1(),
+                'address_2'  => $c->get_billing_address_2(),
+                'city'       => $c->get_billing_city(),
+                'state'      => $c->get_billing_state(),
+                'postcode'   => $c->get_billing_postcode(),
+                'country'    => $c->get_billing_country(),
+                'email'      => $c->get_billing_email(),
+                'phone'      => $c->get_billing_phone(),
+            ];
+            $addresses['shipping'] = [
+                'first_name' => $c->get_shipping_first_name(),
+                'last_name'  => $c->get_shipping_last_name(),
+                'company'    => $c->get_shipping_company(),
+                'address_1'  => $c->get_shipping_address_1(),
+                'address_2'  => $c->get_shipping_address_2(),
+                'city'       => $c->get_shipping_city(),
+                'state'      => $c->get_shipping_state(),
+                'postcode'   => $c->get_shipping_postcode(),
+                'country'    => $c->get_shipping_country(),
+            ];
+        }
+        return $addresses;
+    }
+
+    private function validate_address(array $address, string $type): array
+    {
+        $errors = [];
+        $required = ('billing' === $type)
+            ? ['first_name','last_name','address_1','city','state','postcode','country','email']
+            : ['first_name','last_name','address_1','city','state','postcode','country'];
+
+        foreach ($required as $field) {
+            if (empty($address[$field])) {
+                $errors[$field] = sprintf(__('%s is required.', 'oba-apis-integration'), ucfirst(str_replace('_',' ',$field)));
+            }
+        }
+
+        if ('billing' === $type && !empty($address['email']) && !is_email($address['email'])) {
+            $errors['email'] = __('Invalid email format.', 'oba-apis-integration');
+        }
+
+        if (!empty($address['phone']) && !preg_match('/^[\+]?[0-9][\d]{5,15}$/', $address['phone'])) {
+            // phone optional but if provided validate roughly
+            $errors['phone'] = __('Invalid phone number format.', 'oba-apis-integration');
+        }
+
+        return $errors;
+    }
+
+    private function format_cart(): array
+    {
+        $items = [];
+        foreach (WC()->cart->get_cart() as $key => $item) {
+            $product = $item['data'];
+            $items[] = [
+                'cart_item_key' => $key,
+                'product_id'    => $product->get_id(),
+                'name'          => $product->get_name(),
+                'quantity'      => (int) $item['quantity'],
+                'price'         => (float) $product->get_price(),
+                'subtotal'      => (float) $item['line_subtotal'],
+                'total'         => (float) $item['line_total'],
+                'thumbnail'     => wp_get_attachment_image_url($product->get_image_id(), 'thumbnail'),
+            ];
+        }
+
+        return [
+            'items'       => $items,
+            'subtotal'    => WC()->cart->get_subtotal(),
+            'shipping'    => WC()->cart->get_shipping_total(),
+            'discount'    => WC()->cart->get_discount_total(),
+            'tax'         => WC()->cart->get_total_tax(),
+            'total'       => WC()->cart->get_total('edit'),
+            'currency'    => get_woocommerce_currency(),
+            'item_count'  => WC()->cart->get_cart_contents_count(),
+        ];
+    }
+
+    private function format_order(\WC_Order $order, bool $detailed = false): array
+    {
+        $data = [
+            'id'                    => $order->get_id(),
+            'number'                => $order->get_order_number(),
+            'status'                => $order->get_status(),
+            'date_created'          => $order->get_date_created() ? $order->get_date_created()->format('c') : null,
+            'date_modified'         => $order->get_date_modified() ? $order->get_date_modified()->format('c') : null,
+            'total'                 => $order->get_total(),
+            'currency'              => $order->get_currency(),
+            'customer_id'           => $order->get_customer_id(),
+            'payment_method'        => $order->get_payment_method(),
+            'payment_method_title'  => $order->get_payment_method_title(),
+            'shipping_method'       => $order->get_shipping_method(),
+            'subtotal'              => $order->get_subtotal(),
+            'shipping_total'        => $order->get_shipping_total(),
+            'tax_total'             => $order->get_total_tax(),
+            'discount_total'        => $order->get_total_discount(),
+            'billing_address' => [
+                'first_name' => $order->get_billing_first_name(),
+                'last_name'  => $order->get_billing_last_name(),
+                'company'    => $order->get_billing_company(),
+                'address_1'  => $order->get_billing_address_1(),
+                'address_2'  => $order->get_billing_address_2(),
+                'city'       => $order->get_billing_city(),
+                'state'      => $order->get_billing_state(),
+                'postcode'   => $order->get_billing_postcode(),
+                'country'    => $order->get_billing_country(),
+                'email'      => $order->get_billing_email(),
+                'phone'      => $order->get_billing_phone(),
+            ],
+            'shipping_address' => [
+                'first_name' => $order->get_shipping_first_name(),
+                'last_name'  => $order->get_shipping_last_name(),
+                'company'    => $order->get_shipping_company(),
+                'address_1'  => $order->get_shipping_address_1(),
+                'address_2'  => $order->get_shipping_address_2(),
+                'city'       => $order->get_shipping_city(),
+                'state'      => $order->get_shipping_state(),
+                'postcode'   => $order->get_shipping_postcode(),
+                'country'    => $order->get_shipping_country(),
+            ],
+        ];
+
+        if ($detailed) {
+            $line_items = [];
+            foreach ($order->get_items() as $item) {
+                $line_items[] = [
+                    'product_id'   => $item->get_product_id(),
+                    'variation_id' => $item->get_variation_id(),
+                    'name'         => $item->get_name(),
+                    'quantity'     => $item->get_quantity(),
+                    'subtotal'     => $item->get_subtotal(),
+                    'total'        => $item->get_total(),
+                ];
+            }
+            $data['items'] = $line_items;
+        }
+
+        return $data;
+    }
+
+    /**
+     * Helper: list methods calculated for current packages (for UI hints)
+     */
+    private function list_current_package_methods(): array
+    {
+        $result = [];
+        $packages = WC()->shipping()->get_packages();
+        foreach ($packages as $idx => $package) {
+            $pkgRates = [];
+            if (!empty($package['rates'])) {
+                foreach ($package['rates'] as $rate_id => $rate_obj) {
+                    $pkgRates[] = [
+                        'id'    => $rate_id,
+                        'label' => $rate_obj->get_label(),
+                        'cost'  => wc_price($rate_obj->get_cost()),
+                    ];
+                }
+            }
+            $result[] = [
+                'package_index' => $idx,
+                'rates' => $pkgRates,
+            ];
+        }
+        return $result;
+    }
+
+    /**
+     * Helper: collect rates in a response-friendly structure (multi-package ready)
+     */
+    private function collect_package_rates(): array
+    {
+        $packages_out = [];
+        $packages = WC()->shipping()->get_packages();
+
+        foreach ($packages as $idx => $package) {
+            $rates = [];
+            foreach ($package['rates'] as $rate_id => $rate) {
+                $rates[] = [
+                    'id'       => $rate_id,                   // e.g. shipstation:1:GROUND
+                    'label'    => $rate->get_label(),         // e.g. UPS® Ground
+                    'cost'     => wc_price($rate->get_cost()),
+                    'raw_cost' => $rate->get_cost(),
+                    'taxes'    => $rate->get_taxes(),
+                    'method_id'=> $rate->get_method_id(),
+                ];
+            }
+            $packages_out[] = [
+                'package_index' => $idx,
+                'destination'   => $package['destination'],
+                'rates'         => $rates,
+                'chosen'        => WC()->session->get('chosen_shipping_methods')[$idx] ?? null,
+            ];
+        }
+
+        return ['packages' => $packages_out];
+    }
+}
