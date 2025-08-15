@@ -1176,18 +1176,23 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"country\": \"{{country}}\",\n    \"state\": \"{{state}}\",\n    \"postcode\": \"{{postcode}}\",\n    \"city\": \"{{city}}\"\n}"
+              "raw": "{\n    \"country\": \"{{shipping_country}}\",\n    \"state\": \"{{shipping_state}}\",\n    \"postcode\": \"{{shipping_postcode}}\",\n    \"city\": \"{{shipping_city}}\",\n    \"address_1\": \"{{shipping_address_1}}\",\n    \"address_2\": \"{{shipping_address_2}}\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/checkout/shipping",
-              "host": ["{{base_url}}"],
-              "path": ["checkout", "shipping"]
-            }
-          },
-          "response": []
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "checkout",
+                "shipping"
+              ]
+            },
+            "description": "Get available shipping rates for the given address. Updates both billing and shipping in WooCommerce session."
+          }
         },
         {
-          "name": "Update Shipping Rates",
+          "name": "Set Shipping Method",
           "request": {
             "method": "POST",
             "header": [
@@ -1203,21 +1208,21 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"country\": \"{{shipping_country}}\",\n    \"state\": \"{{shipping_state}}\",\n    \"postcode\": \"{{shipping_postcode}}\",\n    \"city\": \"{{shipping_city}}\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
+              "raw": "{\n    \"rate_id\": \"{{rate_id}}\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/checkout/shipping/update",
-              "host": ["{{base_url}}"],
-              "path": ["checkout", "shipping", "update"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "checkout",
+                "shipping",
+                "update"
+              ]
             },
-            "description": "Update and recalculate available shipping rates when the shipping country/state/postcode changes."
-          },
-          "response": []
+            "description": "Select one or more shipping methods (by rate_id) for each vendor/package in the cart."
+          }
         },
         {
           "name": "Validate Checkout",
@@ -1269,7 +1274,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"billing_address\": {\n        \"first_name\": \"{{billing_first_name}}\",\n        \"last_name\": \"{{billing_last_name}}\",\n        \"address_1\": \"{{billing_address_1}}\",\n        \"city\": \"{{billing_city}}\",\n        \"state\": \"{{billing_state}}\",\n        \"postcode\": \"{{billing_postcode}}\",\n        \"country\": \"{{billing_country}}\",\n        \"email\": \"{{billing_email}}\",\n        \"phone\": \"{{billing_phone}}\"\n    },\n    \"shipping_address\": {\n        \"first_name\": \"{{shipping_first_name}}\",\n        \"last_name\": \"{{shipping_last_name}}\",\n        \"address_1\": \"{{shipping_address_1}}\",\n        \"city\": \"{{shipping_city}}\",\n        \"state\": \"{{shipping_state}}\",\n        \"postcode\": \"{{shipping_postcode}}\",\n        \"country\": \"{{shipping_country}}\"\n    },\n    \"payment_method\": \"{{payment_method}}\",\n    \"shipping_method\": \"{{shipping_method}}\",\n    \"order_notes\": \"{{order_notes}}\"\n}",
+              "raw": "{\n    \"billing\": {\n        \"first_name\": \"{{billing_first_name}}\",\n        \"last_name\": \"{{billing_last_name}}\",\n        \"address_1\": \"{{billing_address_1}}\",\n        \"city\": \"{{billing_city}}\",\n        \"state\": \"{{billing_state}}\",\n        \"postcode\": \"{{billing_postcode}}\",\n        \"country\": \"{{billing_country}}\",\n        \"email\": \"{{billing_email}}\",\n        \"phone\": \"{{billing_phone}}\"\n    },\n    \"shipping\": {\n        \"first_name\": \"{{shipping_first_name}}\",\n        \"last_name\": \"{{shipping_last_name}}\",\n        \"address_1\": \"{{shipping_address_1}}\",\n        \"city\": \"{{shipping_city}}\",\n        \"state\": \"{{shipping_state}}\",\n        \"postcode\": \"{{shipping_postcode}}\",\n        \"country\": \"{{shipping_country}}\"\n    },\n    \"payment_method\": \"{{payment_method}}\",\n    \"stripe_payment_method_id\": \"{{stripe_payment_method_id}}\",\n    \"order_notes\": \"{{order_notes}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1281,7 +1286,7 @@
               "host": ["{{base_url}}"],
               "path": ["checkout", "process"]
             },
-            "description": "Process checkout and create order."
+            "description": "Process checkout, create order, and initiate payment. For Stripe, send the payment method ID obtained via Stripe SDK in `stripe_payment_method_id`."
           },
           "response": []
         },

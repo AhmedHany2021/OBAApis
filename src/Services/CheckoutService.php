@@ -268,19 +268,20 @@ class CheckoutService
         $shipping = isset($data['shipping']) ? $this->sanitize_address($data['shipping']) : $billing;
         $payment_method = sanitize_text_field($data['payment_method'] ?? '');
 
-        // Push fields into checkout context so WC_Checkout can build the order properly
-        $checkout_fields = array_merge($this->prefix_address($billing, 'billing_'), $this->prefix_address($shipping, 'shipping_'), [
-            'payment_method' => $payment_method,
-            'terms'          => 1,
-            'customer_id'    => $user_id,
-            'order_comments' => isset($data['order_notes']) ? sanitize_textarea_field($data['order_notes']) : '',
-        ]);
+        $checkout_fields = array_merge(
+            $this->prefix_address($billing, 'billing_'),
+            $this->prefix_address($shipping, 'shipping_'),
+            [
+                'payment_method' => $payment_method,
+                'terms'          => 1,
+                'customer_id'    => $user_id,
+                'order_comments' => isset($data['order_notes']) ? sanitize_textarea_field($data['order_notes']) : '',
+            ]
+        );
 
-        // Apply again to ensure totals (shipping already chosen via set_shipping_method)
         WC()->cart->calculate_shipping();
         WC()->cart->calculate_totals();
 
-        // Create the order from the current cart/session
         $order_id = WC()->checkout()->create_order($checkout_fields);
         if (is_wp_error($order_id)) {
             return $order_id;
@@ -288,30 +289,24 @@ class CheckoutService
 
         $order = wc_get_order($order_id);
 
-        // If shipping not explicitly set before, copy billing to shipping
         if (!$order->get_shipping_first_name() && !empty($billing)) {
             $order->set_address($shipping, 'shipping');
         }
 
-        // Attach customer and notes
         $order->set_customer_id($user_id);
         if (!empty($data['order_notes'])) {
             $order->add_order_note(sanitize_textarea_field($data['order_notes']));
         }
 
-        // Final totals & save before payment
         $order->calculate_totals();
         $order->save();
 
-        // Handle payment
         $gateways = WC()->payment_gateways->get_available_payment_gateways();
         if (!isset($gateways[$payment_method])) {
-            // Fallback safety
             return new WP_Error('invalid_payment_method', __('Selected payment method is not available.', 'oba-apis-integration'), ['status' => 400]);
         }
 
         if ($payment_method === 'cod') {
-            // For COD, mark as processing and empty the cart.
             $order->update_status('processing', __('Cash on delivery order.', 'oba-apis-integration'));
             WC()->cart->empty_cart();
 
@@ -323,19 +318,30 @@ class CheckoutService
         }
 
         if ($payment_method === 'stripe') {
-            // This will typically return ['result' => 'success', 'redirect' => 'https://checkout.stripe.com/...']
+            // Require Stripe payment method ID from client
+            $stripe_payment_method_id = sanitize_text_field($data['stripe_payment_method_id'] ?? '');
+            if (empty($stripe_payment_method_id)) {
+                return new WP_Error(
+                    'missing_stripe_payment_method',
+                    __('Stripe payment method ID is required.', 'oba-apis-integration'),
+                    ['status' => 400]
+                );
+            }
+
+            // WooCommerce Stripe gateway expects the payment method ID in $_POST
+            $_POST['stripe_payment_method'] = $stripe_payment_method_id;
+
+            // Process payment
             $result = $gateways['stripe']->process_payment($order_id);
 
-            // Do NOT empty cart yet; Stripe redirect flow empties after success webhook/return.
             return new WP_REST_Response([
                 'success'        => true,
                 'message'        => __('Stripe payment initiated.', 'oba-apis-integration'),
                 'order_id'       => $order_id,
-                'payment_result' => $result, // app should open $result['redirect'] if present
+                'payment_result' => $result,
             ], 201);
         }
 
-        // Unsupported method (shouldn’t reach here if validate_checkout used)
         return new WP_Error('unsupported_payment', __('This payment method is not supported.', 'oba-apis-integration'), ['status' => 400]);
     }
 
