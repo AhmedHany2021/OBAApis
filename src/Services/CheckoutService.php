@@ -601,4 +601,86 @@ class CheckoutService
 
         return ['packages' => $packages_out];
     }
+
+    /**
+     * Check if a coupon is valid without applying it
+     */
+    public function check_coupon(WP_REST_Request $request)
+    {
+        $code = sanitize_text_field($request->get_param('coupon_code'));
+
+        if (empty($code)) {
+            return new WP_Error('coupon_code_required', 'Coupon code is required', ['status' => 400]);
+        }
+
+        $coupon = new WC_Coupon($code);
+
+        if (!$coupon->get_id()) {
+            return new WP_Error('invalid_coupon', 'Invalid coupon code', ['status' => 404]);
+        }
+
+        // Check coupon validity against current cart
+        $discounts = new WC_Discounts(WC()->cart);
+        $validity  = $discounts->is_coupon_valid($coupon);
+
+        if (is_wp_error($validity)) {
+            return $validity; // Return detailed WC error
+        }
+
+        return new WP_REST_Response([
+            'success' => true,
+            'message' => 'Coupon is valid',
+            'coupon'  => [
+                'code'       => $coupon->get_code(),
+                'amount'     => $coupon->get_amount(),
+                'type'       => $coupon->get_discount_type(),
+                'expiry'     => $coupon->get_date_expires() ? $coupon->get_date_expires()->date('Y-m-d H:i:s') : null
+            ]
+        ], 200);
+    }
+
+    /**
+     * Apply a coupon to the cart
+     */
+    public function apply_coupon(WP_REST_Request $request)
+    {
+        $code = sanitize_text_field($request->get_param('coupon_code'));
+
+        if (empty($code)) {
+            return new WP_Error('coupon_code_required', 'Coupon code is required', ['status' => 400]);
+        }
+
+        if (!WC()->cart->apply_coupon($code)) {
+            return new WP_Error('coupon_apply_failed', 'Coupon could not be applied', ['status' => 400]);
+        }
+
+        WC()->cart->calculate_totals();
+
+        return new WP_REST_Response([
+            'success' => true,
+            'message' => 'Coupon applied successfully',
+            'totals'  => WC()->cart->get_totals()
+        ], 200);
+    }
+
+    /**
+     * Remove a coupon from the cart
+     */
+    public function remove_coupon(WP_REST_Request $request)
+    {
+        $code = sanitize_text_field($request->get_param('coupon_code'));
+
+        if (empty($code)) {
+            return new WP_Error('coupon_code_required', 'Coupon code is required', ['status' => 400]);
+        }
+
+        WC()->cart->remove_coupon($code);
+        WC()->cart->calculate_totals();
+
+        return new WP_REST_Response([
+            'success' => true,
+            'message' => 'Coupon removed successfully',
+            'totals'  => WC()->cart->get_totals()
+        ], 200);
+    }
 }

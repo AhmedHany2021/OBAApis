@@ -180,6 +180,9 @@ class Plugin
         $this->router->register_route('checkout/shipping/update', 'POST', [$this->services['checkout'], 'set_shipping_method'], [AuthMiddleware::class]);
         $this->router->register_route('checkout/process', 'POST', [$this->services['checkout'], 'process_checkout'], [AuthMiddleware::class]);
         $this->router->register_route('checkout/validate', 'POST', [$this->services['checkout'], 'validate_checkout'], [AuthMiddleware::class]);
+        $this->router->register_route('checkout/coupon/check', 'POST', [$this->services['checkout'], 'check_coupon'], [AuthMiddleware::class]);
+        $this->router->register_route('checkout/coupon/apply', 'POST', [$this->services['checkout'], 'apply_coupon'], [AuthMiddleware::class]);
+        $this->router->register_route('checkout/coupon/remove', 'POST', [$this->services['checkout'], 'remove_coupon'], [AuthMiddleware::class]);
 
         //Appointment
         $this->router->register_route('appointments','POST',[$this->services['appointment'] , 'create'] , [AuthMiddleware::class]);

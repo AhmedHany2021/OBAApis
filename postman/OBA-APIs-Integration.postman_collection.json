@@ -1180,13 +1180,8 @@
             },
             "url": {
               "raw": "{{base_url}}/checkout/shipping",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "checkout",
-                "shipping"
-              ]
+              "host": ["{{base_url}}"],
+              "path": ["checkout", "shipping"]
             }
           },
           "response": []
@@ -1287,6 +1282,90 @@
               "path": ["checkout", "process"]
             },
             "description": "Process checkout and create order."
+          },
+          "response": []
+        },
+        {
+          "name": "Check Coupon",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"coupon_code\": \"{{coupon_code}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/checkout/coupon/check",
+              "host": ["{{base_url}}"],
+              "path": ["checkout", "coupon", "check"]
+            },
+            "description": "Check if a coupon code is valid without applying it."
+          },
+          "response": []
+        },
+        {
+          "name": "Apply Coupon",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"coupon_code\": \"{{coupon_code}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/checkout/coupon/apply",
+              "host": ["{{base_url}}"],
+              "path": ["checkout", "coupon", "apply"]
+            },
+            "description": "Apply a valid coupon code to the current cart."
+          },
+          "response": []
+        },
+        {
+          "name": "Remove Coupon",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"coupon_code\": \"{{coupon_code}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/checkout/coupon/remove",
+              "host": ["{{base_url}}"],
+              "path": ["checkout", "coupon", "remove"]
+            },
+            "description": "Remove a coupon code from the current cart."
           },
           "response": []
         }
