@@ -12,15 +12,16 @@ class MedicationRequestService
     {
         global $wpdb;
 
-        $user_id = $request->get_param('current_user');
+        $user_id = $request->get_param('current_user')->ID;
 
         $table_name = $wpdb->prefix . 'survey_maker_woo_product_access';
         $sql = "
             SELECT
             p.ID,
-            p.post_title,
+            p.post_title AS product_title,
             pa.created_at AS request_date,
-            pa.doctor_comment
+            pa.doctor_comment,
+            pa.status
             FROM {$wpdb->posts} p
             INNER JOIN {$table_name} pa ON p.ID = pa.product_id
             WHERE pa.user_id = %d
