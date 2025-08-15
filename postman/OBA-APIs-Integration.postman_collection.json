@@ -1626,11 +1626,9 @@
                 "{{base_url}}"
               ],
               "path": [
-                [
                   "doctors",
                   "rating"
                 ]
-              ]
             },
             "description": "Get all doctors rating"
           },
