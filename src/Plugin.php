@@ -176,7 +176,7 @@ class Plugin
 
         //checkout routes
         $this->router->register_route('checkout', 'GET', [$this->services['checkout'], 'get_checkout_data'], [AuthMiddleware::class]);
-        $this->router->register_route('checkout/shipping', 'GET', [$this->services['checkout'], 'get_shipping_rates'], [AuthMiddleware::class]);
+        $this->router->register_route('checkout/shipping', '؛POST', [$this->services['checkout'], 'get_shipping_rates'], [AuthMiddleware::class]);
         $this->router->register_route('checkout/shipping/update', 'POST', [$this->services['checkout'], 'set_shipping_method'], [AuthMiddleware::class]);
         $this->router->register_route('checkout/process', 'POST', [$this->services['checkout'], 'process_checkout'], [AuthMiddleware::class]);
         $this->router->register_route('checkout/validate', 'POST', [$this->services['checkout'], 'validate_checkout'], [AuthMiddleware::class]);
