@@ -9,6 +9,7 @@ use OBA\APIsIntegration\Middleware\WooCommerceAuthMiddleware;
 use OBA\APIsIntegration\Services\AppointmentService;
 use OBA\APIsIntegration\Services\AuthService;
 use OBA\APIsIntegration\Services\CallService;
+use OBA\APIsIntegration\Services\DoctorService;
 use OBA\APIsIntegration\Services\MedicationRequestService;
 use OBA\APIsIntegration\Services\SurveyService;
 use OBA\APIsIntegration\Services\UserService;
@@ -105,6 +106,7 @@ class Plugin
         $this->services['appointment'] = new AppointmentService();
         $this->services['call'] = new CallService();
         $this->services['medication'] = new MedicationRequestService();
+        $this->services['doctor'] = new DoctorService();
     }
 
     /**
@@ -199,6 +201,9 @@ class Plugin
 
         //Medication Requests
         $this->router->register_route('medication-requests','GET',[$this->services['medication'] , 'get_requests'] , [AuthMiddleware::class]);
+
+        //Doctor
+        $this->router->register_route('doctors/rating' , 'GET' , [$this->services['doctor'] , 'get_doctor_rating']);
     }
 
     /**

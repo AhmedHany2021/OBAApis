@@ -1606,6 +1606,37 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "Doctors Rating",
+      "item": [
+        {
+          "name": "Get Doctors Rating",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/doctors/rating",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                [
+                  "doctors",
+                  "rating"
+                ]
+              ]
+            },
+            "description": "Get all doctors rating"
+          },
+          "response": []
+        }
+      ]
     }
   ]
 }
