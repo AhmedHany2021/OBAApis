@@ -97,7 +97,7 @@ class SurveyService
         $existing_request = $this->CheckMedicationRequestExists($user_id, $product_id);
 
         if (!$submission) {
-            return $this->response_data(true, true, false, 'No Submission added yet', 404);
+            return $this->response_data(true, true, false, 'No Submission added yet', 200);
         }
 
         if ($existing_request) {
