@@ -278,12 +278,34 @@ class CartService
             ];
         }
 
+        // Collect applied fees
+        $fees = [];
+        foreach (WC()->cart->get_fees() as $fee) {
+            $fees[] = [
+                'name'  => $fee->name,
+                'amount'=> $fee->amount,
+                'tax'   => $fee->tax,
+            ];
+        }
+
+        // Collect applied taxes
+        $taxes = [];
+        foreach (WC()->cart->get_taxes() as $tax_rate_id => $tax_amount) {
+            $taxes[] = [
+                'rate_id' => $tax_rate_id,
+                'amount'  => $tax_amount,
+            ];
+        }
+
+
         return [
             'items'      => $cart_items,
             'subtotal'   => WC()->cart->get_subtotal(),
             'total'      => WC()->cart->get_total('edit'),
             'currency'   => get_woocommerce_currency(),
             'item_count' => WC()->cart->get_cart_contents_count(),
+            'fees'       => $fees,
+            'taxes'      => $taxes,
         ];
     }
 }
