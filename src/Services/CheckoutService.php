@@ -331,7 +331,7 @@ class CheckoutService
             }
 
             // WooCommerce Stripe gateway expects the payment method ID in $_POST
-            $_POST['stripe_payment_method'] = $stripe_payment_method_id;
+            $_POST['wc-stripe-payment-method'] = $stripe_payment_method_id;
 
             // Process payment
             $result = $gateways['stripe']->process_payment($order_id);
