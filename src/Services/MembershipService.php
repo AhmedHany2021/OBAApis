@@ -5,7 +5,7 @@ namespace OBA\APIsIntegration\Services;
 use WP_REST_Request;
 use WP_REST_Response;
 use WP_Error;
-
+ 
 /**
  * Membership service
  *
@@ -38,27 +38,27 @@ class MembershipService {
 //			);
 //		}
 
-		$member = new \PMPro_Member( $user->ID );
+		$level = function_exists( 'pmpro_getMembershipLevelForUser' ) ? pmpro_getMembershipLevelForUser( $user->ID ) : false;
 		$membership_data = [];
 
-		if ( $member->membership_level ) {
+		if ( $level ) {
 			$membership_data = [
 				'has_membership' => true,
-				'level_id' => $member->membership_level->id,
-				'level_name' => $member->membership_level->name,
-				'level_description' => $member->membership_level->description,
-				'level_cost' => $member->membership_level->initial_payment,
-				'level_billing_amount' => $member->membership_level->billing_amount,
-				'level_billing_limit' => $member->membership_level->billing_limit,
-				'level_cycle_number' => $member->membership_level->cycle_number,
-				'level_cycle_period' => $member->membership_level->cycle_period,
-				'level_trial_amount' => $member->membership_level->trial_amount,
-				'level_trial_limit' => $member->membership_level->trial_limit,
-				'start_date' => $member->membership_level->startdate,
-				'end_date' => $member->membership_level->enddate,
-				'status' => $member->status,
-				'is_active' => $this->is_membership_active( $member ),
-				'days_remaining' => $this->get_days_remaining( $member ),
+				'level_id' => $level->id,
+				'level_name' => $level->name,
+				'level_description' => $level->description ?? '',
+				'level_cost' => $level->initial_payment ?? 0,
+				'level_billing_amount' => $level->billing_amount ?? 0,
+				'level_billing_limit' => $level->billing_limit ?? 0,
+				'level_cycle_number' => $level->cycle_number ?? 0,
+				'level_cycle_period' => $level->cycle_period ?? '',
+				'level_trial_amount' => $level->trial_amount ?? 0,
+				'level_trial_limit' => $level->trial_limit ?? 0,
+				'start_date' => $level->startdate ?? null,
+				'end_date' => $level->enddate ?? null,
+				'status' => $this->is_membership_active( $level ) ? 'active' : 'inactive',
+				'is_active' => $this->is_membership_active( $level ),
+				'days_remaining' => $this->get_days_remaining( $level ),
 			];
 		} else {
 			$membership_data = [
@@ -413,17 +413,17 @@ class MembershipService {
 
 		try {
 			// Change membership level
-			$result = pmpro_changeMembershipLevel( $new_level_id, $user->ID );
+			$result = pmpro_changeMembershipLevel( (int) $new_level_id, (int) $user->ID );
 			
 			if ( $result ) {
 				// Get updated membership data
-				$member = new \PMPro_Member( $user->ID );
+				$updated_level = function_exists( 'pmpro_getMembershipLevelForUser' ) ? pmpro_getMembershipLevelForUser( $user->ID ) : false;
 				$membership_data = [
-					'level_id' => $member->membership_level->id,
-					'level_name' => $member->membership_level->name,
-					'status' => $member->status,
-					'start_date' => $member->membership_level->startdate,
-					'end_date' => $member->membership_level->enddate,
+					'level_id' => $updated_level ? $updated_level->id : null,
+					'level_name' => $updated_level ? $updated_level->name : null,
+					'status' => $updated_level && $this->is_membership_active( $updated_level ) ? 'active' : 'inactive',
+					'start_date' => $updated_level->startdate ?? null,
+					'end_date' => $updated_level->enddate ?? null,
 				];
 
 				return new WP_REST_Response( [
@@ -473,28 +473,31 @@ class MembershipService {
 //		}
 
 		$cancel_data = $request->get_json_params();
-		$cancel_at_period_end = ! empty( $cancel_data['cancel_at_period_end'] );
 
 		try {
-			// Cancel membership
-			$result = pmpro_cancelMembershipLevel( $user->ID, $cancel_at_period_end );
-			
-			if ( $result ) {
+			// Cancel all active membership levels for this user immediately.
+			$levels = function_exists( 'pmpro_getMembershipLevelsForUser' ) ? pmpro_getMembershipLevelsForUser( $user->ID ) : [];
+			$had_levels = false;
+			if ( ! empty( $levels ) ) {
+				$had_levels = true;
+				foreach ( $levels as $lvl ) {
+					pmpro_cancelMembershipLevel( (int) $lvl->id, (int) $user->ID, 'inactive' );
+				}
+			}
+
+			if ( $had_levels ) {
 				return new WP_REST_Response( [
 					'success' => true,
 					'message' => __( 'Membership cancelled successfully.', 'oba-apis-integration' ),
-					'data' => [
-						'cancelled' => true,
-						'cancel_at_period_end' => $cancel_at_period_end,
-					],
+					'data' => [ 'cancelled' => true ],
 				], 200 );
-			} else {
-				return new WP_Error(
-					'cancellation_failed',
-					__( 'Failed to cancel membership.', 'oba-apis-integration' ),
-					[ 'status' => 500 ]
-				);
 			}
+
+			return new WP_Error(
+				'no_active_membership',
+				__( 'No active membership to cancel.', 'oba-apis-integration' ),
+				[ 'status' => 400 ]
+			);
 		} catch ( \Exception $e ) {
 			return new WP_Error(
 				'cancellation_failed',
@@ -519,14 +522,20 @@ class MembershipService {
 //			);
 //		}
 
-		$gateways = pmpro_getGateways();
-		$gateway_details = [];
+		$all_gateways = function_exists( 'pmpro_gateways' ) ? pmpro_gateways() : [];
+		$primary_gateway   = function_exists( 'pmpro_getOption' ) ? pmpro_getOption( 'gateway' ) : '';
+		$enabled_gateways  = function_exists( 'pmpro_getOption' ) ? pmpro_getOption( 'gateways' ) : [];
+		if ( ! is_array( $enabled_gateways ) ) {
+			$enabled_gateways = $enabled_gateways ? [ $enabled_gateways ] : [];
+		}
 
-		foreach ( $gateways as $gateway => $gateway_name ) {
+		$gateway_details = [];
+		foreach ( $all_gateways as $gateway => $gateway_name ) {
+			$is_active = ( $gateway === $primary_gateway ) || in_array( $gateway, $enabled_gateways, true );
 			$gateway_details[] = [
 				'id' => $gateway,
 				'name' => $gateway_name,
-				'is_active' => pmpro_isGatewayActive( $gateway ),
+				'is_active' => (bool) $is_active,
 				'description' => $this->get_gateway_description( $gateway ),
 				'supports_recurring' => $this->gateway_supports_recurring( $gateway ),
 				'supports_trial' => $this->gateway_supports_trial( $gateway ),
@@ -546,25 +555,34 @@ class MembershipService {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function get_analytics( $request ) {
-		if ( ! class_exists( 'PMPro_Member' ) ) {
-			return new WP_Error(
-				'pmpro_required',
-				__( 'Paid Memberships Pro is required for membership operations.', 'oba-apis-integration' ),
-				[ 'status' => 400 ]
-			);
-		}
-
 		// Get date range parameters
 		$start_date = $request->get_param( 'start_date' ) ?: date( 'Y-m-d', strtotime( '-30 days' ) );
 		$end_date = $request->get_param( 'end_date' ) ?: date( 'Y-m-d' );
 
-		// Get membership statistics
+		global $wpdb;
+		$table = $wpdb->prefix . 'pmpro_memberships_users';
+		$counts = [
+			'active' => 0,
+			'expired' => 0,
+			'cancelled' => 0,
+			'pending' => 0,
+			'total' => 0,
+		];
+		$counts['total'] = (int) $wpdb->get_var( "SELECT COUNT(DISTINCT user_id) FROM $table" );
+		$rows = $wpdb->get_results( "SELECT status, COUNT(DISTINCT user_id) as c FROM $table GROUP BY status" );
+		foreach ( (array) $rows as $row ) {
+			$st = strtolower( (string) $row->status );
+			if ( isset( $counts[ $st ] ) ) {
+				$counts[ $st ] = (int) $row->c;
+			}
+		}
+
 		$stats = [
-			'total_members' => pmpro_getMemberCount(),
-			'active_members' => pmpro_getMemberCount( 'active' ),
-			'expired_members' => pmpro_getMemberCount( 'expired' ),
-			'cancelled_members' => pmpro_getMemberCount( 'cancelled' ),
-			'pending_members' => pmpro_getMemberCount( 'pending' ),
+			'total_members' => $counts['total'],
+			'active_members' => $counts['active'],
+			'expired_members' => $counts['expired'],
+			'cancelled_members' => $counts['cancelled'],
+			'pending_members' => $counts['pending'],
 			'new_members_today' => $this->get_new_members_count( $start_date, $end_date ),
 			'revenue_today' => $this->get_revenue_count( $start_date, $end_date ),
 			'level_distribution' => $this->get_level_distribution(),
@@ -579,44 +597,42 @@ class MembershipService {
 	/**
 	 * Check if membership is active
 	 *
-	 * @param \PMPro_Member $member Member object.
+	 * @param object $level Membership level object.
 	 * @return bool
 	 */
-	private function is_membership_active( $member ) {
-		if ( ! $member->membership_level ) {
+	private function is_membership_active( $level ) {
+		if ( empty( $level ) ) {
 			return false;
 		}
 
-		// Check if membership has expired
-		if ( ! empty( $member->membership_level->enddate ) ) {
-			$end_date = strtotime( $member->membership_level->enddate );
-			if ( $end_date && $end_date < time() ) {
+		if ( ! empty( $level->enddate ) ) {
+			$end_ts = is_numeric( $level->enddate ) ? (int) $level->enddate : strtotime( $level->enddate );
+			if ( $end_ts && $end_ts < time() ) {
 				return false;
 			}
 		}
 
-		// Check status
-		return in_array( $member->status, [ 'active', 'pending' ], true );
+		return true;
 	}
 
 	/**
 	 * Get days remaining for membership
 	 *
-	 * @param \PMPro_Member $member Member object.
+	 * @param object $level Membership level object.
 	 * @return int
 	 */
-	private function get_days_remaining( $member ) {
-		if ( ! $member->membership_level || empty( $member->membership_level->enddate ) ) {
+	private function get_days_remaining( $level ) {
+		if ( empty( $level ) || empty( $level->enddate ) ) {
 			return 0;
 		}
 
-		$end_date = strtotime( $member->membership_level->enddate );
-		if ( ! $end_date ) {
+		$end_ts = is_numeric( $level->enddate ) ? (int) $level->enddate : strtotime( $level->enddate );
+		if ( ! $end_ts ) {
 			return 0;
 		}
 
 		$current_time = time();
-		$days_remaining = ceil( ( $end_date - $current_time ) / DAY_IN_SECONDS );
+		$days_remaining = ceil( ( $end_ts - $current_time ) / DAY_IN_SECONDS );
 
 		return max( 0, $days_remaining );
 	}
@@ -631,17 +647,20 @@ class MembershipService {
 		$categories = [];
 
 		// Check if PMPro has category functionality
-		if ( function_exists( 'pmpro_getLevelCategories' ) ) {
-			$level_categories = pmpro_getLevelCategories( $level_id );
-			if ( ! empty( $level_categories ) ) {
-				foreach ( $level_categories as $category ) {
-					$categories[] = [
-						'id' => $category->term_id,
-						'name' => $category->name,
-						'slug' => $category->slug,
-						'description' => $category->description,
-						'count' => $category->count,
-					];
+		if ( function_exists( 'pmpro_getMembershipCategories' ) ) {
+			$category_ids = pmpro_getMembershipCategories( $level_id );
+			if ( ! empty( $category_ids ) ) {
+				foreach ( (array) $category_ids as $cat_id ) {
+					$term = get_term( (int) $cat_id, 'category' );
+					if ( $term && ! is_wp_error( $term ) ) {
+						$categories[] = [
+							'id' => $term->term_id,
+							'name' => $term->name,
+							'slug' => $term->slug,
+							'description' => $term->description,
+							'count' => (int) $term->count,
+						];
+					}
 				}
 			}
 		}
@@ -1511,17 +1530,17 @@ class MembershipService {
 //		}
 
 		// Get membership history from PMPro
-		$history = pmpro_get_membership_levels_for_user( $user->ID, true );
+		$history = function_exists( 'pmpro_getMembershipLevelsForUser' ) ? pmpro_getMembershipLevelsForUser( $user->ID, true ) : [];
 		$formatted_history = [];
 
 		foreach ( $history as $level ) {
 			$formatted_history[] = [
 				'level_id' => $level->id,
 				'level_name' => $level->name,
-				'start_date' => $level->startdate,
-				'end_date' => $level->enddate,
-				'status' => $level->status,
-				'is_current' => $level->id == pmpro_getMembershipLevelForUser( $user->ID )->id,
+				'start_date' => $level->startdate ?? null,
+				'end_date' => $level->enddate ?? null,
+				'status' => $this->is_membership_active( $level ) ? 'active' : 'inactive',
+				'is_current' => ( function_exists( 'pmpro_getMembershipLevelForUser' ) ? ( ( pmpro_getMembershipLevelForUser( $user->ID )->id ?? 0 ) == $level->id ) : false ),
 			];
 		}
 
@@ -1560,23 +1579,28 @@ class MembershipService {
 		$page = max( 1, absint( $request->get_param( 'page' ) ?: 1 ) );
 		$per_page = min( 50, max( 1, absint( $request->get_param( 'per_page' ) ?: 10 ) ) );
 
-		// Get invoices from PMPro
-		$invoices = pmpro_getInvoices( $user->ID );
+		global $wpdb;
+		$table = $wpdb->prefix . 'pmpro_membership_orders';
 		$formatted_invoices = [];
+		$results = $wpdb->get_results( $wpdb->prepare(
+			"SELECT id, code, user_id, membership_id, gateway, gateway_environment, total, subtotal, tax, status, UNIX_TIMESTAMP(timestamp) AS ts, notes
+			 FROM $table WHERE user_id = %d ORDER BY timestamp DESC",
+			(int) $user->ID
+		) );
 
-		foreach ( $invoices as $invoice ) {
+		foreach ( (array) $results as $invoice ) {
 			$formatted_invoices[] = [
-				'id' => $invoice->id,
+				'id' => (int) $invoice->id,
 				'code' => $invoice->code,
-				'user_id' => $invoice->userid,
-				'membership_id' => $invoice->membershipid,
+				'user_id' => (int) $invoice->user_id,
+				'membership_id' => (int) $invoice->membership_id,
 				'gateway' => $invoice->gateway,
 				'gateway_environment' => $invoice->gateway_environment,
-				'amount' => $invoice->total,
-				'subtotal' => $invoice->subtotal,
-				'tax' => $invoice->tax,
+				'amount' => (float) $invoice->total,
+				'subtotal' => (float) $invoice->subtotal,
+				'tax' => (float) $invoice->tax,
 				'status' => $invoice->status,
-				'date' => $invoice->timestamp,
+				'date' => (int) $invoice->ts,
 				'notes' => $invoice->notes,
 			];
 		}
@@ -1637,15 +1661,15 @@ class MembershipService {
 		];
 
 		// Get membership data
-		$member = new \PMPro_Member( $user->ID );
-		if ( $member->membership_level ) {
+		$level = function_exists( 'pmpro_getMembershipLevelForUser' ) ? pmpro_getMembershipLevelForUser( $user->ID ) : false;
+		if ( $level ) {
 			$user_data['membership'] = [
-				'level_id' => $member->membership_level->id,
-				'level_name' => $member->membership_level->name,
-				'status' => $member->status,
-				'start_date' => $member->membership_level->startdate,
-				'end_date' => $member->membership_level->enddate,
-				'is_active' => $this->is_membership_active( $member ),
+				'level_id' => $level->id,
+				'level_name' => $level->name,
+				'status' => $this->is_membership_active( $level ) ? 'active' : 'inactive',
+				'start_date' => $level->startdate ?? null,
+				'end_date' => $level->enddate ?? null,
+				'is_active' => $this->is_membership_active( $level ),
 			];
 		}
 
