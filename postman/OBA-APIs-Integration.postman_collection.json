@@ -1456,6 +1456,29 @@
             "description": "Get details of a specific appointment by ID"
           },
           "response": []
+        },
+        {
+          "name": "Get call requests",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/call-requests/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "call-requests"
+              ]
+            },
+            "description": "Get details of a specific appointment by ID"
+          },
+          "response": []
         }
       ]
     },

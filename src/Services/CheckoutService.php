@@ -266,9 +266,18 @@ class CheckoutService
             return new WP_Error('invalid_checkout_data', __('Checkout data is required.', 'oba-apis-integration'), ['status' => 400]);
         }
 
-        $billing  = isset($data['billing'])  ? $this->sanitize_address($data['billing'])  : [];
-        $shipping = isset($data['shipping']) ? $this->sanitize_address($data['shipping']) : $billing;
+        $billing        = isset($data['billing'])  ? $this->sanitize_address($data['billing'])  : [];
+        $shipping       = isset($data['shipping']) ? $this->sanitize_address($data['shipping']) : $billing;
         $payment_method = sanitize_text_field($data['payment_method'] ?? '');
+
+        // optionally respect chosen shipping method from client
+        if (!empty($data['shipping_method'])) {
+            $chosen = [ sanitize_text_field($data['shipping_method']) ];
+            WC()->session->set('chosen_shipping_methods', $chosen);
+        }
+
+        WC()->cart->calculate_shipping();
+        WC()->cart->calculate_totals();
 
         $checkout_fields = array_merge(
             $this->prefix_address($billing, 'billing_'),
@@ -281,9 +290,6 @@ class CheckoutService
             ]
         );
 
-        WC()->cart->calculate_shipping();
-        WC()->cart->calculate_totals();
-
         $order_id = WC()->checkout()->create_order($checkout_fields);
         if (is_wp_error($order_id)) {
             return $order_id;
@@ -294,20 +300,24 @@ class CheckoutService
         if (!$order->get_shipping_first_name() && !empty($billing)) {
             $order->set_address($shipping, 'shipping');
         }
-
         $order->set_customer_id($user_id);
+
         if (!empty($data['order_notes'])) {
             $order->add_order_note(sanitize_textarea_field($data['order_notes']));
         }
 
-        $order->calculate_totals();
-        $order->save();
-
         $gateways = WC()->payment_gateways->get_available_payment_gateways();
-        if (!isset($gateways[$payment_method])) {
+        if (empty($gateways[$payment_method])) {
             return new WP_Error('invalid_payment_method', __('Selected payment method is not available.', 'oba-apis-integration'), ['status' => 400]);
         }
 
+        // Make sure order knows which gateway we’ll use
+        $order->set_payment_method($gateways[$payment_method]);
+
+        $order->calculate_totals();
+        $order->save();
+
+        // --- COD path (as you had it) ---
         if ($payment_method === 'cod') {
             $order->update_status('processing', __('Cash on delivery order.', 'oba-apis-integration'));
             WC()->cart->empty_cart();
@@ -319,8 +329,8 @@ class CheckoutService
             ], 201);
         }
 
+        // --- Stripe (Option 2: let WC Stripe handle it) ---
         if ($payment_method === 'stripe') {
-            // Require Stripe payment method ID from client
             $stripe_payment_method_id = sanitize_text_field($data['stripe_payment_method_id'] ?? '');
             if (empty($stripe_payment_method_id)) {
                 return new WP_Error(
@@ -330,21 +340,42 @@ class CheckoutService
                 );
             }
 
-            // WooCommerce Stripe gateway expects the payment method ID in $_POST
+            // Inject checkout fields into $_POST for Stripe gateway
+            $_POST = array_merge($_POST, $checkout_fields);
+            $_POST['payment_method'] = 'stripe';
             $_POST['wc-stripe-payment-method'] = $stripe_payment_method_id;
+            $_POST['stripe_payment_method']    = $stripe_payment_method_id; // fallback for compatibility
+            $_POST['woocommerce-process-checkout-nonce'] = wp_create_nonce('woocommerce-process_checkout');
 
-            // Process payment
+            // Recalculate order totals
+            $order->calculate_totals();
+            $order->save();
+
+            // Process payment via gateway
             $result = $gateways['stripe']->process_payment($order_id);
 
+            if ($result['result'] === 'success') {
+                WC()->cart->empty_cart();
+            }
+
             return new WP_REST_Response([
-                'success'        => true,
-                'message'        => __('Stripe payment initiated.', 'oba-apis-integration'),
+                'success'        => $result['result'] === 'success',
+                'message'        => $result['result'] === 'success'
+                    ? __('Stripe payment completed.', 'oba-apis-integration')
+                    : __('Stripe payment failed.', 'oba-apis-integration'),
                 'order_id'       => $order_id,
                 'payment_result' => $result,
+                'status'         => $order->get_status(),
             ], 201);
         }
 
-        return new WP_Error('unsupported_payment', __('This payment method is not supported.', 'oba-apis-integration'), ['status' => 400]);
+        // Fallback for other methods
+        return new WP_REST_Response([
+            'success'  => true,
+            'message'  => __('Order created. Awaiting payment.', 'oba-apis-integration'),
+            'order_id' => $order_id,
+            'status'   => $order->get_status(),
+        ], 201);
     }
 
     /* -------------------------- Helpers -------------------------- */

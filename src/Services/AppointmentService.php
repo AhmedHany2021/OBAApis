@@ -153,5 +153,62 @@ class AppointmentService
 
     }
 
+    /**
+     * Get a call requests
+     *
+     * Retrieves user's call requests by its ID for the current user.
+     *
+     * @param WP_REST_Request $request The REST request object containing appointment ID
+     * @return WP_REST_Response Response object with appointment details
+     */
+    public function call_requests(WP_REST_Request $request) {
+        global $wpdb;
+        $user_id = $request->get_param('current_user')->ID;
+        $call_table = $wpdb->prefix . 'survey_maker_patient_call_requests';
+        $access_table = $wpdb->prefix . 'survey_maker_woo_product_access';
+        $posts_table = $wpdb->posts;
+
+        // Get call requests for this user (via patient_id = current user UUID)
+        $call_requests = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT * FROM $call_table WHERE patient_id = %s ORDER BY created_at DESC",
+                get_user_meta($user_id, 'mdclara_patient_id', true)
+            )
+        );
+
+        foreach ($call_requests as &$request) {
+            $product_titles = [];
+
+            $oba_request_ids = json_decode($request->oba_request_ids, true); // assuming it's stored as JSON
+
+            if (is_array($oba_request_ids)) {
+                foreach ($oba_request_ids as $access_id) {
+                    // Get the related product ID
+                    $access = $wpdb->get_row(
+                        $wpdb->prepare("SELECT product_id, doctor_comment FROM $access_table WHERE id = %d AND user_id = %d", $access_id, $user_id)
+                    );
+
+                    if ($access) {
+                        $product = get_post($access->product_id);
+
+                        if ($product) {
+                            $product_titles[] = $product->post_title;
+                        }
+
+                        // Add doctor_comment if you need it
+                        $request->doctor_comment = $access->doctor_comment;
+                    }
+                }
+            }
+
+            $request->product_names = implode(', ', $product_titles);
+        }
+
+        return new WP_REST_Response([
+            'success'     => true,
+            'appointment' => $call_requests
+        ], 200);
+
+    }
 
 }

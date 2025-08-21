@@ -156,6 +156,9 @@ class Plugin
         $this->router->register_route('membership/plans', 'GET', [$this->services['membership'], 'get_plans']);
         $this->router->register_route('membership/signup-form', 'GET', [$this->services['membership'], 'get_signup_form']);
         $this->router->register_route('membership/signup', 'POST', [$this->services['membership'], 'process_signup']);
+        // New checkout-like endpoints
+        $this->router->register_route('membership/checkout/fields', 'GET', [$this->services['membership'], 'get_checkout_fields']);
+        $this->router->register_route('membership/checkout/process', 'POST', [$this->services['membership'], 'process_checkout']);
         $this->router->register_route('membership/change', 'POST', [$this->services['membership'], 'change_membership'], [AuthMiddleware::class]);
         $this->router->register_route('membership/cancel', 'POST', [$this->services['membership'], 'cancel_membership'], [AuthMiddleware::class]);
         $this->router->register_route('membership/gateways', 'GET', [$this->services['membership'], 'get_payment_gateways']);
@@ -163,6 +166,8 @@ class Plugin
         $this->router->register_route('membership/history', 'GET', [$this->services['membership'], 'get_membership_history'], [AuthMiddleware::class]);
         $this->router->register_route('membership/invoices', 'GET', [$this->services['membership'], 'get_invoices'], [AuthMiddleware::class]);
         $this->router->register_route('membership/profile', 'GET', [$this->services['membership'], 'get_user_profile'], [AuthMiddleware::class]);
+        $this->router->register_route('membership/card', 'GET', [$this->services['membership'], 'get_membership_card'], [AuthMiddleware::class]);
+        $this->router->register_route('membership/profile/update', 'PUT', [$this->services['membership'], 'update_profile_fields'], [AuthMiddleware::class]);
 
         //survey routes
         $this->router->register_route('survey/{id}', 'GET', [$this->services['survey'], 'get_survey']);
@@ -192,6 +197,7 @@ class Plugin
         $this->router->register_route('appointments','POST',[$this->services['appointment'] , 'create'] , [AuthMiddleware::class]);
         $this->router->register_route('appointments','GET',[$this->services['appointment'] , 'get_appointments'] , [AuthMiddleware::class]);
         $this->router->register_route('appointments/{id}','GET',[$this->services['appointment'] , 'get_appointment'] , [AuthMiddleware::class]);
+        $this->router->register_route('call-requests','GET',[$this->services['appointment'] , 'call_requests'] , [AuthMiddleware::class]);
 
         //Call
         $this->router->register_route('call/pending','GET',[$this->services['call'] , 'check_call_status'] , [AuthMiddleware::class]);

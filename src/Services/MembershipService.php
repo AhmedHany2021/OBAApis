@@ -15,6 +15,256 @@ use WP_Error;
 class MembershipService {
 
 	/**
+	 * Get checkout fields similar to PMPro checkout
+	 *
+	 * @param WP_REST_Request $request
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function get_checkout_fields( $request ) {
+		$level_id = absint( $request->get_param( 'level_id' ) );
+		if ( ! $level_id ) {
+			return new WP_Error( 'invalid_level_id', __( 'Valid level ID is required.', 'oba-apis-integration' ), [ 'status' => 400 ] );
+		}
+
+		$level = pmpro_getLevel( $level_id );
+		if ( ! $level ) {
+			return new WP_Error( 'level_not_found', __( 'Membership level not found.', 'oba-apis-integration' ), [ 'status' => 404 ] );
+		}
+
+		$require_billing = ( $level->initial_payment > 0 ) || ( $level->billing_amount > 0 );
+
+		$gateways = function_exists( 'pmpro_gateways' ) ? pmpro_gateways() : [];
+		$primary_gateway = function_exists( 'pmpro_getOption' ) ? pmpro_getOption( 'gateway' ) : '';
+
+		$response = [
+			'level' => [
+				'id' => $level->id,
+				'name' => $level->name,
+				'description' => $level->description,
+				'initial_payment' => $level->initial_payment,
+				'billing_amount' => $level->billing_amount,
+				'cycle_number' => $level->cycle_number,
+				'cycle_period' => $level->cycle_period,
+				'expiration_number' => $level->expiration_number,
+				'expiration_period' => $level->expiration_period,
+			],
+			'user_fields' => [ 'username', 'email', 'password', 'first_name', 'last_name' ],
+			'billing_required' => (bool) $require_billing,
+			'billing_fields' => $require_billing ? [ 'first_name','last_name','address_1','address_2','city','state','postcode','country','phone' ] : [],
+			'payment' => [
+				'gateway' => $primary_gateway,
+				'available_gateways' => $gateways,
+				'stripe' => [ 'expects_payment_method_id' => true ],
+			],
+		];
+
+		return new WP_REST_Response( [ 'success' => true, 'data' => $response ], 200 );
+	}
+
+	/**
+	 * Process checkout using PMPro + Stripe
+	 *
+	 * @param WP_REST_Request $request
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function process_checkout( $request ) {
+		$params = $request->get_json_params();
+		if ( empty( $params ) ) {
+			return new WP_Error( 'invalid_payload', __( 'Checkout payload is required.', 'oba-apis-integration' ), [ 'status' => 400 ] );
+		}
+
+		$level_id = absint( $params['level_id'] ?? 0 );
+		if ( ! $level_id ) {
+			return new WP_Error( 'invalid_level', __( 'Valid level_id is required.', 'oba-apis-integration' ), [ 'status' => 400 ] );
+		}
+		$level = pmpro_getLevel( $level_id );
+		if ( ! $level ) {
+			return new WP_Error( 'level_not_found', __( 'Membership level not found.', 'oba-apis-integration' ), [ 'status' => 404 ] );
+		}
+
+		$gateway = function_exists( 'pmpro_getOption' ) ? pmpro_getOption( 'gateway' ) : '';
+		if ( ( $level->initial_payment > 0 || $level->billing_amount > 0 ) && $gateway !== 'stripe' ) {
+			return new WP_Error( 'gateway_not_configured', __( 'Stripe gateway must be configured for paid checkout.', 'oba-apis-integration' ), [ 'status' => 400 ] );
+		}
+
+		$user = $request->get_param( 'current_user' );
+		$user_id = $user ? (int) $user->ID : 0;
+
+		// Create user if not logged in
+		if ( ! $user_id ) {
+			$required_user = [ 'username','email','password','first_name','last_name' ];
+			foreach ( $required_user as $f ) {
+				if ( empty( $params[ $f ] ) ) {
+					return new WP_Error( 'missing_user_field', sprintf( __( 'Missing required user field: %s', 'oba-apis-integration' ), $f ), [ 'status' => 400 ] );
+				}
+			}
+			$existing = get_user_by( 'email', sanitize_email( $params['email'] ) );
+			if ( $existing ) {
+				return new WP_Error( 'user_exists', __( 'User with this email already exists.', 'oba-apis-integration' ), [ 'status' => 409 ] );
+			}
+			$new_user_id = wp_insert_user( [
+				'user_login' => sanitize_user( $params['username'] ),
+				'user_email' => sanitize_email( $params['email'] ),
+				'user_pass' => (string) $params['password'],
+				'first_name' => sanitize_text_field( $params['first_name'] ),
+				'last_name' => sanitize_text_field( $params['last_name'] ),
+				'role' => 'subscriber',
+			] );
+			if ( is_wp_error( $new_user_id ) ) {
+				return $new_user_id;
+			}
+			$user_id = (int) $new_user_id;
+		}
+
+		// Build MemberOrder
+		$order = new \MemberOrder();
+		$order->user_id = $user_id;
+		$order->membership_id = $level->id;
+		$order->gateway = $gateway ?: 'free';
+		$order->billing = new \stdClass();
+		$billing = (array) ( $params['billing'] ?? [] );
+		$order->billing->name = trim( ( $billing['first_name'] ?? '' ) . ' ' . ( $billing['last_name'] ?? '' ) );
+		$order->billing->street = (string) ( $billing['address_1'] ?? '' );
+		$order->billing->street2 = (string) ( $billing['address_2'] ?? '' );
+		$order->billing->city = (string) ( $billing['city'] ?? '' );
+		$order->billing->state = (string) ( $billing['state'] ?? '' );
+		$order->billing->country = (string) ( $billing['country'] ?? '' );
+		$order->billing->zip = (string) ( $billing['postcode'] ?? '' );
+		$order->billing->phone = (string) ( $billing['phone'] ?? '' );
+
+		// Totals
+		$order->subtotal = pmpro_round_price( (float) $level->initial_payment );
+		$order->tax = pmpro_round_price( $order->getTax( true ) );
+		$order->total = pmpro_round_price( $order->subtotal + $order->tax );
+
+		// Initialize gateway on order
+		$order->setGateway();
+		$order->getMembershipLevelAtCheckout();
+
+		// Stripe specific: pass PaymentMethod or PaymentIntent id
+		if ( ! empty( $params['payment_method_id'] ) ) {
+			$order->payment_method_id = sanitize_text_field( $params['payment_method_id'] );
+		}
+		if ( ! empty( $params['payment_intent_id'] ) ) {
+			$order->payment_intent_id = sanitize_text_field( $params['payment_intent_id'] );
+		}
+
+		// Allow PMPro hooks to modify order
+		$order = apply_filters( $order->total > 0 ? 'pmpro_checkout_order' : 'pmpro_checkout_order_free', $order );
+
+		// Process payment (charges/subscription) via gateway
+		$processed = $order->process();
+		if ( empty( $processed ) ) {
+			$err = ! empty( $order->error ) ? $order->error : __( 'Payment processing failed.', 'oba-apis-integration' );
+			return new WP_Error( 'payment_failed', $err, [ 'status' => 400 ] );
+		}
+
+		// Complete checkout: assign membership, save order, run actions
+		if ( ! function_exists( 'pmpro_complete_checkout' ) ) {
+			return new WP_Error( 'pmpro_missing', __( 'PMPro checkout handler missing.', 'oba-apis-integration' ), [ 'status' => 500 ] );
+		}
+		$completed = pmpro_complete_checkout( $order );
+		if ( ! $completed ) {
+			return new WP_Error( 'checkout_incomplete', __( 'Checkout completed payment but failed to assign membership.', 'oba-apis-integration' ), [ 'status' => 500 ] );
+		}
+
+		// Update optional profile/billing fields
+		if ( ! empty( $billing ) ) {
+			$this->set_user_billing_address( $user_id, [
+				'first_name' => $billing['first_name'] ?? '',
+				'last_name' => $billing['last_name'] ?? '',
+				'company' => $billing['company'] ?? '',
+				'address_1' => $billing['address_1'] ?? '',
+				'address_2' => $billing['address_2'] ?? '',
+				'city' => $billing['city'] ?? '',
+				'state' => $billing['state'] ?? '',
+				'postcode' => $billing['postcode'] ?? '',
+				'country' => $billing['country'] ?? '',
+				'phone' => $billing['phone'] ?? '',
+			] );
+		}
+		if ( ! empty( $params['custom_fields'] ) && is_array( $params['custom_fields'] ) ) {
+			$this->set_custom_fields( $user_id, $params['custom_fields'] );
+		}
+
+		$level_now = pmpro_getMembershipLevelForUser( $user_id );
+		return new WP_REST_Response( [
+			'success' => true,
+			'message' => __( 'Checkout completed successfully.', 'oba-apis-integration' ),
+			'data' => [
+				'order_id' => (int) $order->id,
+				'order_code' => $order->code,
+				'level_id' => $level_now ? $level_now->id : null,
+				'level_name' => $level_now ? $level_now->name : null,
+				'payment_transaction_id' => $order->payment_transaction_id ?? null,
+				'subscription_transaction_id' => $order->subscription_transaction_id ?? null,
+			],
+		], 201 );
+	}
+
+	/**
+	 * Get membership card-like info
+	 *
+	 * @param WP_REST_Request $request
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function get_membership_card( $request ) {
+		$user = $request->get_param( 'current_user' );
+		if ( ! $user ) {
+			return new WP_Error( 'authentication_required', __( 'Authentication required.', 'oba-apis-integration' ), [ 'status' => 401 ] );
+		}
+		$level = pmpro_getMembershipLevelForUser( $user->ID );
+		if ( ! $level ) {
+			return new WP_REST_Response( [ 'success' => true, 'data' => [ 'has_membership' => false ] ], 200 );
+		}
+		$card = [
+			'has_membership' => true,
+			'user' => [
+				'id' => $user->ID,
+				'name' => trim( $user->first_name . ' ' . $user->last_name ) ?: $user->display_name,
+				'email' => $user->user_email,
+			],
+			'level' => [
+				'id' => $level->id,
+				'name' => $level->name,
+				'starts_at' => $level->startdate ?? null,
+				'ends_at' => $level->enddate ?? null,
+				'is_active' => $this->is_membership_active( $level ),
+			],
+		];
+		return new WP_REST_Response( [ 'success' => true, 'data' => $card ], 200 );
+	}
+
+	/**
+	 * Update profile fields (WP + billing + custom)
+	 *
+	 * @param WP_REST_Request $request
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function update_profile_fields( $request ) {
+		$user = $request->get_param( 'current_user' );
+		if ( ! $user ) {
+			return new WP_Error( 'authentication_required', __( 'Authentication required.', 'oba-apis-integration' ), [ 'status' => 401 ] );
+		}
+		$params = $request->get_json_params() ?: [];
+		$updates = [];
+		if ( ! empty( $params['first_name'] ) ) { $updates['first_name'] = sanitize_text_field( $params['first_name'] ); }
+		if ( ! empty( $params['last_name'] ) ) { $updates['last_name'] = sanitize_text_field( $params['last_name'] ); }
+		if ( ! empty( $params['email'] ) ) { $updates['user_email'] = sanitize_email( $params['email'] ); }
+		if ( ! empty( $params['display_name'] ) ) { $updates['display_name'] = sanitize_text_field( $params['display_name'] ); }
+		if ( ! empty( $params['website'] ) ) { $updates['user_url'] = esc_url_raw( $params['website'] ); }
+		if ( ! empty( $updates ) ) {
+			$updates['ID'] = $user->ID;
+			wp_update_user( $updates );
+		}
+		if ( ! empty( $params['billing'] ) && is_array( $params['billing'] ) ) {
+			$this->set_user_billing_address( $user->ID, $params['billing'] );
+		}
+		if ( ! empty( $params['custom_fields'] ) && is_array( $params['custom_fields'] ) ) {
+			$this->set_custom_fields( $user->ID, $params['custom_fields'] );
+		}
+		return new WP_REST_Response( [ 'success' => true ], 200 );
+	}
 	 * Get membership status
 	 *
 	 * @param WP_REST_Request $request Request object.
