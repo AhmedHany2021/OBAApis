@@ -189,6 +189,14 @@ class AuthService {
         if ( is_array( $user_avatar_data ) && ! empty( $user_avatar_data['previewurl'] ) ) {
             $user_data['avatar'] = $user_avatar_data['previewurl'];
         }
+
+        $level = function_exists( 'pmpro_getMembershipLevelForUser' ) ? pmpro_getMembershipLevelForUser( $user->ID ) : false;
+        if ($level)
+        {
+            if (($level->id == 2 || $level->id == 3) ) {
+                $user_data['membership_status'] = $this->is_membership_active( $level );
+            }
+        }
         return $user_data;
 
         array_merge($user_data , [
@@ -270,6 +278,27 @@ class AuthService {
 
 		return $user_data;
 	}
+
+    /**
+     * Check if membership is active
+     *
+     * @param object $level Membership level object.
+     * @return bool
+     */
+    private function is_membership_active( $level ) {
+        if ( empty( $level ) ) {
+            return false;
+        }
+
+        if ( ! empty( $level->enddate ) ) {
+            $end_ts = is_numeric( $level->enddate ) ? (int) $level->enddate : strtotime( $level->enddate );
+            if ( $end_ts && $end_ts < time() ) {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
 	/**
 	 * Log login attempt

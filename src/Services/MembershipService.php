@@ -265,6 +265,7 @@ class MembershipService {
 		}
 		return new WP_REST_Response( [ 'success' => true ], 200 );
 	}
+    /*
 	 * Get membership status
 	 *
 	 * @param WP_REST_Request $request Request object.
