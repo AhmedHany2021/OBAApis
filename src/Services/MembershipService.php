@@ -780,18 +780,18 @@ class MembershipService {
     private function process_membership_upgrade($user_id, $current_level, $new_level, $params) {
         // Create upgrade order
         $order = new \MemberOrder();
-        $order->user_id = $user_id;
+        $order->user_id       = $user_id;
         $order->membership_id = $new_level->id;
-        $order->gateway = 'stripe';
-        $order->billing = $this->build_billing_object($params['billing'] ?? []);
+        $order->gateway       = 'stripe';
+        $order->billing       = $this->build_billing_object($params['billing'] ?? []);
 
         // Calculate upgrade cost
-        $upgrade_cost = $this->calculate_upgrade_cost($current_level, $new_level);
+        $upgrade_cost   = $this->calculate_upgrade_cost($current_level, $new_level);
         $order->subtotal = pmpro_round_price($upgrade_cost);
-        $order->tax = pmpro_round_price($order->getTax(true));
-        $order->total = pmpro_round_price($order->subtotal + $order->tax);
+        $order->tax      = pmpro_round_price($order->getTax(true));
+        $order->total    = pmpro_round_price($order->subtotal + $order->tax);
 
-        // Set payment method
+        // Attach Stripe payment method
         if (!empty($params['payment_method_id'])) {
             $order->payment_method_id = sanitize_text_field($params['payment_method_id']);
         }
@@ -801,21 +801,44 @@ class MembershipService {
         $processed = $order->process();
 
         if (empty($processed)) {
-            return new WP_Error('upgrade_payment_failed', $order->error ?: __('Upgrade payment failed.', 'oba-apis-integration'));
+            return new \WP_Error(
+                'upgrade_payment_failed',
+                $order->error ?: __('Upgrade payment failed.', 'oba-apis-integration')
+            );
         }
 
         // Change membership level
         if (function_exists('pmpro_changeMembershipLevel')) {
             $result = pmpro_changeMembershipLevel($new_level->id, $user_id, 'changed');
             if ($result === false) {
-                return new WP_Error('upgrade_failed', __('Failed to upgrade membership level.', 'oba-apis-integration'));
+                return new \WP_Error('upgrade_failed', __('Failed to upgrade membership level.', 'oba-apis-integration'));
             }
         }
 
-        return [
-            'order_id' => $order->id,
-            'subscription_id' => $order->subscription_transaction_id ?? null
+        // Get membership details after upgrade
+        $membership = pmpro_getMembershipLevelForUser($user_id);
+
+        $data = [
+            'user_id' => $user_id,
+            'membership_level' => [
+                'id'        => $membership->id,
+                'name'      => $membership->name,
+                'startdate' => strtotime($membership->startdate),
+                'enddate'   => $membership->enddate ? strtotime($membership->enddate) : null,
+            ],
+            'order_id'        => $order->id,
+            'subscription_id' => $order->subscription_transaction_id ?? null,
         ];
+
+        // If no enddate, but the level has a billing cycle, calculate next billing date
+        if (!$data['membership_level']['enddate'] && !empty($membership->cycle_number) && !empty($membership->cycle_period)) {
+            $interval_spec = "P{$membership->cycle_number}" . strtoupper(substr($membership->cycle_period, 0, 1));
+            $start = new \DateTime($membership->startdate);
+            $start->add(new \DateInterval($interval_spec));
+            $data['membership_level']['enddate'] = $start->getTimestamp();
+        }
+
+        return $data;
     }
 
     /**
@@ -921,16 +944,14 @@ class MembershipService {
             return [];
         }
 
-        $fields = pmpro_get_user_fields();
+        $fields = ['Patient_first_name', 'patient_last_name', 'Patient_Date_of_Birth', 'Patient_Gender' , 'Patient_Country' , 'street_address' , 'town_city' , 'postcode_zip'];
         $custom_fields = [];
 
         foreach ($fields as $field) {
-            $value = get_user_meta($user_id, 'pmpro_' . $field['id'], true);
+            $value = get_user_meta($user_id,  $field , true);
             if ($value) {
-                $custom_fields[$field['id']] = [
-                    'name' => $field['name'],
-                    'value' => $value,
-                    'type' => $field['type']
+                $custom_fields[$field] = [
+                    $value
                 ];
             }
         }
