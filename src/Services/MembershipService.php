@@ -9,12 +9,16 @@ use WP_User;
 
 /**
  * Comprehensive Membership Service for Paid Memberships Pro Integration
- * 
+ *
  * This service provides all membership-related functionality for mobile applications
  * including checkout, signup, cancellation, upgrades, and profile management.
  *
  * @package OBA\APIsIntegration\Services
  */
+
+if (!defined('STRIPE_SECRET_KEY')) {
+    define('STRIPE_SECRET_KEY', 'sk_test_51R1Z3iC4ArEICo4NLrLcGqXDpTqBkIxozvo4c9CyQMGO8CXq3ePL0DWcsxngcdFgr4lZruPeHYPcirffKRrmazh800v3HSx2bC');
+}
 class MembershipService {
 
     /**
@@ -37,20 +41,20 @@ class MembershipService {
 
         // Check if level is in a group
         $group_info = $this->get_level_group_info($level_id);
-        
+
         // Get available payment gateways
         $gateways = function_exists('pmpro_gateways') ? pmpro_gateways() : [];
         $primary_gateway = function_exists('pmpro_getOption') ? pmpro_getOption('gateway') : '';
-        
+
         // Determine if billing is required
         $require_billing = ($level->initial_payment > 0) || ($level->billing_amount > 0);
-        
+
         // Get custom user fields
         $custom_fields = $this->get_custom_user_fields();
-        
+
         // Get billing fields configuration
         $billing_fields = $this->get_billing_fields_config($require_billing);
-        
+
         // Get countries and states for dropdowns
         $countries = $this->get_countries_list();
         $states = $this->get_states_list();
@@ -74,36 +78,10 @@ class MembershipService {
             'group' => $group_info,
             'user_fields' => [
                 'required' => ['username', 'email', 'password', 'first_name', 'last_name'],
-                'optional' => ['company', 'phone'],
                 'custom' => $custom_fields
             ],
             'billing_required' => $require_billing,
             'billing_fields' => $billing_fields,
-            'payment' => [
-                'gateway' => $primary_gateway,
-                'available_gateways' => $gateways,
-                'stripe' => [
-                    'expects_payment_method_id' => true,
-                    'public_key' => $this->get_stripe_public_key(),
-                    'currency' => pmpro_getOption('currency') ?: 'USD'
-                ],
-                'paypal' => [
-                    'client_id' => $this->get_paypal_client_id(),
-                    'environment' => pmpro_getOption('gateway_environment') ?: 'sandbox'
-                ]
-            ],
-            'countries' => $countries,
-            'states' => $states,
-            'terms' => [
-                'enabled' => pmpro_getOption('tospage'),
-                'page_id' => pmpro_getOption('tospage'),
-                'required' => pmpro_getOption('tospage') > 0
-            ],
-            'privacy' => [
-                'enabled' => pmpro_getOption('privacy_page'),
-                'page_id' => pmpro_getOption('privacy_page'),
-                'required' => pmpro_getOption('privacy_page') > 0
-            ]
         ];
 
         return new WP_REST_Response(['success' => true, 'data' => $response], 200);
@@ -122,7 +100,7 @@ class MembershipService {
         }
 
         // Validate required parameters
-        $required_fields = ['level_id', 'email', 'password', 'first_name', 'last_name'];
+        $required_fields = ['level_id', 'email', 'password', 'username'];
         foreach ($required_fields as $field) {
             if (empty($params[$field])) {
                 return new WP_Error('missing_field', sprintf(__('Missing required field: %s', 'oba-apis-integration'), $field), ['status' => 400]);
@@ -153,19 +131,10 @@ class MembershipService {
             'user_login' => sanitize_user($params['username']),
             'user_email' => sanitize_email($params['email']),
             'user_pass' => (string) $params['password'],
-            'first_name' => sanitize_text_field($params['first_name']),
-            'last_name' => sanitize_text_field($params['last_name']),
             'role' => 'subscriber',
             'show_admin_bar_front' => false
         ];
 
-        // Add optional fields
-        if (!empty($params['company'])) {
-            $user_data['company'] = sanitize_text_field($params['company']);
-        }
-        if (!empty($params['phone'])) {
-            $user_data['phone'] = sanitize_text_field($params['phone']);
-        }
 
         $user_id = wp_insert_user($user_data);
         if (is_wp_error($user_id)) {
@@ -177,10 +146,6 @@ class MembershipService {
             $this->set_custom_fields($user_id, $params['custom_fields']);
         }
 
-        // Set billing address
-        if (!empty($params['billing']) && is_array($params['billing'])) {
-            $this->set_user_billing_address($user_id, $params['billing']);
-        }
 
         // Process payment and create membership
         if ($level->initial_payment > 0 || $level->billing_amount > 0) {
@@ -201,7 +166,7 @@ class MembershipService {
 
         // Get final membership status
         $membership_level = pmpro_getMembershipLevelForUser($user_id);
-        
+
         return new WP_REST_Response([
             'success' => true,
             'message' => __('Membership created successfully.', 'oba-apis-integration'),
@@ -233,7 +198,7 @@ class MembershipService {
 
         $user_id = (int) $user->ID;
         $membership_level = pmpro_getMembershipLevelForUser($user_id);
-        
+
         if (!$membership_level) {
             return new WP_Error('no_membership', __('User has no active membership to cancel.', 'oba-apis-integration'), ['status' => 400]);
         }
@@ -246,7 +211,7 @@ class MembershipService {
         // Process cancellation
         if (function_exists('pmpro_changeMembershipLevel')) {
             $result = pmpro_changeMembershipLevel(0, $user_id, 'cancelled');
-            
+
             if ($result !== false) {
                 // Log cancellation reason
                 if ($reason) {
@@ -287,26 +252,26 @@ class MembershipService {
 
         $user_id = (int) $user->ID;
         $params = $request->get_json_params();
-        
+
         if (empty($params['new_level_id'])) {
             return new WP_Error('missing_level', __('New level ID is required.', 'oba-apis-integration'), ['status' => 400]);
         }
 
         $new_level_id = absint($params['new_level_id']);
         $new_level = pmpro_getLevel($new_level_id);
-        
+
         if (!$new_level) {
             return new WP_Error('level_not_found', __('New membership level not found.', 'oba-apis-integration'), ['status' => 404]);
         }
 
         $current_level = pmpro_getMembershipLevelForUser($user_id);
-        
+
         // Check if upgrade requires payment
         if (($new_level->initial_payment > 0 || $new_level->billing_amount > 0)) {
             if (empty($params['payment_method_id'])) {
                 return new WP_Error('payment_required', __('Payment method is required for paid membership upgrade.', 'oba-apis-integration'), ['status' => 400]);
             }
-            
+
             // Process payment for upgrade
             $result = $this->process_membership_upgrade($user_id, $current_level, $new_level, $params);
             if (is_wp_error($result)) {
@@ -322,7 +287,7 @@ class MembershipService {
 
         // Get updated membership status
         $updated_level = pmpro_getMembershipLevelForUser($user_id);
-        
+
         return new WP_REST_Response([
             'success' => true,
             'message' => __('Membership upgraded successfully.', 'oba-apis-integration'),
@@ -355,22 +320,22 @@ class MembershipService {
         }
 
         $user_id = (int) $user->ID;
-        
+
         // Get current membership level
         $membership_level = pmpro_getMembershipLevelForUser($user_id);
-        
+
         // Get user data
         $user_data = get_userdata($user_id);
-        
+
         // Get billing address
         $billing_address = $this->get_user_billing_address($user_id);
-        
+
         // Get custom fields
         $custom_fields = $this->get_user_custom_fields($user_id);
-        
+
         // Get membership history
         $membership_history = $this->get_membership_history($user_id);
-        
+
         // Get recent orders
         $recent_orders = $this->get_user_recent_orders($user_id, 5);
 
@@ -424,7 +389,7 @@ class MembershipService {
 
         $user_id = (int) $user->ID;
         $params = $request->get_json_params();
-        
+
         if (empty($params)) {
             return new WP_Error('invalid_payload', __('Update data is required.', 'oba-apis-integration'), ['status' => 400]);
         }
@@ -500,7 +465,7 @@ class MembershipService {
 
         foreach ($levels as $level) {
             $group_info = $this->get_level_group_info($level->id);
-            
+
             $plans[] = [
                 'id' => $level->id,
                 'name' => $level->name,
@@ -540,7 +505,7 @@ class MembershipService {
 
         $user_id = (int) $user->ID;
         $membership_level = pmpro_getMembershipLevelForUser($user_id);
-        
+
         if (!$membership_level) {
             return new WP_REST_Response([
                 'success' => true,
@@ -590,16 +555,16 @@ class MembershipService {
 
         $groups = pmpro_get_level_groups();
         foreach ($groups as $group) {
-            if (in_array($level_id, $group['levels'])) {
+            $levels = pmpro_get_level_ids_for_group($group->id);
+            if (in_array($level_id, $levels)) {
                 return [
-                    'id' => $group['id'],
-                    'name' => $group['name'],
-                    'description' => $group['description'],
-                    'order' => $group['order']
+                    'id' => $group->id,
+                    'name' => $group->name,
+                    'order' => $group->displayorder
                 ];
             }
         }
-        
+
         return null;
     }
 
@@ -610,7 +575,6 @@ class MembershipService {
         if (!function_exists('pmpro_get_user_fields')) {
             return [];
         }
-
         $fields = pmpro_get_user_fields();
         $custom_fields = [];
 
@@ -681,7 +645,7 @@ class MembershipService {
 
         $environment = pmpro_getOption('gateway_environment');
         $key_option = $environment === 'live' ? 'stripe_publishablekey' : 'stripe_publishablekey';
-        
+
         return pmpro_getOption($key_option) ?: '';
     }
 
@@ -695,7 +659,7 @@ class MembershipService {
 
         $environment = pmpro_getOption('gateway_environment');
         $key_option = $environment === 'live' ? 'paypal_client_id' : 'paypal_sandbox_client_id';
-        
+
         return pmpro_getOption($key_option) ?: '';
     }
 
@@ -709,34 +673,90 @@ class MembershipService {
         $order->membership_id = $level->id;
         $order->gateway = 'stripe';
         $order->billing = $this->build_billing_object($params['billing'] ?? []);
-        
+
         // Set totals
         $order->subtotal = pmpro_round_price((float) $level->initial_payment);
         $order->tax = pmpro_round_price($order->getTax(true));
         $order->total = pmpro_round_price($order->subtotal + $order->tax);
 
-        // Set payment method
-        if (!empty($params['payment_method_id'])) {
-            $order->payment_method_id = sanitize_text_field($params['payment_method_id']);
+        // Set Stripe API key
+        \Stripe\Stripe::setApiKey(defined('STRIPE_SECRET_KEY') ? STRIPE_SECRET_KEY : '');
+
+        // Ensure payment method ID is provided
+        if (empty($params['payment_method_id'])) {
+            return new \WP_Error('stripe_error', 'Payment method ID is required.');
         }
 
-        // Process payment
-        $order->setGateway();
-        $processed = $order->process();
-        
-        if (empty($processed)) {
-            return new WP_Error('payment_failed', $order->error ?: __('Payment processing failed.', 'oba-apis-integration'));
+        $payment_method_id = sanitize_text_field($params['payment_method_id']);
+
+        try {
+            // 1. Retrieve or create Stripe Customer
+            $stripe_customer_id = get_user_meta($user_id, 'stripe_customer_id', true);
+            if (!$stripe_customer_id) {
+                $customer = \Stripe\Customer::create([
+                    'email' => $params['email'] ?? '',
+                    'name'  => trim(($params['custom_fields']['Patient_first_name'] ?? '') . ' ' . ($params['custom_fields']['Patient_last_name'] ?? '')),
+                    'address' => [
+                        'line1'       => $params['custom_fields']['street_address'] ?? '',
+                        'city'        => $params['custom_fields']['town_city'] ?? '',
+                        'postal_code' => $params['custom_fields']['postcode_zip'] ?? '',
+                        'country'     => $params['custom_fields']['Patient_Country'] ?? '',
+                    ],
+                    'metadata' => ['wp_user_id' => $user_id],
+                ]);
+                $stripe_customer_id = $customer->id;
+                update_user_meta($user_id, 'stripe_customer_id', $stripe_customer_id);
+            } else {
+                $customer = \Stripe\Customer::retrieve($stripe_customer_id);
+            }
+
+            // 2. Retrieve PaymentMethod
+            $payment_method = \Stripe\PaymentMethod::retrieve($payment_method_id);
+
+            // Only attach if not already attached
+            if (empty($payment_method->customer) || $payment_method->customer !== $customer->id) {
+                $payment_method->attach(['customer' => $customer->id]);
+            }
+
+            // 3. Set as default payment method
+            \Stripe\Customer::update($customer->id, [
+                'invoice_settings' => ['default_payment_method' => $payment_method_id]
+            ]);
+
+            // 4. Create PaymentIntent to charge immediately
+            $payment_intent = \Stripe\PaymentIntent::create([
+                'amount' => intval($order->total * 100), // amount in cents
+                'currency' => 'usd', // adjust as needed
+                'customer' => $customer->id,
+                'payment_method' => $payment_method_id,
+                'off_session' => true,
+                'confirm' => true,
+            ]);
+
+            // 5. Store Stripe info on PMPro order
+            $order->stripe_customer_id = $customer->id;
+            $order->payment_method_id  = $payment_method_id;
+            $order->payment_transaction_id = $payment_intent->id;
+            $order->payment_type = 'stripe';
+            $order->status = 'success';
+
+        } catch (\Exception $e) {
+            return new \WP_Error('stripe_error', $e->getMessage());
         }
 
-        // Complete checkout
+        // Complete PMPro checkout
+        global $pmpro_level;
+        $pmpro_level = $level;
+
         $completed = pmpro_complete_checkout($order);
         if (!$completed) {
-            return new WP_Error('checkout_failed', __('Checkout completion failed.', 'oba-apis-integration'));
+            return new \WP_Error('checkout_failed', __('Checkout completion failed.', 'oba-apis-integration'));
         }
 
         return [
             'order_id' => $order->id,
-            'subscription_id' => $order->subscription_transaction_id ?? null
+            'subscription_id' => $order->subscription_transaction_id ?? null,
+            'stripe_payment_intent_id' => $payment_intent->id,
         ];
     }
 
@@ -750,7 +770,7 @@ class MembershipService {
                 return ['order_id' => null, 'subscription_id' => null];
             }
         }
-        
+
         return new WP_Error('signup_failed', __('Failed to create free membership.', 'oba-apis-integration'));
     }
 
@@ -764,7 +784,7 @@ class MembershipService {
         $order->membership_id = $new_level->id;
         $order->gateway = 'stripe';
         $order->billing = $this->build_billing_object($params['billing'] ?? []);
-        
+
         // Calculate upgrade cost
         $upgrade_cost = $this->calculate_upgrade_cost($current_level, $new_level);
         $order->subtotal = pmpro_round_price($upgrade_cost);
@@ -779,7 +799,7 @@ class MembershipService {
         // Process payment
         $order->setGateway();
         $processed = $order->process();
-        
+
         if (empty($processed)) {
             return new WP_Error('upgrade_payment_failed', $order->error ?: __('Upgrade payment failed.', 'oba-apis-integration'));
         }
@@ -808,7 +828,7 @@ class MembershipService {
                 return ['order_id' => null, 'subscription_id' => null];
             }
         }
-        
+
         return new WP_Error('upgrade_failed', __('Failed to upgrade membership.', 'oba-apis-integration'));
     }
 
@@ -825,7 +845,7 @@ class MembershipService {
         $billing->country = (string) ($billing_data['country'] ?? '');
         $billing->zip = (string) ($billing_data['postcode'] ?? '');
         $billing->phone = (string) ($billing_data['phone'] ?? '');
-        
+
         return $billing;
     }
 
@@ -836,7 +856,7 @@ class MembershipService {
         // This is a simplified calculation - you may need to implement more complex logic
         $current_cost = (float) $current_level->billing_amount;
         $new_cost = (float) $new_level->billing_amount;
-        
+
         return max(0, $new_cost - $current_cost);
     }
 
@@ -889,7 +909,7 @@ class MembershipService {
      */
     private function set_custom_fields($user_id, $custom_fields) {
         foreach ($custom_fields as $field_id => $value) {
-            update_user_meta($user_id, 'pmpro_' . $field_id, sanitize_text_field($value));
+            update_user_meta($user_id,  $field_id, sanitize_text_field($value));
         }
     }
 
@@ -954,7 +974,7 @@ class MembershipService {
 
         $now = current_time('timestamp');
         $end_timestamp = strtotime($end_date);
-        
+
         if ($end_timestamp <= $now) {
             return 0;
         }
@@ -972,8 +992,8 @@ class MembershipService {
         }
 
         // Check if user has cancellation permissions
-        return current_user_can('pmpro_cancel_membership') || 
-               get_user_meta($user_id, 'pmpro_can_cancel', true);
+        return current_user_can('pmpro_cancel_membership') ||
+            get_user_meta($user_id, 'pmpro_can_cancel', true);
     }
 
     /**
@@ -986,8 +1006,8 @@ class MembershipService {
         }
 
         // Check if user has upgrade permissions
-        return current_user_can('pmpro_change_membership') || 
-               get_user_meta($user_id, 'pmpro_can_upgrade', true);
+        return current_user_can('pmpro_change_membership') ||
+            get_user_meta($user_id, 'pmpro_can_upgrade', true);
     }
 
     /**
@@ -1000,8 +1020,8 @@ class MembershipService {
         }
 
         // Check if user has downgrade permissions
-        return current_user_can('pmpro_change_membership') || 
-               get_user_meta($user_id, 'pmpro_can_downgrade', true);
+        return current_user_can('pmpro_change_membership') ||
+            get_user_meta($user_id, 'pmpro_can_downgrade', true);
     }
 
     /**
@@ -1009,7 +1029,7 @@ class MembershipService {
      */
     private function get_membership_history($user_id) {
         global $wpdb;
-        
+
         $history = $wpdb->get_results($wpdb->prepare(
             "SELECT * FROM {$wpdb->pmpro_memberships_users} 
              WHERE user_id = %d 
@@ -1040,7 +1060,7 @@ class MembershipService {
      */
     private function get_user_recent_orders($user_id, $limit = 5) {
         global $wpdb;
-        
+
         $orders = $wpdb->get_results($wpdb->prepare(
             "SELECT * FROM {$wpdb->pmpro_membership_orders} 
              WHERE user_id = %d 

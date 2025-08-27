@@ -559,7 +559,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"level_id\": {{level_id}},\n    \"username\": \"{{username}}\",\n    \"email\": \"{{email}}\",\n    \"password\": \"{{password}}\",\n    \"first_name\": \"{{first_name}}\",\n    \"last_name\": \"{{last_name}}\",\n    \"company\": \"{{company}}\",\n    \"phone\": \"{{phone}}\",\n    \"billing\": {\n        \"first_name\": \"{{billing_first_name}}\",\n        \"last_name\": \"{{billing_last_name}}\",\n        \"company\": \"{{billing_company}}\",\n        \"address_1\": \"{{billing_address_1}}\",\n        \"address_2\": \"{{billing_address_2}}\",\n        \"city\": \"{{billing_city}}\",\n        \"state\": \"{{billing_state}}\",\n        \"postcode\": \"{{billing_postcode}}\",\n        \"country\": \"{{billing_country}}\",\n        \"phone\": \"{{billing_phone}}\"\n    },\n    \"custom_fields\": {\n        \"field_id\": \"{{field_value}}\"\n    },\n    \"payment_method_id\": \"{{stripe_payment_method_id}}\"\n}",
+              "raw": "{\n    \"level_id\": {{level_id}},\n    \"username\": \"{{username}}\",\n    \"email\": \"{{email}}\",\n    \"password\": \"{{password}}\",\n    \"first_name\": \"{{first_name}}\",\n    \"last_name\": \"{{last_name}}\",\n    \"company\": \"{{company}}\",\n    \"phone\": \"{{phone}}\",\n    \"billing\": {\n        \"first_name\": \"{{billing_first_name}}\",\n        \"last_name\": \"{{billing_last_name}}\",\n        \"company\": \"{{billing_company}}\",\n        \"address_1\": \"{{billing_address_1}}\",\n        \"address_2\": \"{{billing_address_2}}\",\n        \"city\": \"{{billing_city}}\",\n        \"state\": \"{{billing_state}}\",\n        \"postcode\": \"{{billing_postcode}}\",\n        \"country\": \"{{billing_country}}\",\n        \"phone\": \"{{billing_phone}}\"\n    },\n    \"custom_fields\": {\n        \"field_id\": \"{{field_value}}\"\n    },\n    \"stripe_customer_token\": \"{{stripe_customer_token}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -576,7 +576,7 @@
                 "signup"
               ]
             },
-            "description": "Process complete membership signup with user creation, Stripe payment processing, and membership assignment. Supports custom fields, billing address, and payment method setup."
+            "description": "Process complete membership signup with user creation. Payment is processed on your side - send stripe_customer_token after successful payment. Supports custom fields, billing address, and customer token integration."
           },
           "response": []
         },
