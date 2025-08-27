@@ -1,6 +1,6 @@
 {
   "info": {
-    "_postman_id": "c7080cb3-3423-48e0-b906-27fda667ebd7",
+    "_postman_id": "0cd54432-1407-4f94-bfb6-f6fe9d65fea9",
     "name": "OBA APIs Integration",
     "description": "Complete API collection for testing the OBA APIs Integration WordPress plugin. This collection includes all authentication, user management, product, order, vendor, and membership endpoints.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
@@ -513,40 +513,7 @@
     },
     {
       "name": "Membership",
-      "description": "Complete Paid Memberships Pro integration for mobile applications including checkout, signup, management, and profile operations",
       "item": [
-        {
-          "name": "Get Checkout Fields",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/membership/checkout/fields?level_id={{level_id}}",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "membership",
-                "checkout",
-                "fields"
-              ],
-              "query": [
-                {
-                  "key": "level_id",
-                  "value": "{{level_id}}",
-                  "description": "ID of the membership level to get checkout fields for"
-                }
-              ]
-            },
-            "description": "Get comprehensive checkout fields configuration including group fields, custom fields, billing fields, and payment gateway information for a specific membership level"
-          },
-          "response": []
-        },
         {
           "name": "Process Signup",
           "request": {
@@ -559,7 +526,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"level_id\": {{level_id}},\n    \"username\": \"{{username}}\",\n    \"email\": \"{{email}}\",\n    \"password\": \"{{password}}\",\n    \"first_name\": \"{{first_name}}\",\n    \"last_name\": \"{{last_name}}\",\n    \"company\": \"{{company}}\",\n    \"phone\": \"{{phone}}\",\n    \"billing\": {\n        \"first_name\": \"{{billing_first_name}}\",\n        \"last_name\": \"{{billing_last_name}}\",\n        \"company\": \"{{billing_company}}\",\n        \"address_1\": \"{{billing_address_1}}\",\n        \"address_2\": \"{{billing_address_2}}\",\n        \"city\": \"{{billing_city}}\",\n        \"state\": \"{{billing_state}}\",\n        \"postcode\": \"{{billing_postcode}}\",\n        \"country\": \"{{billing_country}}\",\n        \"phone\": \"{{billing_phone}}\"\n    },\n    \"custom_fields\": {\n        \"field_id\": \"{{field_value}}\"\n    },\n    \"stripe_customer_token\": \"{{stripe_customer_token}}\"\n}",
+              "raw": "{\n    \"level_id\": {{level_id}},\n    \"username\": \"{{username}}\",\n    \"email\": \"{{email}}\",\n    \"password\": \"{{password}}\",\n    \"first_name\": \"{{first_name}}\",\n    \"last_name\": \"{{last_name}}\",\n    \"company\": \"{{company}}\",\n    \"phone\": \"{{phone}}\",\n    \"billing\": {\n        \"first_name\": \"{{billing_first_name}}\",\n        \"last_name\": \"{{billing_last_name}}\",\n        \"company\": \"{{billing_company}}\",\n        \"address_1\": \"{{billing_address_1}}\",\n        \"address_2\": \"{{billing_address_2}}\",\n        \"city\": \"{{billing_city}}\",\n        \"state\": \"{{billing_state}}\",\n        \"postcode\": \"{{billing_postcode}}\",\n        \"country\": \"{{billing_country}}\",\n        \"phone\": \"{{billing_phone}}\"\n    },\n    \"custom_fields\": {\n        \"field_id\": \"{{field_value}}\"\n    },\n    \"payment_method_id\": \"{{stripe_payment_method_id}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -576,7 +543,7 @@
                 "signup"
               ]
             },
-            "description": "Process complete membership signup with user creation. Payment is processed on your side - send stripe_customer_token after successful payment. Supports custom fields, billing address, and customer token integration."
+            "description": "Process complete membership signup with user creation, Stripe payment processing, and membership assignment. Supports custom fields, billing address, and payment method setup."
           },
           "response": []
         },
@@ -772,7 +739,8 @@
           },
           "response": []
         }
-      ]
+      ],
+      "description": "Complete Paid Memberships Pro integration for mobile applications including checkout, signup, management, and profile operations"
     },
     {
       "name": "Survey",
@@ -1056,8 +1024,12 @@
             ],
             "url": {
               "raw": "{{base_url}}/checkout",
-              "host": ["{{base_url}}"],
-              "path": ["checkout"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "checkout"
+              ]
             },
             "description": "Retrieve checkout data including cart summary, addresses, available payment methods (COD, Stripe), and shipping methods from ShipStation/Dokan vendors."
           },
@@ -1092,7 +1064,8 @@
               ]
             },
             "description": "Get available shipping rates for the given address. Updates both billing and shipping in WooCommerce session."
-          }
+          },
+          "response": []
         },
         {
           "name": "Set Shipping Method",
@@ -1125,7 +1098,8 @@
               ]
             },
             "description": "Select one or more shipping methods (by rate_id) for each vendor/package in the cart."
-          }
+          },
+          "response": []
         },
         {
           "name": "Validate Checkout",
@@ -1153,8 +1127,13 @@
             },
             "url": {
               "raw": "{{base_url}}/checkout/validate",
-              "host": ["{{base_url}}"],
-              "path": ["checkout", "validate"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "checkout",
+                "validate"
+              ]
             },
             "description": "Validate checkout data before processing."
           },
@@ -1186,8 +1165,13 @@
             },
             "url": {
               "raw": "{{base_url}}/checkout/process",
-              "host": ["{{base_url}}"],
-              "path": ["checkout", "process"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "checkout",
+                "process"
+              ]
             },
             "description": "Process checkout, create order, and initiate payment. For Stripe, send the payment method ID obtained via Stripe SDK in `stripe_payment_method_id`."
           },
@@ -1214,8 +1198,14 @@
             },
             "url": {
               "raw": "{{base_url}}/checkout/coupon/check",
-              "host": ["{{base_url}}"],
-              "path": ["checkout", "coupon", "check"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "checkout",
+                "coupon",
+                "check"
+              ]
             },
             "description": "Check if a coupon code is valid without applying it."
           },
@@ -1242,8 +1232,14 @@
             },
             "url": {
               "raw": "{{base_url}}/checkout/coupon/apply",
-              "host": ["{{base_url}}"],
-              "path": ["checkout", "coupon", "apply"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "checkout",
+                "coupon",
+                "apply"
+              ]
             },
             "description": "Apply a valid coupon code to the current cart."
           },
@@ -1270,8 +1266,14 @@
             },
             "url": {
               "raw": "{{base_url}}/checkout/coupon/remove",
-              "host": ["{{base_url}}"],
-              "path": ["checkout", "coupon", "remove"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "checkout",
+                "coupon",
+                "remove"
+              ]
             },
             "description": "Remove a coupon code from the current cart."
           },
@@ -1371,7 +1373,7 @@
               }
             ],
             "url": {
-              "raw": "{{base_url}}/call-requests/",
+              "raw": "{{base_url}}/call-requests",
               "host": [
                 "{{base_url}}"
               ],
@@ -1552,9 +1554,9 @@
                 "{{base_url}}"
               ],
               "path": [
-                  "doctors",
-                  "rating"
-                ]
+                "doctors",
+                "rating"
+              ]
             },
             "description": "Get all doctors rating"
           },
