@@ -526,7 +526,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"level_id\": {{level_id}},\n    \"username\": \"{{username}}\",\n    \"email\": \"{{email}}\",\n    \"password\": \"{{password}}\",\n    \"first_name\": \"{{first_name}}\",\n    \"last_name\": \"{{last_name}}\",\n    \"company\": \"{{company}}\",\n    \"phone\": \"{{phone}}\",\n    \"billing\": {\n        \"first_name\": \"{{billing_first_name}}\",\n        \"last_name\": \"{{billing_last_name}}\",\n        \"company\": \"{{billing_company}}\",\n        \"address_1\": \"{{billing_address_1}}\",\n        \"address_2\": \"{{billing_address_2}}\",\n        \"city\": \"{{billing_city}}\",\n        \"state\": \"{{billing_state}}\",\n        \"postcode\": \"{{billing_postcode}}\",\n        \"country\": \"{{billing_country}}\",\n        \"phone\": \"{{billing_phone}}\"\n    },\n    \"custom_fields\": {\n        \"field_id\": \"{{field_value}}\"\n    },\n    \"payment_method_id\": \"{{stripe_payment_method_id}}\"\n}",
+              "raw": "{\n    \"level_id\": {{level_id}},\n    \"username\": \"{{username}}\",\n    \"email\": \"{{email}}\",\n    \"password\": \"{{password}}\",\n    \"custom_fields\": {\n        \"Patient_first_name\": \"ahmed\",\n        \"Patient_last_name\": \"hany\",\n        \"Patient_Date_of_Birth\": \"1996-12-12\",\n        \"Patient_Gender\": \"Male\",\n        \"Patient_Country\": \"Egypt\",\n        \"street_address\": \"cairo\",\n        \"town_city\": \"cairo\",\n        \"postcode_zip\": \"12345\"\n    },\n    \"payment_method_id\": \"{{stripe_payment_method_id}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
