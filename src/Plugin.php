@@ -151,22 +151,14 @@ class Plugin
         $this->router->register_route('vendors/{id}', 'GET', [$this->services['vendor'], 'get_vendor']);
         $this->router->register_route('vendors/{id}/products', 'GET', [$this->services['vendor'], 'get_vendor_products']);
 
-        // Membership routes
+        // Membership routes - Complete PMPro Integration
+        $this->router->register_route('membership/checkout/fields', 'GET', [$this->services['membership'], 'get_checkout_fields']);
+        $this->router->register_route('membership/signup', 'POST', [$this->services['membership'], 'process_signup']);
         $this->router->register_route('membership/status', 'GET', [$this->services['membership'], 'get_status'], [AuthMiddleware::class]);
         $this->router->register_route('membership/plans', 'GET', [$this->services['membership'], 'get_plans']);
-        $this->router->register_route('membership/signup-form', 'GET', [$this->services['membership'], 'get_signup_form']);
-        $this->router->register_route('membership/signup', 'POST', [$this->services['membership'], 'process_signup']);
-        // New checkout-like endpoints
-        $this->router->register_route('membership/checkout/fields', 'GET', [$this->services['membership'], 'get_checkout_fields']);
-        $this->router->register_route('membership/checkout/process', 'POST', [$this->services['membership'], 'process_checkout']);
-        $this->router->register_route('membership/change', 'POST', [$this->services['membership'], 'change_membership'], [AuthMiddleware::class]);
         $this->router->register_route('membership/cancel', 'POST', [$this->services['membership'], 'cancel_membership'], [AuthMiddleware::class]);
-        $this->router->register_route('membership/gateways', 'GET', [$this->services['membership'], 'get_payment_gateways']);
-        $this->router->register_route('membership/analytics', 'GET', [$this->services['membership'], 'get_analytics']);
-        $this->router->register_route('membership/history', 'GET', [$this->services['membership'], 'get_membership_history'], [AuthMiddleware::class]);
-        $this->router->register_route('membership/invoices', 'GET', [$this->services['membership'], 'get_invoices'], [AuthMiddleware::class]);
+        $this->router->register_route('membership/change', 'POST', [$this->services['membership'], 'change_membership'], [AuthMiddleware::class]);
         $this->router->register_route('membership/profile', 'GET', [$this->services['membership'], 'get_user_profile'], [AuthMiddleware::class]);
-        $this->router->register_route('membership/card', 'GET', [$this->services['membership'], 'get_membership_card'], [AuthMiddleware::class]);
         $this->router->register_route('membership/profile/update', 'PUT', [$this->services['membership'], 'update_profile_fields'], [AuthMiddleware::class]);
 
         //survey routes

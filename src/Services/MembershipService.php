@@ -5,2045 +5,1082 @@ namespace OBA\APIsIntegration\Services;
 use WP_REST_Request;
 use WP_REST_Response;
 use WP_Error;
-
+use WP_User;
 
 /**
- * Membership service
+ * Comprehensive Membership Service for Paid Memberships Pro Integration
+ * 
+ * This service provides all membership-related functionality for mobile applications
+ * including checkout, signup, cancellation, upgrades, and profile management.
  *
  * @package OBA\APIsIntegration\Services
  */
 class MembershipService {
 
-	/**
-	 * Get checkout fields similar to PMPro checkout
-	 *
-	 * @param WP_REST_Request $request
-	 * @return WP_REST_Response|WP_Error
-	 */
-	public function get_checkout_fields( $request ) {
-		$level_id = absint( $request->get_param( 'level_id' ) );
-		if ( ! $level_id ) {
-			return new WP_Error( 'invalid_level_id', __( 'Valid level ID is required.', 'oba-apis-integration' ), [ 'status' => 400 ] );
-		}
-
-		$level = pmpro_getLevel( $level_id );
-		if ( ! $level ) {
-			return new WP_Error( 'level_not_found', __( 'Membership level not found.', 'oba-apis-integration' ), [ 'status' => 404 ] );
-		}
-
-		$require_billing = ( $level->initial_payment > 0 ) || ( $level->billing_amount > 0 );
-
-		$gateways = function_exists( 'pmpro_gateways' ) ? pmpro_gateways() : [];
-		$primary_gateway = function_exists( 'pmpro_getOption' ) ? pmpro_getOption( 'gateway' ) : '';
-
-		$response = [
-			'level' => [
-				'id' => $level->id,
-				'name' => $level->name,
-				'description' => $level->description,
-				'initial_payment' => $level->initial_payment,
-				'billing_amount' => $level->billing_amount,
-				'cycle_number' => $level->cycle_number,
-				'cycle_period' => $level->cycle_period,
-				'expiration_number' => $level->expiration_number,
-				'expiration_period' => $level->expiration_period,
-			],
-			'user_fields' => [ 'username', 'email', 'password', 'first_name', 'last_name' ],
-			'billing_required' => (bool) $require_billing,
-			'billing_fields' => $require_billing ? [ 'first_name','last_name','address_1','address_2','city','state','postcode','country','phone' ] : [],
-			'payment' => [
-				'gateway' => $primary_gateway,
-				'available_gateways' => $gateways,
-				'stripe' => [ 'expects_payment_method_id' => true ],
-			],
-		];
-
-		return new WP_REST_Response( [ 'success' => true, 'data' => $response ], 200 );
-	}
-
-	/**
-	 * Process checkout using PMPro + Stripe
-	 *
-	 * @param WP_REST_Request $request
-	 * @return WP_REST_Response|WP_Error
-	 */
-	public function process_checkout( $request ) {
-		$params = $request->get_json_params();
-		if ( empty( $params ) ) {
-			return new WP_Error( 'invalid_payload', __( 'Checkout payload is required.', 'oba-apis-integration' ), [ 'status' => 400 ] );
-		}
-
-		$level_id = absint( $params['level_id'] ?? 0 );
-		if ( ! $level_id ) {
-			return new WP_Error( 'invalid_level', __( 'Valid level_id is required.', 'oba-apis-integration' ), [ 'status' => 400 ] );
-		}
-		$level = pmpro_getLevel( $level_id );
-		if ( ! $level ) {
-			return new WP_Error( 'level_not_found', __( 'Membership level not found.', 'oba-apis-integration' ), [ 'status' => 404 ] );
-		}
-
-		$gateway = function_exists( 'pmpro_getOption' ) ? pmpro_getOption( 'gateway' ) : '';
-		if ( ( $level->initial_payment > 0 || $level->billing_amount > 0 ) && $gateway !== 'stripe' ) {
-			return new WP_Error( 'gateway_not_configured', __( 'Stripe gateway must be configured for paid checkout.', 'oba-apis-integration' ), [ 'status' => 400 ] );
-		}
-
-		$user = $request->get_param( 'current_user' );
-		$user_id = $user ? (int) $user->ID : 0;
-
-		// Create user if not logged in
-		if ( ! $user_id ) {
-			$required_user = [ 'username','email','password','first_name','last_name' ];
-			foreach ( $required_user as $f ) {
-				if ( empty( $params[ $f ] ) ) {
-					return new WP_Error( 'missing_user_field', sprintf( __( 'Missing required user field: %s', 'oba-apis-integration' ), $f ), [ 'status' => 400 ] );
-				}
-			}
-			$existing = get_user_by( 'email', sanitize_email( $params['email'] ) );
-			if ( $existing ) {
-				return new WP_Error( 'user_exists', __( 'User with this email already exists.', 'oba-apis-integration' ), [ 'status' => 409 ] );
-			}
-			$new_user_id = wp_insert_user( [
-				'user_login' => sanitize_user( $params['username'] ),
-				'user_email' => sanitize_email( $params['email'] ),
-				'user_pass' => (string) $params['password'],
-				'first_name' => sanitize_text_field( $params['first_name'] ),
-				'last_name' => sanitize_text_field( $params['last_name'] ),
-				'role' => 'subscriber',
-			] );
-			if ( is_wp_error( $new_user_id ) ) {
-				return $new_user_id;
-			}
-			$user_id = (int) $new_user_id;
-		}
-
-		// Build MemberOrder
-		$order = new \MemberOrder();
-		$order->user_id = $user_id;
-		$order->membership_id = $level->id;
-		$order->gateway = $gateway ?: 'free';
-		$order->billing = new \stdClass();
-		$billing = (array) ( $params['billing'] ?? [] );
-		$order->billing->name = trim( ( $billing['first_name'] ?? '' ) . ' ' . ( $billing['last_name'] ?? '' ) );
-		$order->billing->street = (string) ( $billing['address_1'] ?? '' );
-		$order->billing->street2 = (string) ( $billing['address_2'] ?? '' );
-		$order->billing->city = (string) ( $billing['city'] ?? '' );
-		$order->billing->state = (string) ( $billing['state'] ?? '' );
-		$order->billing->country = (string) ( $billing['country'] ?? '' );
-		$order->billing->zip = (string) ( $billing['postcode'] ?? '' );
-		$order->billing->phone = (string) ( $billing['phone'] ?? '' );
-
-		// Totals
-		$order->subtotal = pmpro_round_price( (float) $level->initial_payment );
-		$order->tax = pmpro_round_price( $order->getTax( true ) );
-		$order->total = pmpro_round_price( $order->subtotal + $order->tax );
-
-		// Initialize gateway on order
-		$order->setGateway();
-		$order->getMembershipLevelAtCheckout();
-
-		// Stripe specific: pass PaymentMethod or PaymentIntent id
-		if ( ! empty( $params['payment_method_id'] ) ) {
-			$order->payment_method_id = sanitize_text_field( $params['payment_method_id'] );
-		}
-		if ( ! empty( $params['payment_intent_id'] ) ) {
-			$order->payment_intent_id = sanitize_text_field( $params['payment_intent_id'] );
-		}
-
-		// Allow PMPro hooks to modify order
-		$order = apply_filters( $order->total > 0 ? 'pmpro_checkout_order' : 'pmpro_checkout_order_free', $order );
-
-		// Process payment (charges/subscription) via gateway
-		$processed = $order->process();
-		if ( empty( $processed ) ) {
-			$err = ! empty( $order->error ) ? $order->error : __( 'Payment processing failed.', 'oba-apis-integration' );
-			return new WP_Error( 'payment_failed', $err, [ 'status' => 400 ] );
-		}
-
-		// Complete checkout: assign membership, save order, run actions
-		if ( ! function_exists( 'pmpro_complete_checkout' ) ) {
-			return new WP_Error( 'pmpro_missing', __( 'PMPro checkout handler missing.', 'oba-apis-integration' ), [ 'status' => 500 ] );
-		}
-		$completed = pmpro_complete_checkout( $order );
-		if ( ! $completed ) {
-			return new WP_Error( 'checkout_incomplete', __( 'Checkout completed payment but failed to assign membership.', 'oba-apis-integration' ), [ 'status' => 500 ] );
-		}
-
-		// Update optional profile/billing fields
-		if ( ! empty( $billing ) ) {
-			$this->set_user_billing_address( $user_id, [
-				'first_name' => $billing['first_name'] ?? '',
-				'last_name' => $billing['last_name'] ?? '',
-				'company' => $billing['company'] ?? '',
-				'address_1' => $billing['address_1'] ?? '',
-				'address_2' => $billing['address_2'] ?? '',
-				'city' => $billing['city'] ?? '',
-				'state' => $billing['state'] ?? '',
-				'postcode' => $billing['postcode'] ?? '',
-				'country' => $billing['country'] ?? '',
-				'phone' => $billing['phone'] ?? '',
-			] );
-		}
-		if ( ! empty( $params['custom_fields'] ) && is_array( $params['custom_fields'] ) ) {
-			$this->set_custom_fields( $user_id, $params['custom_fields'] );
-		}
-
-		$level_now = pmpro_getMembershipLevelForUser( $user_id );
-		return new WP_REST_Response( [
-			'success' => true,
-			'message' => __( 'Checkout completed successfully.', 'oba-apis-integration' ),
-			'data' => [
-				'order_id' => (int) $order->id,
-				'order_code' => $order->code,
-				'level_id' => $level_now ? $level_now->id : null,
-				'level_name' => $level_now ? $level_now->name : null,
-				'payment_transaction_id' => $order->payment_transaction_id ?? null,
-				'subscription_transaction_id' => $order->subscription_transaction_id ?? null,
-			],
-		], 201 );
-	}
-
-	/**
-	 * Get membership card-like info
-	 *
-	 * @param WP_REST_Request $request
-	 * @return WP_REST_Response|WP_Error
-	 */
-	public function get_membership_card( $request ) {
-		$user = $request->get_param( 'current_user' );
-		if ( ! $user ) {
-			return new WP_Error( 'authentication_required', __( 'Authentication required.', 'oba-apis-integration' ), [ 'status' => 401 ] );
-		}
-		$level = pmpro_getMembershipLevelForUser( $user->ID );
-		if ( ! $level ) {
-			return new WP_REST_Response( [ 'success' => true, 'data' => [ 'has_membership' => false ] ], 200 );
-		}
-		$card = [
-			'has_membership' => true,
-			'user' => [
-				'id' => $user->ID,
-				'name' => trim( $user->first_name . ' ' . $user->last_name ) ?: $user->display_name,
-				'email' => $user->user_email,
-			],
-			'level' => [
-				'id' => $level->id,
-				'name' => $level->name,
-				'starts_at' => $level->startdate ?? null,
-				'ends_at' => $level->enddate ?? null,
-				'is_active' => $this->is_membership_active( $level ),
-			],
-		];
-		return new WP_REST_Response( [ 'success' => true, 'data' => $card ], 200 );
-	}
-
-	/**
-	 * Update profile fields (WP + billing + custom)
-	 *
-	 * @param WP_REST_Request $request
-	 * @return WP_REST_Response|WP_Error
-	 */
-	public function update_profile_fields( $request ) {
-		$user = $request->get_param( 'current_user' );
-		if ( ! $user ) {
-			return new WP_Error( 'authentication_required', __( 'Authentication required.', 'oba-apis-integration' ), [ 'status' => 401 ] );
-		}
-		$params = $request->get_json_params() ?: [];
-		$updates = [];
-		if ( ! empty( $params['first_name'] ) ) { $updates['first_name'] = sanitize_text_field( $params['first_name'] ); }
-		if ( ! empty( $params['last_name'] ) ) { $updates['last_name'] = sanitize_text_field( $params['last_name'] ); }
-		if ( ! empty( $params['email'] ) ) { $updates['user_email'] = sanitize_email( $params['email'] ); }
-		if ( ! empty( $params['display_name'] ) ) { $updates['display_name'] = sanitize_text_field( $params['display_name'] ); }
-		if ( ! empty( $params['website'] ) ) { $updates['user_url'] = esc_url_raw( $params['website'] ); }
-		if ( ! empty( $updates ) ) {
-			$updates['ID'] = $user->ID;
-			wp_update_user( $updates );
-		}
-		if ( ! empty( $params['billing'] ) && is_array( $params['billing'] ) ) {
-			$this->set_user_billing_address( $user->ID, $params['billing'] );
-		}
-		if ( ! empty( $params['custom_fields'] ) && is_array( $params['custom_fields'] ) ) {
-			$this->set_custom_fields( $user->ID, $params['custom_fields'] );
-		}
-		return new WP_REST_Response( [ 'success' => true ], 200 );
-	}
-    /*
-	 * Get membership status
-	 *
-	 * @param WP_REST_Request $request Request object.
-	 * @return WP_REST_Response|WP_Error
-	 */
-	public function get_status( $request ) {
-		$user = $request->get_param( 'current_user' );
-		
-		if ( ! $user ) {
-			return new WP_Error(
-				'authentication_required',
-				__( 'Authentication required.', 'oba-apis-integration' ),
-				[ 'status' => 401 ]
-			);
-		}
-
-//		if ( ! class_exists( 'PMPro_Member' ) ) {
-//			return new WP_Error(
-//				'pmpro_required',
-//				__( 'Paid Memberships Pro is required for membership operations.', 'oba-apis-integration' ),
-//				[ 'status' => 400 ]
-//			);
-//		}
-
-		$level = function_exists( 'pmpro_getMembershipLevelForUser' ) ? pmpro_getMembershipLevelForUser( $user->ID ) : false;
-		$membership_data = [];
-
-		if ( $level ) {
-			$membership_data = [
-				'has_membership' => true,
-				'level_id' => $level->id,
-				'level_name' => $level->name,
-				'level_description' => $level->description ?? '',
-				'level_cost' => $level->initial_payment ?? 0,
-				'level_billing_amount' => $level->billing_amount ?? 0,
-				'level_billing_limit' => $level->billing_limit ?? 0,
-				'level_cycle_number' => $level->cycle_number ?? 0,
-				'level_cycle_period' => $level->cycle_period ?? '',
-				'level_trial_amount' => $level->trial_amount ?? 0,
-				'level_trial_limit' => $level->trial_limit ?? 0,
-				'start_date' => $level->startdate ?? null,
-				'end_date' => $level->enddate ?? null,
-				'status' => $this->is_membership_active( $level ) ? 'active' : 'inactive',
-				'is_active' => $this->is_membership_active( $level ),
-				'days_remaining' => $this->get_days_remaining( $level ),
-			];
-		} else {
-			$membership_data = [
-				'has_membership' => false,
-				'level_id' => null,
-				'level_name' => null,
-				'level_description' => null,
-				'level_cost' => null,
-				'level_billing_amount' => null,
-				'level_billing_limit' => null,
-				'level_cycle_number' => null,
-				'level_cycle_period' => null,
-				'level_trial_amount' => null,
-				'level_trial_limit' => null,
-				'start_date' => null,
-				'end_date' => null,
-				'status' => null,
-				'is_active' => false,
-				'days_remaining' => 0,
-			];
-		}
-
-		return new WP_REST_Response( [
-			'success' => true,
-			'data' => $membership_data,
-		], 200 );
-	}
-
-	/**
-	 * Get membership plans
-	 *
-	 * @param WP_REST_Request $request Request object.
-	 * @return WP_REST_Response|WP_Error
-	 */
-	public function get_plans( $request ) {
-//		if ( ! class_exists( 'PMPro_Member' ) ) {
-//			return new WP_Error(
-//				'pmpro_required',
-//				__( 'Paid Memberships Pro is required for membership operations.', 'oba-apis-integration' ),
-//				[ 'status' => 400 ]
-//			);
-//		}
-
-		// Get query parameters
-		$page = max( 1, absint( $request->get_param( 'page' ) ?: 1 ) );
-		$per_page = min( 50, max( 1, absint( $request->get_param( 'per_page' ) ?: 10 ) ) );
-		$active_only = $request->get_param( 'active_only' ) !== 'false';
-
-		// Get all membership levels
-		$levels = pmpro_getAllLevels( true, true );
-		$formatted_levels = [];
-
-		foreach ( $levels as $level ) {
-			// Filter by active status if requested
-			if ( $active_only && ! $level->allow_signups ) {
-				continue;
-			}
-
-			$formatted_levels[] = [
-				'id' => $level->id,
-				'name' => $level->name,
-				'description' => $level->description,
-				'confirmation' => $level->confirmation,
-				'initial_payment' => $level->initial_payment,
-				'billing_amount' => $level->billing_amount,
-				'billing_limit' => $level->billing_limit,
-				'cycle_number' => $level->cycle_number,
-				'cycle_period' => $level->cycle_period,
-				'trial_amount' => $level->trial_amount,
-				'trial_limit' => $level->trial_limit,
-				'allow_signups' => (bool) $level->allow_signups,
-				'expiration_number' => $level->expiration_number,
-				'expiration_period' => $level->expiration_period,
-				'categories' => $this->get_level_categories( $level->id ),
-				'features' => $this->get_level_features( $level->id ),
-			];
-		}
-
-		// Apply pagination
-		$total_levels = count( $formatted_levels );
-		$offset = ( $page - 1 ) * $per_page;
-		$paginated_levels = array_slice( $formatted_levels, $offset, $per_page );
-
-		return new WP_REST_Response( [
-			'success' => true,
-			'data' => $paginated_levels,
-			'pagination' => [
-				'page' => $page,
-				'per_page' => $per_page,
-				'total' => $total_levels,
-				'total_pages' => ceil( $total_levels / $per_page ),
-			],
-		], 200 );
-	}
-
-	/**
-	 * Get signup form fields for a specific membership level
-	 *
-	 * @param WP_REST_Request $request Request object.
-	 * @return WP_REST_Response|WP_Error
-	 */
-    public function get_signup_form( $request ) {
-        $level_id = absint( $request->get_param( 'level_id' ) );
-        if ( ! $level_id ) {
-            return new WP_Error(
-                'invalid_level_id',
-                __( 'Valid level ID is required.', 'oba-apis-integration' ),
-                [ 'status' => 400 ]
-            );
+    /**
+     * Get comprehensive checkout fields including group fields based on level
+     *
+     * @param WP_REST_Request $request
+     * @return WP_REST_Response|WP_Error
+     */
+    public function get_checkout_fields($request) {
+        $level_id = absint($request->get_param('level_id'));
+        if (!$level_id) {
+            return new WP_Error('invalid_level_id', __('Valid level ID is required.', 'oba-apis-integration'), ['status' => 400]);
         }
 
-        // Get the membership level
-        $level = pmpro_getLevel( $level_id );
-        if ( ! $level ) {
-            return new WP_Error(
-                'level_not_found',
-                __( 'Membership level not found.', 'oba-apis-integration' ),
-                [ 'status' => 404 ]
-            );
+        // Get membership level
+        $level = pmpro_getLevel($level_id);
+        if (!$level) {
+            return new WP_Error('level_not_found', __('Membership level not found.', 'oba-apis-integration'), ['status' => 404]);
         }
 
-        // Get all available gateways
-        $gateways = pmpro_gateways();
+        // Check if level is in a group
+        $group_info = $this->get_level_group_info($level_id);
+        
+        // Get available payment gateways
+        $gateways = function_exists('pmpro_gateways') ? pmpro_gateways() : [];
+        $primary_gateway = function_exists('pmpro_getOption') ? pmpro_getOption('gateway') : '';
+        
+        // Determine if billing is required
+        $require_billing = ($level->initial_payment > 0) || ($level->billing_amount > 0);
+        
+        // Get custom user fields
+        $custom_fields = $this->get_custom_user_fields();
+        
+        // Get billing fields configuration
+        $billing_fields = $this->get_billing_fields_config($require_billing);
+        
+        // Get countries and states for dropdowns
+        $countries = $this->get_countries_list();
+        $states = $this->get_states_list();
 
-        // Get the main and additional enabled gateways from settings
-        $primary_gateway   = pmpro_getOption( 'gateway' );
-        $enabled_gateways  = pmpro_getOption( 'gateways' ); // may be array or string
+        $response = [
+            'level' => [
+                'id' => $level->id,
+                'name' => $level->name,
+                'description' => $level->description,
+                'initial_payment' => (float) $level->initial_payment,
+                'billing_amount' => (float) $level->billing_amount,
+                'cycle_number' => (int) $level->cycle_number,
+                'cycle_period' => $level->cycle_period,
+                'billing_limit' => (int) $level->billing_limit,
+                'trial_amount' => (float) $level->trial_amount,
+                'trial_limit' => (int) $level->trial_limit,
+                'expiration_number' => (int) $level->expiration_number,
+                'expiration_period' => $level->expiration_period,
+                'allow_signups' => (bool) $level->allow_signups,
+            ],
+            'group' => $group_info,
+            'user_fields' => [
+                'required' => ['username', 'email', 'password', 'first_name', 'last_name'],
+                'optional' => ['company', 'phone'],
+                'custom' => $custom_fields
+            ],
+            'billing_required' => $require_billing,
+            'billing_fields' => $billing_fields,
+            'payment' => [
+                'gateway' => $primary_gateway,
+                'available_gateways' => $gateways,
+                'stripe' => [
+                    'expects_payment_method_id' => true,
+                    'public_key' => $this->get_stripe_public_key(),
+                    'currency' => pmpro_getOption('currency') ?: 'USD'
+                ],
+                'paypal' => [
+                    'client_id' => $this->get_paypal_client_id(),
+                    'environment' => pmpro_getOption('gateway_environment') ?: 'sandbox'
+                ]
+            ],
+            'countries' => $countries,
+            'states' => $states,
+            'terms' => [
+                'enabled' => pmpro_getOption('tospage'),
+                'page_id' => pmpro_getOption('tospage'),
+                'required' => pmpro_getOption('tospage') > 0
+            ],
+            'privacy' => [
+                'enabled' => pmpro_getOption('privacy_page'),
+                'page_id' => pmpro_getOption('privacy_page'),
+                'required' => pmpro_getOption('privacy_page') > 0
+            ]
+        ];
 
-        if ( ! is_array( $enabled_gateways ) ) {
-            $enabled_gateways = $enabled_gateways ? [ $enabled_gateways ] : [];
+        return new WP_REST_Response(['success' => true, 'data' => $response], 200);
+    }
+
+    /**
+     * Process membership signup with Stripe integration
+     *
+     * @param WP_REST_Request $request
+     * @return WP_REST_Response|WP_Error
+     */
+    public function process_signup($request) {
+        $params = $request->get_json_params();
+        if (empty($params)) {
+            return new WP_Error('invalid_payload', __('Checkout payload is required.', 'oba-apis-integration'), ['status' => 400]);
         }
 
-        // Build only active gateways list
-        $available_gateways = [];
-        foreach ( $gateways as $slug => $name ) {
-            if ( $slug === $primary_gateway || in_array( $slug, $enabled_gateways, true ) ) {
-                $available_gateways[] = [
-                    'id'        => $slug,
-                    'name'      => $name,
-                    'is_active' => true,
+        // Validate required parameters
+        $required_fields = ['level_id', 'email', 'password', 'first_name', 'last_name'];
+        foreach ($required_fields as $field) {
+            if (empty($params[$field])) {
+                return new WP_Error('missing_field', sprintf(__('Missing required field: %s', 'oba-apis-integration'), $field), ['status' => 400]);
+            }
+        }
+
+        $level_id = absint($params['level_id']);
+        $level = pmpro_getLevel($level_id);
+        if (!$level) {
+            return new WP_Error('level_not_found', __('Membership level not found.', 'oba-apis-integration'), ['status' => 404]);
+        }
+
+        // Check if user already exists
+        $existing_user = get_user_by('email', sanitize_email($params['email']));
+        if ($existing_user) {
+            return new WP_Error('user_exists', __('User with this email already exists.', 'oba-apis-integration'), ['status' => 409]);
+        }
+
+        // Validate payment method for paid levels
+        if (($level->initial_payment > 0 || $level->billing_amount > 0)) {
+            if (empty($params['payment_method_id'])) {
+                return new WP_Error('payment_required', __('Payment method is required for paid membership.', 'oba-apis-integration'), ['status' => 400]);
+            }
+        }
+
+        // Create user account
+        $user_data = [
+            'user_login' => sanitize_user($params['username']),
+            'user_email' => sanitize_email($params['email']),
+            'user_pass' => (string) $params['password'],
+            'first_name' => sanitize_text_field($params['first_name']),
+            'last_name' => sanitize_text_field($params['last_name']),
+            'role' => 'subscriber',
+            'show_admin_bar_front' => false
+        ];
+
+        // Add optional fields
+        if (!empty($params['company'])) {
+            $user_data['company'] = sanitize_text_field($params['company']);
+        }
+        if (!empty($params['phone'])) {
+            $user_data['phone'] = sanitize_text_field($params['phone']);
+        }
+
+        $user_id = wp_insert_user($user_data);
+        if (is_wp_error($user_id)) {
+            return $user_id;
+        }
+
+        // Set custom fields
+        if (!empty($params['custom_fields']) && is_array($params['custom_fields'])) {
+            $this->set_custom_fields($user_id, $params['custom_fields']);
+        }
+
+        // Set billing address
+        if (!empty($params['billing']) && is_array($params['billing'])) {
+            $this->set_user_billing_address($user_id, $params['billing']);
+        }
+
+        // Process payment and create membership
+        if ($level->initial_payment > 0 || $level->billing_amount > 0) {
+            $result = $this->process_paid_signup($user_id, $level, $params);
+            if (is_wp_error($result)) {
+                // Clean up user if payment fails
+                wp_delete_user($user_id);
+                return $result;
+            }
+        } else {
+            // Free membership
+            $result = $this->process_free_signup($user_id, $level);
+            if (is_wp_error($result)) {
+                wp_delete_user($user_id);
+                return $result;
+            }
+        }
+
+        // Get final membership status
+        $membership_level = pmpro_getMembershipLevelForUser($user_id);
+        
+        return new WP_REST_Response([
+            'success' => true,
+            'message' => __('Membership created successfully.', 'oba-apis-integration'),
+            'data' => [
+                'user_id' => $user_id,
+                'membership_level' => $membership_level ? [
+                    'id' => $membership_level->id,
+                    'name' => $membership_level->name,
+                    'startdate' => $membership_level->startdate,
+                    'enddate' => $membership_level->enddate
+                ] : null,
+                'order_id' => $result['order_id'] ?? null,
+                'subscription_id' => $result['subscription_id'] ?? null
+            ]
+        ], 201);
+    }
+
+    /**
+     * Cancel user membership
+     *
+     * @param WP_REST_Request $request
+     * @return WP_REST_Response|WP_Error
+     */
+    public function cancel_membership($request) {
+        $user = $request->get_param('current_user');
+        if (!$user) {
+            return new WP_Error('unauthorized', __('User not authenticated.', 'oba-apis-integration'), ['status' => 401]);
+        }
+
+        $user_id = (int) $user->ID;
+        $membership_level = pmpro_getMembershipLevelForUser($user_id);
+        
+        if (!$membership_level) {
+            return new WP_Error('no_membership', __('User has no active membership to cancel.', 'oba-apis-integration'), ['status' => 400]);
+        }
+
+        // Get cancellation parameters
+        $params = $request->get_json_params();
+        $cancel_at_period_end = !empty($params['cancel_at_period_end']);
+        $reason = !empty($params['reason']) ? sanitize_text_field($params['reason']) : '';
+
+        // Process cancellation
+        if (function_exists('pmpro_changeMembershipLevel')) {
+            $result = pmpro_changeMembershipLevel(0, $user_id, 'cancelled');
+            
+            if ($result !== false) {
+                // Log cancellation reason
+                if ($reason) {
+                    update_user_meta($user_id, 'pmpro_cancellation_reason', $reason);
+                }
+
+                // Send cancellation email
+                if (function_exists('pmpro_send_cancellation_email')) {
+                    pmpro_send_cancellation_email($user_id);
+                }
+
+                return new WP_REST_Response([
+                    'success' => true,
+                    'message' => __('Membership cancelled successfully.', 'oba-apis-integration'),
+                    'data' => [
+                        'cancelled_at' => current_time('mysql'),
+                        'reason' => $reason,
+                        'cancel_at_period_end' => $cancel_at_period_end
+                    ]
+                ], 200);
+            }
+        }
+
+        return new WP_Error('cancellation_failed', __('Failed to cancel membership.', 'oba-apis-integration'), ['status' => 500]);
+    }
+
+    /**
+     * Upgrade or change membership level
+     *
+     * @param WP_REST_Request $request
+     * @return WP_REST_Response|WP_Error
+     */
+    public function change_membership($request) {
+        $user = $request->get_param('current_user');
+        if (!$user) {
+            return new WP_Error('unauthorized', __('User not authenticated.', 'oba-apis-integration'), ['status' => 401]);
+        }
+
+        $user_id = (int) $user->ID;
+        $params = $request->get_json_params();
+        
+        if (empty($params['new_level_id'])) {
+            return new WP_Error('missing_level', __('New level ID is required.', 'oba-apis-integration'), ['status' => 400]);
+        }
+
+        $new_level_id = absint($params['new_level_id']);
+        $new_level = pmpro_getLevel($new_level_id);
+        
+        if (!$new_level) {
+            return new WP_Error('level_not_found', __('New membership level not found.', 'oba-apis-integration'), ['status' => 404]);
+        }
+
+        $current_level = pmpro_getMembershipLevelForUser($user_id);
+        
+        // Check if upgrade requires payment
+        if (($new_level->initial_payment > 0 || $new_level->billing_amount > 0)) {
+            if (empty($params['payment_method_id'])) {
+                return new WP_Error('payment_required', __('Payment method is required for paid membership upgrade.', 'oba-apis-integration'), ['status' => 400]);
+            }
+            
+            // Process payment for upgrade
+            $result = $this->process_membership_upgrade($user_id, $current_level, $new_level, $params);
+            if (is_wp_error($result)) {
+                return $result;
+            }
+        } else {
+            // Free upgrade
+            $result = $this->process_free_upgrade($user_id, $new_level);
+            if (is_wp_error($result)) {
+                return $result;
+            }
+        }
+
+        // Get updated membership status
+        $updated_level = pmpro_getMembershipLevelForUser($user_id);
+        
+        return new WP_REST_Response([
+            'success' => true,
+            'message' => __('Membership upgraded successfully.', 'oba-apis-integration'),
+            'data' => [
+                'previous_level' => $current_level ? [
+                    'id' => $current_level->id,
+                    'name' => $current_level->name
+                ] : null,
+                'new_level' => $updated_level ? [
+                    'id' => $updated_level->id,
+                    'name' => $updated_level->name,
+                    'startdate' => $updated_level->startdate,
+                    'enddate' => $updated_level->enddate
+                ] : null,
+                'order_id' => $result['order_id'] ?? null
+            ]
+        ], 200);
+    }
+
+    /**
+     * Get user membership profile information
+     *
+     * @param WP_REST_Request $request
+     * @return WP_REST_Response|WP_Error
+     */
+    public function get_user_profile($request) {
+        $user = $request->get_param('current_user');
+        if (!$user) {
+            return new WP_Error('unauthorized', __('User not authenticated.', 'oba-apis-integration'), ['status' => 401]);
+        }
+
+        $user_id = (int) $user->ID;
+        
+        // Get current membership level
+        $membership_level = pmpro_getMembershipLevelForUser($user_id);
+        
+        // Get user data
+        $user_data = get_userdata($user_id);
+        
+        // Get billing address
+        $billing_address = $this->get_user_billing_address($user_id);
+        
+        // Get custom fields
+        $custom_fields = $this->get_user_custom_fields($user_id);
+        
+        // Get membership history
+        $membership_history = $this->get_membership_history($user_id);
+        
+        // Get recent orders
+        $recent_orders = $this->get_user_recent_orders($user_id, 5);
+
+        $profile_data = [
+            'user' => [
+                'id' => $user_id,
+                'username' => $user_data->user_login,
+                'email' => $user_data->user_email,
+                'first_name' => $user_data->first_name,
+                'last_name' => $user_data->last_name,
+                'display_name' => $user_data->display_name,
+                'company' => get_user_meta($user_id, 'billing_company', true),
+                'phone' => get_user_meta($user_id, 'billing_phone', true),
+                'date_created' => $user_data->user_registered,
+                'last_login' => get_user_meta($user_id, 'last_login', true)
+            ],
+            'membership' => $membership_level ? [
+                'id' => $membership_level->id,
+                'name' => $membership_level->name,
+                'description' => $membership_level->description,
+                'startdate' => $membership_level->startdate,
+                'enddate' => $membership_level->enddate,
+                'status' => $this->get_membership_status($membership_level),
+                'can_cancel' => $this->can_user_cancel_membership($user_id),
+                'can_upgrade' => $this->can_user_upgrade_membership($user_id),
+                'group' => $this->get_level_group_info($membership_level->id)
+            ] : null,
+            'billing_address' => $billing_address,
+            'custom_fields' => $custom_fields,
+            'membership_history' => $membership_history,
+            'recent_orders' => $recent_orders
+        ];
+
+        return new WP_REST_Response([
+            'success' => true,
+            'data' => $profile_data
+        ], 200);
+    }
+
+    /**
+     * Update user profile information
+     *
+     * @param WP_REST_Request $request
+     * @return WP_REST_Response|WP_Error
+     */
+    public function update_profile_fields($request) {
+        $user = $request->get_param('current_user');
+        if (!$user) {
+            return new WP_Error('unauthorized', __('User not authenticated.', 'oba-apis-integration'), ['status' => 401]);
+        }
+
+        $user_id = (int) $user->ID;
+        $params = $request->get_json_params();
+        
+        if (empty($params)) {
+            return new WP_Error('invalid_payload', __('Update data is required.', 'oba-apis-integration'), ['status' => 400]);
+        }
+
+        $updated_fields = [];
+        $errors = [];
+
+        // Update basic user fields
+        if (!empty($params['first_name'])) {
+            $first_name = sanitize_text_field($params['first_name']);
+            if (update_user_meta($user_id, 'first_name', $first_name)) {
+                $updated_fields['first_name'] = $first_name;
+            }
+        }
+
+        if (!empty($params['last_name'])) {
+            $last_name = sanitize_text_field($params['last_name']);
+            if (update_user_meta($user_id, 'last_name', $last_name)) {
+                $updated_fields['last_name'] = $last_name;
+            }
+        }
+
+        if (!empty($params['display_name'])) {
+            $display_name = sanitize_text_field($params['display_name']);
+            if (wp_update_user(['ID' => $user_id, 'display_name' => $display_name])) {
+                $updated_fields['display_name'] = $display_name;
+            }
+        }
+
+        // Update billing address
+        if (!empty($params['billing']) && is_array($params['billing'])) {
+            $billing_result = $this->update_user_billing_address($user_id, $params['billing']);
+            if (is_wp_error($billing_result)) {
+                $errors[] = $billing_result->get_error_message();
+            } else {
+                $updated_fields['billing'] = $params['billing'];
+            }
+        }
+
+        // Update custom fields
+        if (!empty($params['custom_fields']) && is_array($params['custom_fields'])) {
+            $custom_result = $this->update_user_custom_fields($user_id, $params['custom_fields']);
+            if (is_wp_error($custom_result)) {
+                $errors[] = $custom_result->get_error_message();
+            } else {
+                $updated_fields['custom_fields'] = $params['custom_fields'];
+            }
+        }
+
+        if (empty($updated_fields)) {
+            return new WP_Error('no_updates', __('No fields were updated.', 'oba-apis-integration'), ['status' => 400]);
+        }
+
+        return new WP_REST_Response([
+            'success' => true,
+            'message' => __('Profile updated successfully.', 'oba-apis-integration'),
+            'data' => [
+                'updated_fields' => $updated_fields,
+                'errors' => $errors
+            ]
+        ], 200);
+    }
+
+    /**
+     * Get available membership plans
+     *
+     * @param WP_REST_Request $request
+     * @return WP_REST_Response|WP_Error
+     */
+    public function get_plans($request) {
+        $levels = pmpro_getAllLevels(true, true);
+        $plans = [];
+
+        foreach ($levels as $level) {
+            $group_info = $this->get_level_group_info($level->id);
+            
+            $plans[] = [
+                'id' => $level->id,
+                'name' => $level->name,
+                'description' => $level->description,
+                'initial_payment' => (float) $level->initial_payment,
+                'billing_amount' => (float) $level->billing_amount,
+                'cycle_number' => (int) $level->cycle_number,
+                'cycle_period' => $level->cycle_period,
+                'billing_limit' => (int) $level->billing_limit,
+                'trial_amount' => (float) $level->trial_amount,
+                'trial_limit' => (int) $level->trial_limit,
+                'expiration_number' => (int) $level->expiration_number,
+                'expiration_period' => $level->expiration_period,
+                'allow_signups' => (bool) $level->allow_signups,
+                'group' => $group_info,
+                'features' => $this->get_level_features($level->id)
+            ];
+        }
+
+        return new WP_REST_Response([
+            'success' => true,
+            'data' => $plans
+        ], 200);
+    }
+
+    /**
+     * Get user membership status
+     *
+     * @param WP_REST_Request $request
+     * @return WP_REST_Response|WP_Error
+     */
+    public function get_status($request) {
+        $user = $request->get_param('current_user');
+        if (!$user) {
+            return new WP_Error('unauthorized', __('User not authenticated.', 'oba-apis-integration'), ['status' => 401]);
+        }
+
+        $user_id = (int) $user->ID;
+        $membership_level = pmpro_getMembershipLevelForUser($user_id);
+        
+        if (!$membership_level) {
+            return new WP_REST_Response([
+                'success' => true,
+                'data' => [
+                    'has_membership' => false,
+                    'message' => __('No active membership found.', 'oba-apis-integration')
+                ]
+            ], 200);
+        }
+
+        $status_data = [
+            'has_membership' => true,
+            'level' => [
+                'id' => $membership_level->id,
+                'name' => $membership_level->name,
+                'description' => $membership_level->description,
+                'startdate' => $membership_level->startdate,
+                'enddate' => $membership_level->enddate,
+                'status' => $this->get_membership_status($membership_level),
+                'days_remaining' => $this->calculate_days_remaining($membership_level->enddate),
+                'group' => $this->get_level_group_info($membership_level->id)
+            ],
+            'permissions' => [
+                'can_cancel' => $this->can_user_cancel_membership($user_id),
+                'can_upgrade' => $this->can_user_upgrade_membership($user_id),
+                'can_downgrade' => $this->can_user_downgrade_membership($user_id)
+            ]
+        ];
+
+        return new WP_REST_Response([
+            'success' => true,
+            'data' => $status_data
+        ], 200);
+    }
+
+    // ============================================================================
+    // PRIVATE HELPER METHODS
+    // ============================================================================
+
+    /**
+     * Get level group information
+     */
+    private function get_level_group_info($level_id) {
+        if (!function_exists('pmpro_get_level_groups')) {
+            return null;
+        }
+
+        $groups = pmpro_get_level_groups();
+        foreach ($groups as $group) {
+            if (in_array($level_id, $group['levels'])) {
+                return [
+                    'id' => $group['id'],
+                    'name' => $group['name'],
+                    'description' => $group['description'],
+                    'order' => $group['order']
+                ];
+            }
+        }
+        
+        return null;
+    }
+
+    /**
+     * Get custom user fields configuration
+     */
+    private function get_custom_user_fields() {
+        if (!function_exists('pmpro_get_user_fields')) {
+            return [];
+        }
+
+        $fields = pmpro_get_user_fields();
+        $custom_fields = [];
+
+        foreach ($fields as $field) {
+            $custom_fields[] = [
+                'id' => $field['id'],
+                'name' => $field['name'],
+                'type' => $field['type'],
+                'required' => !empty($field['required']),
+                'options' => !empty($field['options']) ? $field['options'] : null
+            ];
+        }
+
+        return $custom_fields;
+    }
+
+    /**
+     * Get billing fields configuration
+     */
+    private function get_billing_fields_config($required) {
+        if (!$required) {
+            return [];
+        }
+
+        return [
+            'first_name' => ['required' => true, 'type' => 'text'],
+            'last_name' => ['required' => true, 'type' => 'text'],
+            'company' => ['required' => false, 'type' => 'text'],
+            'address_1' => ['required' => true, 'type' => 'text'],
+            'address_2' => ['required' => false, 'type' => 'text'],
+            'city' => ['required' => true, 'type' => 'text'],
+            'state' => ['required' => true, 'type' => 'select'],
+            'postcode' => ['required' => true, 'type' => 'text'],
+            'country' => ['required' => true, 'type' => 'select'],
+            'phone' => ['required' => false, 'type' => 'tel']
+        ];
+    }
+
+    /**
+     * Get countries list
+     */
+    private function get_countries_list() {
+        if (!function_exists('pmpro_get_countries')) {
+            return [];
+        }
+
+        return pmpro_get_countries();
+    }
+
+    /**
+     * Get states list
+     */
+    private function get_states_list() {
+        if (!function_exists('pmpro_get_states')) {
+            return [];
+        }
+
+        return pmpro_get_states();
+    }
+
+    /**
+     * Get Stripe public key
+     */
+    private function get_stripe_public_key() {
+        if (!function_exists('pmpro_getOption')) {
+            return '';
+        }
+
+        $environment = pmpro_getOption('gateway_environment');
+        $key_option = $environment === 'live' ? 'stripe_publishablekey' : 'stripe_publishablekey';
+        
+        return pmpro_getOption($key_option) ?: '';
+    }
+
+    /**
+     * Get PayPal client ID
+     */
+    private function get_paypal_client_id() {
+        if (!function_exists('pmpro_getOption')) {
+            return '';
+        }
+
+        $environment = pmpro_getOption('gateway_environment');
+        $key_option = $environment === 'live' ? 'paypal_client_id' : 'paypal_sandbox_client_id';
+        
+        return pmpro_getOption($key_option) ?: '';
+    }
+
+    /**
+     * Process paid membership signup
+     */
+    private function process_paid_signup($user_id, $level, $params) {
+        // Create MemberOrder
+        $order = new \MemberOrder();
+        $order->user_id = $user_id;
+        $order->membership_id = $level->id;
+        $order->gateway = 'stripe';
+        $order->billing = $this->build_billing_object($params['billing'] ?? []);
+        
+        // Set totals
+        $order->subtotal = pmpro_round_price((float) $level->initial_payment);
+        $order->tax = pmpro_round_price($order->getTax(true));
+        $order->total = pmpro_round_price($order->subtotal + $order->tax);
+
+        // Set payment method
+        if (!empty($params['payment_method_id'])) {
+            $order->payment_method_id = sanitize_text_field($params['payment_method_id']);
+        }
+
+        // Process payment
+        $order->setGateway();
+        $processed = $order->process();
+        
+        if (empty($processed)) {
+            return new WP_Error('payment_failed', $order->error ?: __('Payment processing failed.', 'oba-apis-integration'));
+        }
+
+        // Complete checkout
+        $completed = pmpro_complete_checkout($order);
+        if (!$completed) {
+            return new WP_Error('checkout_failed', __('Checkout completion failed.', 'oba-apis-integration'));
+        }
+
+        return [
+            'order_id' => $order->id,
+            'subscription_id' => $order->subscription_transaction_id ?? null
+        ];
+    }
+
+    /**
+     * Process free membership signup
+     */
+    private function process_free_signup($user_id, $level) {
+        if (function_exists('pmpro_changeMembershipLevel')) {
+            $result = pmpro_changeMembershipLevel($level->id, $user_id);
+            if ($result !== false) {
+                return ['order_id' => null, 'subscription_id' => null];
+            }
+        }
+        
+        return new WP_Error('signup_failed', __('Failed to create free membership.', 'oba-apis-integration'));
+    }
+
+    /**
+     * Process membership upgrade with payment
+     */
+    private function process_membership_upgrade($user_id, $current_level, $new_level, $params) {
+        // Create upgrade order
+        $order = new \MemberOrder();
+        $order->user_id = $user_id;
+        $order->membership_id = $new_level->id;
+        $order->gateway = 'stripe';
+        $order->billing = $this->build_billing_object($params['billing'] ?? []);
+        
+        // Calculate upgrade cost
+        $upgrade_cost = $this->calculate_upgrade_cost($current_level, $new_level);
+        $order->subtotal = pmpro_round_price($upgrade_cost);
+        $order->tax = pmpro_round_price($order->getTax(true));
+        $order->total = pmpro_round_price($order->subtotal + $order->tax);
+
+        // Set payment method
+        if (!empty($params['payment_method_id'])) {
+            $order->payment_method_id = sanitize_text_field($params['payment_method_id']);
+        }
+
+        // Process payment
+        $order->setGateway();
+        $processed = $order->process();
+        
+        if (empty($processed)) {
+            return new WP_Error('upgrade_payment_failed', $order->error ?: __('Upgrade payment failed.', 'oba-apis-integration'));
+        }
+
+        // Change membership level
+        if (function_exists('pmpro_changeMembershipLevel')) {
+            $result = pmpro_changeMembershipLevel($new_level->id, $user_id, 'changed');
+            if ($result === false) {
+                return new WP_Error('upgrade_failed', __('Failed to upgrade membership level.', 'oba-apis-integration'));
+            }
+        }
+
+        return [
+            'order_id' => $order->id,
+            'subscription_id' => $order->subscription_transaction_id ?? null
+        ];
+    }
+
+    /**
+     * Process free membership upgrade
+     */
+    private function process_free_upgrade($user_id, $new_level) {
+        if (function_exists('pmpro_changeMembershipLevel')) {
+            $result = pmpro_changeMembershipLevel($new_level->id, $user_id, 'changed');
+            if ($result !== false) {
+                return ['order_id' => null, 'subscription_id' => null];
+            }
+        }
+        
+        return new WP_Error('upgrade_failed', __('Failed to upgrade membership.', 'oba-apis-integration'));
+    }
+
+    /**
+     * Build billing object for orders
+     */
+    private function build_billing_object($billing_data) {
+        $billing = new \stdClass();
+        $billing->name = trim(($billing_data['first_name'] ?? '') . ' ' . ($billing_data['last_name'] ?? ''));
+        $billing->street = (string) ($billing_data['address_1'] ?? '');
+        $billing->street2 = (string) ($billing_data['address_2'] ?? '');
+        $billing->city = (string) ($billing_data['city'] ?? '');
+        $billing->state = (string) ($billing_data['state'] ?? '');
+        $billing->country = (string) ($billing_data['country'] ?? '');
+        $billing->zip = (string) ($billing_data['postcode'] ?? '');
+        $billing->phone = (string) ($billing_data['phone'] ?? '');
+        
+        return $billing;
+    }
+
+    /**
+     * Calculate upgrade cost between levels
+     */
+    private function calculate_upgrade_cost($current_level, $new_level) {
+        // This is a simplified calculation - you may need to implement more complex logic
+        $current_cost = (float) $current_level->billing_amount;
+        $new_cost = (float) $new_level->billing_amount;
+        
+        return max(0, $new_cost - $current_cost);
+    }
+
+    /**
+     * Set user billing address
+     */
+    private function set_user_billing_address($user_id, $billing_data) {
+        $billing_fields = [
+            'billing_first_name', 'billing_last_name', 'billing_company',
+            'billing_address_1', 'billing_address_2', 'billing_city',
+            'billing_state', 'billing_postcode', 'billing_country', 'billing_phone'
+        ];
+
+        foreach ($billing_fields as $field) {
+            $key = str_replace('billing_', '', $field);
+            if (isset($billing_data[$key])) {
+                update_user_meta($user_id, $field, sanitize_text_field($billing_data[$key]));
+            }
+        }
+    }
+
+    /**
+     * Get user billing address
+     */
+    private function get_user_billing_address($user_id) {
+        return [
+            'first_name' => get_user_meta($user_id, 'billing_first_name', true),
+            'last_name' => get_user_meta($user_id, 'billing_last_name', true),
+            'company' => get_user_meta($user_id, 'billing_company', true),
+            'address_1' => get_user_meta($user_id, 'billing_address_1', true),
+            'address_2' => get_user_meta($user_id, 'billing_address_2', true),
+            'city' => get_user_meta($user_id, 'billing_city', true),
+            'state' => get_user_meta($user_id, 'billing_state', true),
+            'postcode' => get_user_meta($user_id, 'billing_postcode', true),
+            'country' => get_user_meta($user_id, 'billing_country', true),
+            'phone' => get_user_meta($user_id, 'billing_phone', true)
+        ];
+    }
+
+    /**
+     * Update user billing address
+     */
+    private function update_user_billing_address($user_id, $billing_data) {
+        $this->set_user_billing_address($user_id, $billing_data);
+        return true;
+    }
+
+    /**
+     * Set custom fields for user
+     */
+    private function set_custom_fields($user_id, $custom_fields) {
+        foreach ($custom_fields as $field_id => $value) {
+            update_user_meta($user_id, 'pmpro_' . $field_id, sanitize_text_field($value));
+        }
+    }
+
+    /**
+     * Get user custom fields
+     */
+    private function get_user_custom_fields($user_id) {
+        if (!function_exists('pmpro_get_user_fields')) {
+            return [];
+        }
+
+        $fields = pmpro_get_user_fields();
+        $custom_fields = [];
+
+        foreach ($fields as $field) {
+            $value = get_user_meta($user_id, 'pmpro_' . $field['id'], true);
+            if ($value) {
+                $custom_fields[$field['id']] = [
+                    'name' => $field['name'],
+                    'value' => $value,
+                    'type' => $field['type']
                 ];
             }
         }
 
-        // Get custom fields if PMPro Custom Fields addon is active
-        $custom_fields = [];
-        if ( class_exists( 'PMPro_Custom_Fields' ) ) {
-            $custom_fields = $this->get_custom_fields( $level_id );
-        }
-
-        $form_data = [
-            'level' => [
-                'id'                => $level->id,
-                'name'              => $level->name,
-                'description'       => $level->description,
-                'initial_payment'   => $level->initial_payment,
-                'billing_amount'    => $level->billing_amount,
-                'billing_limit'     => $level->billing_limit,
-                'cycle_number'      => $level->cycle_number,
-                'cycle_period'      => $level->cycle_period,
-                'trial_amount'      => $level->trial_amount,
-                'trial_limit'       => $level->trial_limit,
-                'expiration_number' => $level->expiration_number,
-                'expiration_period' => $level->expiration_period,
-            ],
-            'gateways'        => $available_gateways,
-            'custom_fields'   => $custom_fields,
-            'required_fields' => [
-                'username',
-                'email',
-                'password',
-                'confirm_password',
-                'first_name',
-                'last_name',
-                'billing_address_1',
-                'billing_city',
-                'billing_state',
-                'billing_postcode',
-                'billing_country',
-            ],
-        ];
-
-        return new WP_REST_Response(
-            [
-                'success' => true,
-                'data'    => $form_data,
-            ],
-            200
-        );
+        return $custom_fields;
     }
 
-	/**
-	 * Process membership signup
-	 *
-	 * @param WP_REST_Request $request Request object.
-	 * @return WP_REST_Response|WP_Error
-	 */
-	public function process_signup( $request ) {
-//		if ( ! class_exists( 'PMPro_Member' ) ) {
-//			return new WP_Error(
-//				'pmpro_required',
-//				__( 'Paid Memberships Pro is required for membership operations.', 'oba-apis-integration' ),
-//				[ 'status' => 400 ]
-//			);
-//		}
-
-		$signup_data = $request->get_json_params();
-		if ( empty( $signup_data ) ) {
-			return new WP_Error(
-				'invalid_signup_data',
-				__( 'Signup data is required.', 'oba-apis-integration' ),
-				[ 'status' => 400 ]
-			);
-		}
-
-		// Validate required fields
-		$required_fields = [ 'level_id', 'username', 'email', 'password', 'first_name', 'last_name' ];
-		foreach ( $required_fields as $field ) {
-			if ( empty( $signup_data[ $field ] ) ) {
-				return new WP_Error(
-					'missing_required_field',
-					sprintf( __( 'Missing required field: %s', 'oba-apis-integration' ), $field ),
-					[ 'status' => 400 ]
-				);
-			}
-		}
-
-		// Validate level exists
-		$level = pmpro_getLevel( $signup_data['level_id'] );
-		if ( ! $level ) {
-			return new WP_Error(
-				'invalid_level',
-				__( 'Invalid membership level.', 'oba-apis-integration' ),
-				[ 'status' => 400 ]
-			);
-		}
-
-		// Check if user already exists
-		$existing_user = get_user_by( 'email', $signup_data['email'] );
-		if ( $existing_user ) {
-			return new WP_Error(
-				'user_exists',
-				__( 'User with this email already exists.', 'oba-apis-integration' ),
-				[ 'status' => 409 ]
-			);
-		}
-
-		try {
-			// Create user
-			$user_data = [
-				'user_login' => sanitize_user( $signup_data['username'] ),
-				'user_email' => sanitize_email( $signup_data['email'] ),
-				'user_pass' => $signup_data['password'],
-				'first_name' => sanitize_text_field( $signup_data['first_name'] ),
-				'last_name' => sanitize_text_field( $signup_data['last_name'] ),
-				'role' => 'subscriber',
-			];
-
-			$user_id = wp_insert_user( $user_data );
-			if ( is_wp_error( $user_id ) ) {
-				return $user_id;
-			}
-
-			// Set billing address if provided
-			if ( ! empty( $signup_data['billing_address'] ) ) {
-				$this->set_user_billing_address( $user_id, $signup_data['billing_address'] );
-			}
-
-			// Set custom fields if provided
-			if ( ! empty( $signup_data['custom_fields'] ) && class_exists( 'PMPro_Custom_Fields' ) ) {
-				$this->set_custom_fields( $user_id, $signup_data['custom_fields'] );
-			}
-
-			// Process payment and create membership
-			$membership_result = $this->create_membership( $user_id, $signup_data );
-
-			if ( is_wp_error( $membership_result ) ) {
-				// If membership creation fails, delete the user
-				wp_delete_user( $user_id );
-				return $membership_result;
-			}
-
-			// Get user data for response
-			$user = get_user_by( 'ID', $user_id );
-			$user_data = [
-				'id' => $user->ID,
-				'username' => $user->user_login,
-				'email' => $user->user_email,
-				'first_name' => $user->first_name,
-				'last_name' => $user->last_name,
-				'membership' => $membership_result,
-			];
-
-			return new WP_REST_Response( [
-				'success' => true,
-				'message' => __( 'Membership signup completed successfully.', 'oba-apis-integration' ),
-				'data' => $user_data,
-			], 201 );
-
-		} catch ( \Exception $e ) {
-			return new WP_Error(
-				'signup_failed',
-				$e->getMessage(),
-				[ 'status' => 500 ]
-			);
-		}
-	}
-
-	/**
-	 * Upgrade/downgrade existing membership
-	 *
-	 * @param WP_REST_Request $request Request object.
-	 * @return WP_REST_Response|WP_Error
-	 */
-	public function change_membership( $request ) {
-		$user = $request->get_param( 'current_user' );
-		
-		if ( ! $user ) {
-			return new WP_Error(
-				'authentication_required',
-				__( 'Authentication required.', 'oba-apis-integration' ),
-				[ 'status' => 401 ]
-			);
-		}
-
-//		if ( ! class_exists( 'PMPro_Member' ) ) {
-//			return new WP_Error(
-//				'pmpro_required',
-//				__( 'Paid Memberships Pro is required for membership operations.', 'oba-apis-integration' ),
-//				[ 'status' => 400 ]
-//			);
-//		}
-
-		$change_data = $request->get_json_params();
-		if ( empty( $change_data ) || empty( $change_data['new_level_id'] ) ) {
-			return new WP_Error(
-				'invalid_change_data',
-				__( 'New level ID is required.', 'oba-apis-integration' ),
-				[ 'status' => 400 ]
-			);
-		}
-
-		$new_level_id = absint( $change_data['new_level_id'] );
-		$new_level = pmpro_getLevel( $new_level_id );
-		if ( ! $new_level ) {
-			return new WP_Error(
-				'invalid_level',
-				__( 'Invalid membership level.', 'oba-apis-integration' ),
-				[ 'status' => 400 ]
-			);
-		}
-
-		try {
-			// Change membership level
-			$result = pmpro_changeMembershipLevel( (int) $new_level_id, (int) $user->ID );
-			
-			if ( $result ) {
-				// Get updated membership data
-				$updated_level = function_exists( 'pmpro_getMembershipLevelForUser' ) ? pmpro_getMembershipLevelForUser( $user->ID ) : false;
-				$membership_data = [
-					'level_id' => $updated_level ? $updated_level->id : null,
-					'level_name' => $updated_level ? $updated_level->name : null,
-					'status' => $updated_level && $this->is_membership_active( $updated_level ) ? 'active' : 'inactive',
-					'start_date' => $updated_level->startdate ?? null,
-					'end_date' => $updated_level->enddate ?? null,
-				];
-
-				return new WP_REST_Response( [
-					'success' => true,
-					'message' => __( 'Membership level changed successfully.', 'oba-apis-integration' ),
-					'data' => $membership_data,
-				], 200 );
-			} else {
-				return new WP_Error(
-					'change_failed',
-					__( 'Failed to change membership level.', 'oba-apis-integration' ),
-					[ 'status' => 500 ]
-				);
-			}
-		} catch ( \Exception $e ) {
-			return new WP_Error(
-				'change_failed',
-				$e->getMessage(),
-				[ 'status' => 500 ]
-			);
-		}
-	}
-
-	/**
-	 * Cancel membership
-	 *
-	 * @param WP_REST_Request $request Request object.
-	 * @return WP_REST_Response|WP_Error
-	 */
-	public function cancel_membership( $request ) {
-		$user = $request->get_param( 'current_user' );
-		
-		if ( ! $user ) {
-			return new WP_Error(
-				'authentication_required',
-				__( 'Authentication required.', 'oba-apis-integration' ),
-				[ 'status' => 401 ]
-			);
-		}
-
-//		if ( ! class_exists( 'PMPro_Member' ) ) {
-//			return new WP_Error(
-//				'pmpro_required',
-//				__( 'Paid Memberships Pro is required for membership operations.', 'oba-apis-integration' ),
-//				[ 'status' => 400 ]
-//			);
-//		}
-
-		$cancel_data = $request->get_json_params();
-
-		try {
-			// Cancel all active membership levels for this user immediately.
-			$levels = function_exists( 'pmpro_getMembershipLevelsForUser' ) ? pmpro_getMembershipLevelsForUser( $user->ID ) : [];
-			$had_levels = false;
-			if ( ! empty( $levels ) ) {
-				$had_levels = true;
-				foreach ( $levels as $lvl ) {
-					pmpro_cancelMembershipLevel( (int) $lvl->id, (int) $user->ID, 'inactive' );
-				}
-			}
-
-			if ( $had_levels ) {
-				return new WP_REST_Response( [
-					'success' => true,
-					'message' => __( 'Membership cancelled successfully.', 'oba-apis-integration' ),
-					'data' => [ 'cancelled' => true ],
-				], 200 );
-			}
-
-			return new WP_Error(
-				'no_active_membership',
-				__( 'No active membership to cancel.', 'oba-apis-integration' ),
-				[ 'status' => 400 ]
-			);
-		} catch ( \Exception $e ) {
-			return new WP_Error(
-				'cancellation_failed',
-				$e->getMessage(),
-				[ 'status' => 500 ]
-			);
-		}
-	}
-
-	/**
-	 * Get available payment gateways
-	 *
-	 * @param WP_REST_Request $request Request object.
-	 * @return WP_REST_Response|WP_Error
-	 */
-	public function get_payment_gateways( $request ) {
-//		if ( ! class_exists( 'PMPro_Member' ) ) {
-//			return new WP_Error(
-//				'pmpro_required',
-//				__( 'Paid Memberships Pro is required for membership operations.', 'oba-apis-integration' ),
-//				[ 'status' => 400 ]
-//			);
-//		}
-
-		$all_gateways = function_exists( 'pmpro_gateways' ) ? pmpro_gateways() : [];
-		$primary_gateway   = function_exists( 'pmpro_getOption' ) ? pmpro_getOption( 'gateway' ) : '';
-		$enabled_gateways  = function_exists( 'pmpro_getOption' ) ? pmpro_getOption( 'gateways' ) : [];
-		if ( ! is_array( $enabled_gateways ) ) {
-			$enabled_gateways = $enabled_gateways ? [ $enabled_gateways ] : [];
-		}
-
-		$gateway_details = [];
-		foreach ( $all_gateways as $gateway => $gateway_name ) {
-			$is_active = ( $gateway === $primary_gateway ) || in_array( $gateway, $enabled_gateways, true );
-			$gateway_details[] = [
-				'id' => $gateway,
-				'name' => $gateway_name,
-				'is_active' => (bool) $is_active,
-				'description' => $this->get_gateway_description( $gateway ),
-				'supports_recurring' => $this->gateway_supports_recurring( $gateway ),
-				'supports_trial' => $this->gateway_supports_trial( $gateway ),
-			];
-		}
-
-		return new WP_REST_Response( [
-			'success' => true,
-			'data' => $gateway_details,
-		], 200 );
-	}
-
-	/**
-	 * Get membership analytics
-	 *
-	 * @param WP_REST_Request $request Request object.
-	 * @return WP_REST_Response|WP_Error
-	 */
-	public function get_analytics( $request ) {
-		// Get date range parameters
-		$start_date = $request->get_param( 'start_date' ) ?: date( 'Y-m-d', strtotime( '-30 days' ) );
-		$end_date = $request->get_param( 'end_date' ) ?: date( 'Y-m-d' );
-
-		global $wpdb;
-		$table = $wpdb->prefix . 'pmpro_memberships_users';
-		$counts = [
-			'active' => 0,
-			'expired' => 0,
-			'cancelled' => 0,
-			'pending' => 0,
-			'total' => 0,
-		];
-		$counts['total'] = (int) $wpdb->get_var( "SELECT COUNT(DISTINCT user_id) FROM $table" );
-		$rows = $wpdb->get_results( "SELECT status, COUNT(DISTINCT user_id) as c FROM $table GROUP BY status" );
-		foreach ( (array) $rows as $row ) {
-			$st = strtolower( (string) $row->status );
-			if ( isset( $counts[ $st ] ) ) {
-				$counts[ $st ] = (int) $row->c;
-			}
-		}
-
-		$stats = [
-			'total_members' => $counts['total'],
-			'active_members' => $counts['active'],
-			'expired_members' => $counts['expired'],
-			'cancelled_members' => $counts['cancelled'],
-			'pending_members' => $counts['pending'],
-			'new_members_today' => $this->get_new_members_count( $start_date, $end_date ),
-			'revenue_today' => $this->get_revenue_count( $start_date, $end_date ),
-			'level_distribution' => $this->get_level_distribution(),
-		];
-
-		return new WP_REST_Response( [
-			'success' => true,
-			'data' => $stats,
-		], 200 );
-	}
-
-	/**
-	 * Check if membership is active
-	 *
-	 * @param object $level Membership level object.
-	 * @return bool
-	 */
-	private function is_membership_active( $level ) {
-		if ( empty( $level ) ) {
-			return false;
-		}
-
-		if ( ! empty( $level->enddate ) ) {
-			$end_ts = is_numeric( $level->enddate ) ? (int) $level->enddate : strtotime( $level->enddate );
-			if ( $end_ts && $end_ts < time() ) {
-				return false;
-			}
-		}
-
-		return true;
-	}
-
-	/**
-	 * Get days remaining for membership
-	 *
-	 * @param object $level Membership level object.
-	 * @return int
-	 */
-	private function get_days_remaining( $level ) {
-		if ( empty( $level ) || empty( $level->enddate ) ) {
-			return 0;
-		}
-
-		$end_ts = is_numeric( $level->enddate ) ? (int) $level->enddate : strtotime( $level->enddate );
-		if ( ! $end_ts ) {
-			return 0;
-		}
-
-		$current_time = time();
-		$days_remaining = ceil( ( $end_ts - $current_time ) / DAY_IN_SECONDS );
-
-		return max( 0, $days_remaining );
-	}
-
-	/**
-	 * Get level categories
-	 *
-	 * @param int $level_id Level ID.
-	 * @return array
-	 */
-	private function get_level_categories( $level_id ) {
-		$categories = [];
-
-		// Check if PMPro has category functionality
-		if ( function_exists( 'pmpro_getMembershipCategories' ) ) {
-			$category_ids = pmpro_getMembershipCategories( $level_id );
-			if ( ! empty( $category_ids ) ) {
-				foreach ( (array) $category_ids as $cat_id ) {
-					$term = get_term( (int) $cat_id, 'category' );
-					if ( $term && ! is_wp_error( $term ) ) {
-						$categories[] = [
-							'id' => $term->term_id,
-							'name' => $term->name,
-							'slug' => $term->slug,
-							'description' => $term->description,
-							'count' => (int) $term->count,
-						];
-					}
-				}
-			}
-		}
-
-		// If no PMPro categories, try to get from custom taxonomy
-		if ( empty( $categories ) ) {
-			$custom_categories = get_option( 'pmpro_level_categories_' . $level_id, [] );
-			if ( ! empty( $custom_categories ) ) {
-				foreach ( $custom_categories as $category ) {
-					$categories[] = [
-						'id' => $category['id'] ?? 0,
-						'name' => $category['name'] ?? '',
-						'slug' => $category['slug'] ?? '',
-						'description' => $category['description'] ?? '',
-						'count' => $category['count'] ?? 0,
-					];
-				}
-			}
-		}
-
-		// Add default categories based on level characteristics
-		if ( empty( $categories ) ) {
-			$level = pmpro_getLevel( $level_id );
-			if ( $level ) {
-				// Determine categories based on level properties
-				if ( $level->initial_payment > 0 ) {
-					$categories[] = [
-						'id' => 'paid',
-						'name' => 'Paid Membership',
-						'slug' => 'paid',
-						'description' => 'Requires payment to access',
-						'count' => 1,
-					];
-				}
-
-				if ( $level->billing_amount > 0 ) {
-					$categories[] = [
-						'id' => 'recurring',
-						'name' => 'Recurring Billing',
-						'slug' => 'recurring',
-						'description' => 'Automatically renews',
-						'count' => 1,
-					];
-				}
-
-				if ( $level->trial_amount > 0 ) {
-					$categories[] = [
-						'id' => 'trial',
-						'name' => 'Trial Available',
-						'slug' => 'trial',
-						'description' => 'Free trial period included',
-						'count' => 1,
-					];
-				}
-
-				if ( ! empty( $level->expiration_number ) ) {
-					$categories[] = [
-						'id' => 'expiring',
-						'name' => 'Time-Limited',
-						'slug' => 'expiring',
-						'description' => 'Membership expires after a period',
-						'count' => 1,
-					];
-				}
-			}
-		}
-
-		return $categories;
-	}
-
-	/**
-	 * Get level features
-	 *
-	 * @param int $level_id Level ID.
-	 * @return array
-	 */
-	private function get_level_features( $level_id ) {
-		$features = [];
-
-		// Get features from PMPro level options
-		$level = pmpro_getLevel( $level_id );
-		if ( $level ) {
-			// Basic features based on level properties
-			if ( $level->initial_payment > 0 ) {
-				$features[] = [
-					'id' => 'initial_payment',
-					'name' => 'Initial Payment',
-					'description' => sprintf( 'One-time payment of %s', pmpro_formatPrice( $level->initial_payment ) ),
-					'value' => $level->initial_payment,
-					'type' => 'payment',
-				];
-			}
-
-			if ( $level->billing_amount > 0 ) {
-				$features[] = [
-					'id' => 'recurring_billing',
-					'name' => 'Recurring Billing',
-					'description' => sprintf( '%s every %d %s', pmpro_formatPrice( $level->billing_amount ), $level->cycle_number, $level->cycle_period ),
-					'value' => $level->billing_amount,
-					'type' => 'billing',
-				];
-
-				if ( $level->billing_limit > 0 ) {
-					$features[] = [
-						'id' => 'billing_limit',
-						'name' => 'Billing Limit',
-						'description' => sprintf( 'Bills %d times then stops', $level->billing_limit ),
-						'value' => $level->billing_limit,
-						'type' => 'limit',
-					];
-				}
-			}
-
-			if ( $level->trial_amount > 0 ) {
-				$features[] = [
-					'id' => 'trial',
-					'name' => 'Free Trial',
-					'description' => sprintf( '%s for %d %s', pmpro_formatPrice( $level->trial_amount ), $level->trial_limit, $level->cycle_period ),
-					'value' => $level->trial_amount,
-					'type' => 'trial',
-				];
-			}
-
-			if ( ! empty( $level->expiration_number ) ) {
-				$features[] = [
-					'id' => 'expiration',
-					'name' => 'Membership Duration',
-					'description' => sprintf( '%d %s', $level->expiration_number, $level->expiration_period ),
-					'value' => $level->expiration_number,
-					'type' => 'duration',
-				];
-			}
-
-			// Add confirmation message as a feature
-			if ( ! empty( $level->confirmation ) ) {
-				$features[] = [
-					'id' => 'confirmation',
-					'name' => 'Welcome Message',
-					'description' => wp_strip_all_tags( $level->confirmation ),
-					'value' => $level->confirmation,
-					'type' => 'message',
-				];
-			}
-		}
-
-		// Get custom features from options
-		$custom_features = get_option( 'pmpro_level_features_' . $level_id, [] );
-		if ( ! empty( $custom_features ) ) {
-			foreach ( $custom_features as $feature ) {
-				$features[] = [
-					'id' => $feature['id'] ?? '',
-					'name' => $feature['name'] ?? '',
-					'description' => $feature['description'] ?? '',
-					'value' => $feature['value'] ?? '',
-					'type' => $feature['type'] ?? 'custom',
-				];
-			}
-		}
-
-		// Add default features based on level type
-		if ( empty( $features ) ) {
-			$features[] = [
-				'id' => 'basic_access',
-				'name' => 'Basic Access',
-				'description' => 'Access to basic content and features',
-				'value' => 'basic',
-				'type' => 'access',
-			];
-		}
-
-		return $features;
-	}
-
-	/**
-	 * Get custom fields for a level
-	 *
-	 * @param int $level_id Level ID.
-	 * @return array
-	 */
-	private function get_custom_fields( $level_id ) {
-		$custom_fields = [];
-
-		// Check if PMPro Custom Fields addon is active
-		if ( ! class_exists( 'PMPro_Custom_Fields' ) ) {
-			return $custom_fields;
-		}
-
-		// Get custom fields for the specific level
-		$level_fields = get_option( 'pmpro_custom_fields_level_' . $level_id, [] );
-		
-		if ( ! empty( $level_fields ) ) {
-			foreach ( $level_fields as $field ) {
-				$custom_fields[] = [
-					'id' => $field['id'] ?? '',
-					'name' => $field['name'] ?? '',
-					'label' => $field['label'] ?? '',
-					'type' => $field['type'] ?? 'text',
-					'required' => ! empty( $field['required'] ),
-					'options' => $field['options'] ?? [],
-					'default_value' => $field['default_value'] ?? '',
-					'help_text' => $field['help_text'] ?? '',
-					'order' => $field['order'] ?? 0,
-					'field_type' => $field['field_type'] ?? 'user',
-					'validation' => $field['validation'] ?? '',
-					'admin_only' => ! empty( $field['admin_only'] ),
-					'profile' => ! empty( $field['profile'] ),
-					'checkout' => ! empty( $field['checkout'] ),
-				];
-			}
-		}
-
-		// Get global custom fields (not level-specific)
-		$global_fields = get_option( 'pmpro_custom_fields', [] );
-		
-		if ( ! empty( $global_fields ) ) {
-			foreach ( $global_fields as $field ) {
-				// Only include fields that should appear on checkout
-				if ( ! empty( $field['checkout'] ) ) {
-					$custom_fields[] = [
-						'id' => $field['id'] ?? '',
-						'name' => $field['name'] ?? '',
-						'label' => $field['label'] ?? '',
-						'type' => $field['type'] ?? 'text',
-						'required' => ! empty( $field['required'] ),
-						'options' => $field['options'] ?? [],
-						'default_value' => $field['default_value'] ?? '',
-						'help_text' => $field['help_text'] ?? '',
-						'order' => $field['order'] ?? 0,
-						'field_type' => $field['field_type'] ?? 'user',
-						'validation' => $field['validation'] ?? '',
-						'admin_only' => ! empty( $field['admin_only'] ),
-						'profile' => ! empty( $field['profile'] ),
-						'checkout' => ! empty( $field['checkout'] ),
-						'is_global' => true,
-					];
-				}
-			}
-		}
-
-		// Sort fields by order
-		usort( $custom_fields, function( $a, $b ) {
-			return ( $a['order'] ?? 0 ) - ( $b['order'] ?? 0 );
-		} );
-
-		// Add common custom fields that are typically needed
-		$common_fields = [
-			[
-				'id' => 'phone',
-				'name' => 'phone',
-				'label' => __( 'Phone Number', 'oba-apis-integration' ),
-				'type' => 'tel',
-				'required' => false,
-				'options' => [],
-				'default_value' => '',
-				'help_text' => __( 'Enter your phone number', 'oba-apis-integration' ),
-				'order' => 100,
-				'field_type' => 'user',
-				'validation' => 'phone',
-				'admin_only' => false,
-				'profile' => true,
-				'checkout' => true,
-				'is_common' => true,
-			],
-			[
-				'id' => 'company',
-				'name' => 'company',
-				'label' => __( 'Company', 'oba-apis-integration' ),
-				'type' => 'text',
-				'required' => false,
-				'options' => [],
-				'default_value' => '',
-				'help_text' => __( 'Enter your company name', 'oba-apis-integration' ),
-				'order' => 101,
-				'field_type' => 'user',
-				'validation' => '',
-				'admin_only' => false,
-				'profile' => true,
-				'checkout' => true,
-				'is_common' => true,
-			],
-			[
-				'id' => 'website',
-				'name' => 'website',
-				'label' => __( 'Website', 'oba-apis-integration' ),
-				'type' => 'url',
-				'required' => false,
-				'options' => [],
-				'default_value' => '',
-				'help_text' => __( 'Enter your website URL', 'oba-apis-integration' ),
-				'order' => 102,
-				'field_type' => 'user',
-				'validation' => 'url',
-				'admin_only' => false,
-				'profile' => true,
-				'checkout' => false,
-				'is_common' => true,
-			],
-		];
-
-		// Merge common fields with custom fields
-		$custom_fields = array_merge( $custom_fields, $common_fields );
-
-		// Remove duplicates based on field name
-		$unique_fields = [];
-		$seen_names = [];
-		
-		foreach ( $custom_fields as $field ) {
-			$field_name = $field['name'] ?? '';
-			if ( ! in_array( $field_name, $seen_names, true ) ) {
-				$unique_fields[] = $field;
-				$seen_names[] = $field_name;
-			}
-		}
-
-		// Sort again by order
-		usort( $unique_fields, function( $a, $b ) {
-			return ( $a['order'] ?? 0 ) - ( $b['order'] ?? 0 );
-		} );
-
-		return $unique_fields;
-	}
-
-	/**
-	 * Set user billing address
-	 *
-	 * @param int   $user_id User ID.
-	 * @param array $address Address data.
-	 * @return void
-	 */
-	private function set_user_billing_address( $user_id, $address ) {
-		if ( class_exists( 'WC_Customer' ) ) {
-			$customer = new \WC_Customer( $user_id );
-			
-			$billing_fields = [
-				'first_name', 'last_name', 'company', 'address_1', 'address_2',
-				'city', 'state', 'postcode', 'country', 'phone'
-			];
-
-			foreach ( $billing_fields as $field ) {
-				if ( ! empty( $address[ $field ] ) ) {
-					$customer->{"set_billing_{$field}"}( sanitize_text_field( $address[ $field ] ) );
-				}
-			}
-
-			$customer->save();
-		}
-	}
-
-	/**
-	 * Set custom fields for user
-	 *
-	 * @param int   $user_id User ID.
-	 * @param array $fields Custom fields data.
-	 * @return void
-	 */
-	private function set_custom_fields( $user_id, $fields ) {
-		if ( empty( $fields ) || ! is_array( $fields ) ) {
-			return;
-		}
-
-		foreach ( $fields as $field_name => $field_value ) {
-			// Skip empty values unless they're explicitly set to empty
-			if ( $field_value === '' || $field_value === null ) {
-				continue;
-			}
-
-			// Sanitize field value based on field type
-			$sanitized_value = $this->sanitize_custom_field_value( $field_name, $field_value );
-			
-			// Store in user meta
-			update_user_meta( $user_id, $field_name, $sanitized_value );
-
-			// If PMPro Custom Fields addon is active, also store in their system
-			if ( class_exists( 'PMPro_Custom_Fields' ) ) {
-				// Store in PMPro custom fields table if it exists
-				$this->store_pmpro_custom_field( $user_id, $field_name, $sanitized_value );
-			}
-
-			// Handle special field types
-			switch ( $field_name ) {
-				case 'phone':
-					// Also store in WooCommerce customer data if available
-					if ( class_exists( 'WC_Customer' ) ) {
-						$customer = new \WC_Customer( $user_id );
-						$customer->set_billing_phone( $sanitized_value );
-						$customer->save();
-					}
-					break;
-
-				case 'company':
-					// Also store in WooCommerce customer data if available
-					if ( class_exists( 'WC_Customer' ) ) {
-						$customer = new \WC_Customer( $user_id );
-						$customer->set_billing_company( $sanitized_value );
-						$customer->save();
-					}
-					break;
-
-				case 'website':
-					// Update WordPress user website field
-					wp_update_user( [
-						'ID' => $user_id,
-						'user_url' => $sanitized_value,
-					] );
-					break;
-			}
-		}
-	}
-
-	/**
-	 * Sanitize custom field value based on field type
-	 *
-	 * @param string $field_name Field name.
-	 * @param mixed  $field_value Field value.
-	 * @return mixed Sanitized value.
-	 */
-	private function sanitize_custom_field_value( $field_name, $field_value ) {
-		// Get field configuration to determine type
-		$field_config = $this->get_field_config( $field_name );
-		$field_type = $field_config['type'] ?? 'text';
-
-		switch ( $field_type ) {
-			case 'email':
-				return sanitize_email( $field_value );
-
-			case 'url':
-				return esc_url_raw( $field_value );
-
-			case 'tel':
-			case 'phone':
-				// Remove all non-numeric characters except +, -, (, ), and space
-				return preg_replace( '/[^0-9+\-\(\)\s]/', '', $field_value );
-
-			case 'number':
-				return is_numeric( $field_value ) ? floatval( $field_value ) : 0;
-
-			case 'textarea':
-				return sanitize_textarea_field( $field_value );
-
-			case 'select':
-			case 'radio':
-				// For select/radio, validate against allowed options
-				$options = $field_config['options'] ?? [];
-				if ( ! empty( $options ) && ! in_array( $field_value, $options, true ) ) {
-					return ''; // Invalid option
-				}
-				return sanitize_text_field( $field_value );
-
-			case 'checkbox':
-				return ! empty( $field_value ) ? '1' : '0';
-
-			case 'date':
-				// Validate date format
-				$timestamp = strtotime( $field_value );
-				return $timestamp ? date( 'Y-m-d', $timestamp ) : '';
-
-			default:
-				return sanitize_text_field( $field_value );
-		}
-	}
-
-	/**
-	 * Get field configuration for a specific field
-	 *
-	 * @param string $field_name Field name.
-	 * @return array Field configuration.
-	 */
-	private function get_field_config( $field_name ) {
-		// Check level-specific custom fields
-		$level_fields = get_option( 'pmpro_custom_fields_level_1', [] ); // Default to level 1
-		foreach ( $level_fields as $field ) {
-			if ( ( $field['name'] ?? '' ) === $field_name ) {
-				return $field;
-			}
-		}
-
-		// Check global custom fields
-		$global_fields = get_option( 'pmpro_custom_fields', [] );
-		foreach ( $global_fields as $field ) {
-			if ( ( $field['name'] ?? '' ) === $field_name ) {
-				return $field;
-			}
-		}
-
-		// Return default configuration for common fields
-		$common_fields = [
-			'phone' => [ 'type' => 'tel', 'validation' => 'phone' ],
-			'company' => [ 'type' => 'text', 'validation' => '' ],
-			'website' => [ 'type' => 'url', 'validation' => 'url' ],
-		];
-
-		return $common_fields[ $field_name ] ?? [ 'type' => 'text', 'validation' => '' ];
-	}
-
-	/**
-	 * Store custom field in PMPro custom fields system
-	 *
-	 * @param int    $user_id User ID.
-	 * @param string $field_name Field name.
-	 * @param mixed  $field_value Field value.
-	 * @return void
-	 */
-	private function store_pmpro_custom_field( $user_id, $field_name, $field_value ) {
-		global $wpdb;
-
-		// Check if PMPro custom fields table exists
-		$table_name = $wpdb->prefix . 'pmpro_custom_fields_values';
-		$table_exists = $wpdb->get_var( "SHOW TABLES LIKE '$table_name'" ) === $table_name;
-
-		if ( $table_exists ) {
-			// Check if field value already exists
-			$existing = $wpdb->get_var( $wpdb->prepare(
-				"SELECT id FROM $table_name WHERE user_id = %d AND field_name = %s",
-				$user_id,
-				$field_name
-			) );
-
-			if ( $existing ) {
-				// Update existing field value
-				$wpdb->update(
-					$table_name,
-					[
-						'field_value' => $field_value,
-						'updated_at' => current_time( 'mysql' ),
-					],
-					[
-						'user_id' => $user_id,
-						'field_name' => $field_name,
-					],
-					[ '%s', '%s' ],
-					[ '%d', '%s' ]
-				);
-			} else {
-				// Insert new field value
-				$wpdb->insert(
-					$table_name,
-					[
-						'user_id' => $user_id,
-						'field_name' => $field_name,
-						'field_value' => $field_value,
-						'created_at' => current_time( 'mysql' ),
-						'updated_at' => current_time( 'mysql' ),
-					],
-					[ '%d', '%s', '%s', '%s', '%s' ]
-				);
-			}
-		}
-	}
-
-	/**
-	 * Create membership for user
-	 *
-	 * @param int   $user_id User ID.
-	 * @param array $signup_data Signup data.
-	 * @return array|WP_Error
-	 */
-	private function create_membership( $user_id, $signup_data ) {
-		// This is a simplified implementation
-		// In a real scenario, you would integrate with PMPro's payment processing
-		
-		$level_id = $signup_data['level_id'];
-		$level = pmpro_getLevel( $level_id );
-		
-		// Create membership record
-		$membership_data = [
-			'user_id' => $user_id,
-			'level_id' => $level_id,
-			'status' => 'active',
-			'start_date' => current_time( 'mysql' ),
-			'end_date' => $this->calculate_end_date( $level ),
-		];
-
-		// In a real implementation, you would:
-		// 1. Process payment through the selected gateway
-		// 2. Create the membership record in PMPro
-		// 3. Handle recurring billing setup
-		// 4. Send confirmation emails
-
-		return $membership_data;
-	}
-
-	/**
-	 * Calculate membership end date
-	 *
-	 * @param object $level Membership level.
-	 * @return string|null
-	 */
-	private function calculate_end_date( $level ) {
-		if ( empty( $level->expiration_number ) || empty( $level->expiration_period ) ) {
-			return null; // No expiration
-		}
-
-		$end_date = strtotime( "+{$level->expiration_number} {$level->expiration_period}" );
-		return $end_date ? date( 'Y-m-d H:i:s', $end_date ) : null;
-	}
-
-	/**
-	 * Get gateway description
-	 *
-	 * @param string $gateway Gateway ID.
-	 * @return string
-	 */
-	private function get_gateway_description( $gateway ) {
-		$descriptions = [
-			'stripe' => 'Credit card payments via Stripe',
-			'paypal' => 'PayPal payments',
-			'authorizenet' => 'Authorize.net payments',
-			'check' => 'Check payments',
-			'paypalexpress' => 'PayPal Express Checkout',
-		];
-
-		return $descriptions[ $gateway ] ?? 'Payment gateway';
-	}
-
-	/**
-	 * Check if gateway supports recurring payments
-	 *
-	 * @param string $gateway Gateway ID.
-	 * @return bool
-	 */
-	private function gateway_supports_recurring( $gateway ) {
-		$recurring_gateways = [ 'stripe', 'paypal', 'authorizenet' ];
-		return in_array( $gateway, $recurring_gateways, true );
-	}
-
-	/**
-	 * Check if gateway supports trial periods
-	 *
-	 * @param string $gateway Gateway ID.
-	 * @return bool
-	 */
-	private function gateway_supports_trial( $gateway ) {
-		$trial_gateways = [ 'stripe', 'paypal' ];
-		return in_array( $gateway, $trial_gateways, true );
-	}
-
-	/**
-	 * Get new members count for date range
-	 *
-	 * @param string $start_date Start date.
-	 * @param string $end_date End date.
-	 * @return int
-	 */
-	private function get_new_members_count( $start_date, $end_date ) {
-		global $wpdb;
-
-		// Query PMPro members table for new members in date range
-		$table_name = $wpdb->prefix . 'pmpro_memberships_users';
-		
-		$query = $wpdb->prepare(
-			"SELECT COUNT(DISTINCT user_id) 
-			FROM $table_name 
-			WHERE startdate >= %s 
-			AND startdate <= %s 
-			AND status = 'active'",
-			$start_date . ' 00:00:00',
-			$end_date . ' 23:59:59'
-		);
-
-		$count = $wpdb->get_var( $query );
-		
-		// If PMPro table doesn't exist, try alternative approach
-		if ( $count === null ) {
-			// Query WordPress users table for new registrations
-			$query = $wpdb->prepare(
-				"SELECT COUNT(*) 
-				FROM {$wpdb->users} 
-				WHERE user_registered >= %s 
-				AND user_registered <= %s",
-				$start_date . ' 00:00:00',
-				$end_date . ' 23:59:59'
-			);
-			
-			$count = $wpdb->get_var( $query );
-		}
-
-		return (int) ( $count ?? 0 );
-	}
-
-	/**
-	 * Get revenue count for date range
-	 *
-	 * @param string $start_date Start date.
-	 * @param string $end_date End date.
-	 * @return float
-	 */
-	private function get_revenue_count( $start_date, $end_date ) {
-		global $wpdb;
-
-		$total_revenue = 0.0;
-
-		// Query PMPro orders table for revenue in date range
-		$orders_table = $wpdb->prefix . 'pmpro_membership_orders';
-		
-		$query = $wpdb->prepare(
-			"SELECT SUM(total) 
-			FROM $orders_table 
-			WHERE timestamp >= %s 
-			AND timestamp <= %s 
-			AND status = 'success'",
-			$start_date . ' 00:00:00',
-			$end_date . ' 23:59:59'
-		);
-
-		$revenue = $wpdb->get_var( $query );
-		
-		if ( $revenue !== null ) {
-			$total_revenue += (float) $revenue;
-		}
-
-		// If PMPro orders table doesn't exist, try WooCommerce orders
-		if ( class_exists( 'WC_Order' ) ) {
-			$wc_revenue = $this->get_woocommerce_revenue( $start_date, $end_date );
-			$total_revenue += $wc_revenue;
-		}
-
-		// Try to get revenue from custom options
-		$custom_revenue = get_option( 'pmpro_custom_revenue_' . $start_date . '_' . $end_date, 0.0 );
-		$total_revenue += (float) $custom_revenue;
-
-		return round( $total_revenue, 2 );
-	}
-
-	/**
-	 * Get WooCommerce revenue for date range
-	 *
-	 * @param string $start_date Start date.
-	 * @param string $end_date End date.
-	 * @return float
-	 */
-	private function get_woocommerce_revenue( $start_date, $end_date ) {
-		global $wpdb;
-
-		$revenue = 0.0;
-
-		// Query WooCommerce orders for membership products
-		$orders_table = $wpdb->prefix . 'wc_order_stats';
-		$order_items_table = $wpdb->prefix . 'woocommerce_order_items';
-		$order_itemmeta_table = $wpdb->prefix . 'woocommerce_order_itemmeta';
-		$products_table = $wpdb->prefix . 'posts';
-
-		$query = $wpdb->prepare(
-			"SELECT SUM(woi.meta_value) 
-			FROM $orders_table wos
-			JOIN $order_items_table woi ON wos.order_id = woi.order_id
-			JOIN $order_itemmeta_table woim ON woi.order_item_id = woim.order_item_id
-			JOIN $products_table p ON woim.meta_value = p.ID
-			WHERE wos.date_created >= %s 
-			AND wos.date_created <= %s 
-			AND wos.status = 'wc-completed'
-			AND woi.order_item_type = 'line_item'
-			AND woim.meta_key = '_product_id'
-			AND p.post_type = 'product'
-			AND p.post_status = 'publish'",
-			$start_date . ' 00:00:00',
-			$end_date . ' 23:59:59'
-		);
-
-		$wc_revenue = $wpdb->get_var( $query );
-		
-		if ( $wc_revenue !== null ) {
-			$revenue += (float) $wc_revenue;
-		}
-
-		return $revenue;
-	}
-
-	/**
-	 * Get level distribution
-	 *
-	 * @return array
-	 */
-	private function get_level_distribution() {
-		global $wpdb;
-
-		$distribution = [];
-
-		// Query PMPro memberships table for level distribution
-		$table_name = $wpdb->prefix . 'pmpro_memberships_users';
-		
-		$query = "
-			SELECT 
-				ml.id as level_id,
-				ml.name as level_name,
-				COUNT(mu.user_id) as member_count,
-				ml.initial_payment,
-				ml.billing_amount
-			FROM {$wpdb->prefix}pmpro_membership_levels ml
-			LEFT JOIN $table_name mu ON ml.id = mu.membership_id
-			WHERE mu.status = 'active' OR mu.status IS NULL
-			GROUP BY ml.id, ml.name, ml.initial_payment, ml.billing_amount
-			ORDER BY ml.initial_payment ASC
-		";
-
-		$results = $wpdb->get_results( $query );
-
-		if ( ! empty( $results ) ) {
-			foreach ( $results as $result ) {
-				$distribution[] = [
-					'level_id' => (int) $result->level_id,
-					'level_name' => $result->level_name,
-					'member_count' => (int) $result->member_count,
-					'initial_payment' => (float) $result->initial_payment,
-					'billing_amount' => (float) $result->billing_amount,
-					'percentage' => 0, // Will be calculated below
-				];
-			}
-
-			// Calculate total members and percentages
-			$total_members = array_sum( array_column( $distribution, 'member_count' ) );
-			
-			if ( $total_members > 0 ) {
-				foreach ( $distribution as &$level ) {
-					$level['percentage'] = round( ( $level['member_count'] / $total_members ) * 100, 2 );
-				}
-			}
-		}
-
-		// If no PMPro data, try to get from custom options
-		if ( empty( $distribution ) ) {
-			$custom_distribution = get_option( 'pmpro_custom_level_distribution', [] );
-			if ( ! empty( $custom_distribution ) ) {
-				$distribution = $custom_distribution;
-			}
-		}
-
-		// Add summary statistics
-		if ( ! empty( $distribution ) ) {
-			$total_members = array_sum( array_column( $distribution, 'member_count' ) );
-			$total_revenue = array_sum( array_column( $distribution, 'initial_payment' ) );
-			$avg_initial_payment = $total_members > 0 ? $total_revenue / $total_members : 0;
-
-			$distribution['summary'] = [
-				'total_members' => $total_members,
-				'total_levels' => count( $distribution ),
-				'total_revenue' => $total_revenue,
-				'average_initial_payment' => round( $avg_initial_payment, 2 ),
-			];
-		}
-
-		return $distribution;
-	}
-
-	/**
-	 * Get user's membership history
-	 *
-	 * @param WP_REST_Request $request Request object.
-	 * @return WP_REST_Response|WP_Error
-	 */
-	public function get_membership_history( $request ) {
-		$user = $request->get_param( 'current_user' );
-		
-		if ( ! $user ) {
-			return new WP_Error(
-				'authentication_required',
-				__( 'Authentication required.', 'oba-apis-integration' ),
-				[ 'status' => 401 ]
-			);
-		}
-
-//		if ( ! class_exists( 'PMPro_Member' ) ) {
-//			return new WP_Error(
-//				'pmpro_required',
-//				__( 'Paid Memberships Pro is required for membership operations.', 'oba-apis-integration' ),
-//				[ 'status' => 400 ]
-//			);
-//		}
-
-		// Get membership history from PMPro
-		$history = function_exists( 'pmpro_getMembershipLevelsForUser' ) ? pmpro_getMembershipLevelsForUser( $user->ID, true ) : [];
-		$formatted_history = [];
-
-		foreach ( $history as $level ) {
-			$formatted_history[] = [
-				'level_id' => $level->id,
-				'level_name' => $level->name,
-				'start_date' => $level->startdate ?? null,
-				'end_date' => $level->enddate ?? null,
-				'status' => $this->is_membership_active( $level ) ? 'active' : 'inactive',
-				'is_current' => ( function_exists( 'pmpro_getMembershipLevelForUser' ) ? ( ( pmpro_getMembershipLevelForUser( $user->ID )->id ?? 0 ) == $level->id ) : false ),
-			];
-		}
-
-		return new WP_REST_Response( [
-			'success' => true,
-			'data' => $formatted_history,
-		], 200 );
-	}
-
-	/**
-	 * Get membership invoices
-	 *
-	 * @param WP_REST_Request $request Request object.
-	 * @return WP_REST_Response|WP_Error
-	 */
-	public function get_invoices( $request ) {
-		$user = $request->get_param( 'current_user' );
-		
-		if ( ! $user ) {
-			return new WP_Error(
-				'authentication_required',
-				__( 'Authentication required.', 'oba-apis-integration' ),
-				[ 'status' => 401 ]
-			);
-		}
-
-//		if ( ! class_exists( 'PMPro_Member' ) ) {
-//			return new WP_Error(
-//				'pmpro_required',
-//				__( 'Paid Memberships Pro is required for membership operations.', 'oba-apis-integration' ),
-//				[ 'status' => 400 ]
-//			);
-//		}
-
-		// Get query parameters
-		$page = max( 1, absint( $request->get_param( 'page' ) ?: 1 ) );
-		$per_page = min( 50, max( 1, absint( $request->get_param( 'per_page' ) ?: 10 ) ) );
-
-		global $wpdb;
-		$table = $wpdb->prefix . 'pmpro_membership_orders';
-		$formatted_invoices = [];
-		$results = $wpdb->get_results( $wpdb->prepare(
-			"SELECT id, code, user_id, membership_id, gateway, gateway_environment, total, subtotal, tax, status, UNIX_TIMESTAMP(timestamp) AS ts, notes
-			 FROM $table WHERE user_id = %d ORDER BY timestamp DESC",
-			(int) $user->ID
-		) );
-
-		foreach ( (array) $results as $invoice ) {
-			$formatted_invoices[] = [
-				'id' => (int) $invoice->id,
-				'code' => $invoice->code,
-				'user_id' => (int) $invoice->user_id,
-				'membership_id' => (int) $invoice->membership_id,
-				'gateway' => $invoice->gateway,
-				'gateway_environment' => $invoice->gateway_environment,
-				'amount' => (float) $invoice->total,
-				'subtotal' => (float) $invoice->subtotal,
-				'tax' => (float) $invoice->tax,
-				'status' => $invoice->status,
-				'date' => (int) $invoice->ts,
-				'notes' => $invoice->notes,
-			];
-		}
-
-		// Apply pagination
-		$total_invoices = count( $formatted_invoices );
-		$offset = ( $page - 1 ) * $per_page;
-		$paginated_invoices = array_slice( $formatted_invoices, $offset, $per_page );
-
-		return new WP_REST_Response( [
-			'success' => true,
-			'data' => $paginated_invoices,
-			'pagination' => [
-				'page' => $page,
-				'per_page' => $per_page,
-				'total' => $total_invoices,
-				'total_pages' => ceil( $total_invoices / $per_page ),
-			],
-		], 200 );
-	}
-
-	/**
-	 * Get user profile with custom fields
-	 *
-	 * @param WP_REST_Request $request Request object.
-	 * @return WP_REST_Response|WP_Error
-	 */
-	public function get_user_profile( $request ) {
-		$user = $request->get_param( 'current_user' );
-		
-		if ( ! $user ) {
-			return new WP_Error(
-				'authentication_required',
-				__( 'Authentication required.', 'oba-apis-integration' ),
-				[ 'status' => 401 ]
-			);
-		}
-
-//		if ( ! class_exists( 'PMPro_Member' ) ) {
-//			return new WP_Error(
-//				'pmpro_required',
-//				__( 'Paid Memberships Pro is required for membership operations.', 'oba-apis-integration' ),
-//				[ 'status' => 400 ]
-//			);
-//		}
-
-		// Get user data
-		$user_data = [
-			'id' => $user->ID,
-			'username' => $user->user_login,
-			'email' => $user->user_email,
-			'first_name' => $user->first_name,
-			'last_name' => $user->last_name,
-			'display_name' => $user->display_name,
-			'website' => $user->user_url,
-			'date_registered' => $user->user_registered,
-			'last_login' => get_user_meta( $user->ID, 'last_login', true ),
-		];
-
-		// Get membership data
-		$level = function_exists( 'pmpro_getMembershipLevelForUser' ) ? pmpro_getMembershipLevelForUser( $user->ID ) : false;
-		if ( $level ) {
-			$user_data['membership'] = [
-				'level_id' => $level->id,
-				'level_name' => $level->name,
-				'status' => $this->is_membership_active( $level ) ? 'active' : 'inactive',
-				'start_date' => $level->startdate ?? null,
-				'end_date' => $level->enddate ?? null,
-				'is_active' => $this->is_membership_active( $level ),
-			];
-		}
-
-		// Get billing address if WooCommerce is active
-		if ( class_exists( 'WC_Customer' ) ) {
-			$customer = new \WC_Customer( $user->ID );
-			$user_data['billing_address'] = [
-				'first_name' => $customer->get_billing_first_name(),
-				'last_name' => $customer->get_billing_last_name(),
-				'company' => $customer->get_billing_company(),
-				'address_1' => $customer->get_billing_address_1(),
-				'address_2' => $customer->get_billing_address_2(),
-				'city' => $customer->get_billing_city(),
-				'state' => $customer->get_billing_state(),
-				'postcode' => $customer->get_billing_postcode(),
-				'country' => $customer->get_billing_country(),
-				'phone' => $customer->get_billing_phone(),
-				'email' => $customer->get_billing_email(),
-			];
-
-			$user_data['shipping_address'] = [
-				'first_name' => $customer->get_shipping_first_name(),
-				'last_name' => $customer->get_shipping_last_name(),
-				'company' => $customer->get_shipping_company(),
-				'address_1' => $customer->get_shipping_address_1(),
-				'address_2' => $customer->get_shipping_address_2(),
-				'city' => $customer->get_shipping_city(),
-				'state' => $customer->get_shipping_state(),
-				'postcode' => $customer->get_shipping_postcode(),
-				'country' => $customer->get_shipping_country(),
-			];
-		}
-
-		// Get custom fields
-		$user_data['custom_fields'] = $this->get_user_custom_fields( $user->ID );
-
-		return new WP_REST_Response( [
-			'success' => true,
-			'data' => $user_data,
-		], 200 );
-	}
-
-	/**
-	 * Get custom field values for a user
-	 *
-	 * @param int $user_id User ID.
-	 * @return array Custom field values.
-	 */
-	private function get_user_custom_fields( $user_id ) {
-		$custom_fields = [];
-		
-		// Get custom fields from user meta
-		$user_meta = get_user_meta( $user_id );
-		
-		// Filter out WordPress default meta fields
-		$excluded_fields = [
-			'first_name', 'last_name', 'nickname', 'description', 'rich_editing',
-			'comment_shortcuts', 'admin_color', 'use_ssl', 'show_admin_bar_front',
-			'locale', 'wp_capabilities', 'wp_user_level', 'dismissed_wp_pointers',
-			'show_welcome_panel', 'session_tokens', 'default_password_nag',
-			'wp_dashboard_quick_press_last_post_id', 'wp_user-settings',
-			'wp_user-settings-time', 'pmpro_approval_status', 'pmpro_approval_date',
-		];
-
-		foreach ( $user_meta as $meta_key => $meta_values ) {
-			// Skip excluded fields and empty values
-			if ( in_array( $meta_key, $excluded_fields, true ) || empty( $meta_values ) ) {
-				continue;
-			}
-
-			// Get the first value (most user meta fields only have one value)
-			$meta_value = is_array( $meta_values ) ? $meta_values[0] : $meta_values;
-			
-			// Skip if value is empty
-			if ( empty( $meta_value ) && $meta_value !== '0' ) {
-				continue;
-			}
-
-			$custom_fields[ $meta_key ] = [
-				'value' => $meta_value,
-				'type' => $this->get_field_config( $meta_key )['type'] ?? 'text',
-			];
-		}
-
-		// If PMPro Custom Fields addon is active, also get from their system
-		if ( class_exists( 'PMPro_Custom_Fields' ) ) {
-			$pmpro_fields = $this->get_pmpro_custom_field_values( $user_id );
-			$custom_fields = array_merge( $custom_fields, $pmpro_fields );
-		}
-
-		return $custom_fields;
-	}
-
-	/**
-	 * Get custom field values from PMPro custom fields system
-	 *
-	 * @param int $user_id User ID.
-	 * @return array Custom field values.
-	 */
-	private function get_pmpro_custom_field_values( $user_id ) {
-		global $wpdb;
-		$custom_fields = [];
-
-		// Check if PMPro custom fields table exists
-		$table_name = $wpdb->prefix . 'pmpro_custom_fields_values';
-		$table_exists = $wpdb->get_var( "SHOW TABLES LIKE '$table_name'" ) === $table_name;
-
-		if ( $table_exists ) {
-			$results = $wpdb->get_results( $wpdb->prepare(
-				"SELECT field_name, field_value FROM $table_name WHERE user_id = %d",
-				$user_id
-			) );
-
-			foreach ( $results as $result ) {
-				$custom_fields[ $result->field_name ] = [
-					'value' => $result->field_value,
-					'type' => $this->get_field_config( $result->field_name )['type'] ?? 'text',
-					'source' => 'pmpro',
-				];
-			}
-		}
-
-		return $custom_fields;
-	}
+    /**
+     * Update user custom fields
+     */
+    private function update_user_custom_fields($user_id, $custom_fields) {
+        $this->set_custom_fields($user_id, $custom_fields);
+        return true;
+    }
+
+    /**
+     * Get membership status
+     */
+    private function get_membership_status($membership_level) {
+        if (!$membership_level->enddate) {
+            return 'active';
+        }
+
+        $now = current_time('timestamp');
+        $end_date = strtotime($membership_level->enddate);
+
+        if ($end_date > $now) {
+            return 'active';
+        } else {
+            return 'expired';
+        }
+    }
+
+    /**
+     * Calculate days remaining in membership
+     */
+    private function calculate_days_remaining($end_date) {
+        if (!$end_date) {
+            return null;
+        }
+
+        $now = current_time('timestamp');
+        $end_timestamp = strtotime($end_date);
+        
+        if ($end_timestamp <= $now) {
+            return 0;
+        }
+
+        return ceil(($end_timestamp - $now) / DAY_IN_SECONDS);
+    }
+
+    /**
+     * Check if user can cancel membership
+     */
+    private function can_user_cancel_membership($user_id) {
+        $membership_level = pmpro_getMembershipLevelForUser($user_id);
+        if (!$membership_level) {
+            return false;
+        }
+
+        // Check if user has cancellation permissions
+        return current_user_can('pmpro_cancel_membership') || 
+               get_user_meta($user_id, 'pmpro_can_cancel', true);
+    }
+
+    /**
+     * Check if user can upgrade membership
+     */
+    private function can_user_upgrade_membership($user_id) {
+        $membership_level = pmpro_getMembershipLevelForUser($user_id);
+        if (!$membership_level) {
+            return false;
+        }
+
+        // Check if user has upgrade permissions
+        return current_user_can('pmpro_change_membership') || 
+               get_user_meta($user_id, 'pmpro_can_upgrade', true);
+    }
+
+    /**
+     * Check if user can downgrade membership
+     */
+    private function can_user_downgrade_membership($user_id) {
+        $membership_level = pmpro_getMembershipLevelForUser($user_id);
+        if (!$membership_level) {
+            return false;
+        }
+
+        // Check if user has downgrade permissions
+        return current_user_can('pmpro_change_membership') || 
+               get_user_meta($user_id, 'pmpro_can_downgrade', true);
+    }
+
+    /**
+     * Get membership history
+     */
+    private function get_membership_history($user_id) {
+        global $wpdb;
+        
+        $history = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM {$wpdb->pmpro_memberships_users} 
+             WHERE user_id = %d 
+             ORDER BY startdate DESC",
+            $user_id
+        ));
+
+        $formatted_history = [];
+        foreach ($history as $record) {
+            $level = pmpro_getLevel($record->membership_id);
+            if ($level) {
+                $formatted_history[] = [
+                    'level_id' => $record->membership_id,
+                    'level_name' => $level->name,
+                    'startdate' => $record->startdate,
+                    'enddate' => $record->enddate,
+                    'status' => $record->status,
+                    'modified' => $record->modified
+                ];
+            }
+        }
+
+        return $formatted_history;
+    }
+
+    /**
+     * Get user recent orders
+     */
+    private function get_user_recent_orders($user_id, $limit = 5) {
+        global $wpdb;
+        
+        $orders = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM {$wpdb->pmpro_membership_orders} 
+             WHERE user_id = %d 
+             ORDER BY timestamp DESC 
+             LIMIT %d",
+            $user_id, $limit
+        ));
+
+        $formatted_orders = [];
+        foreach ($orders as $order) {
+            $formatted_orders[] = [
+                'id' => $order->id,
+                'code' => $order->code,
+                'status' => $order->status,
+                'total' => $order->total,
+                'timestamp' => $order->timestamp,
+                'gateway' => $order->gateway,
+                'gateway_environment' => $order->gateway_environment
+            ];
+        }
+
+        return $formatted_orders;
+    }
+
+    /**
+     * Get level features
+     */
+    private function get_level_features($level_id) {
+        // This would typically come from level meta or a features system
+        // For now, return basic level information
+        $level = pmpro_getLevel($level_id);
+        if (!$level) {
+            return [];
+        }
+
+        return [
+            'has_trial' => !empty($level->trial_amount) || !empty($level->trial_limit),
+            'is_recurring' => !empty($level->billing_amount) && !empty($level->cycle_number),
+            'has_expiration' => !empty($level->expiration_number) && !empty($level->expiration_period),
+            'billing_cycles' => (int) $level->billing_limit
+        ];
+    }
 } 
