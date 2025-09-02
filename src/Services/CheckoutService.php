@@ -385,7 +385,6 @@ class CheckoutService
                     'payment_intent' => $payment_intent,
                     'status'         => $order->get_status(),
                 ], 400);
-
             } catch (\Stripe\Exception\CardException $e) {
                 $order->update_status('failed', 'Stripe Card Error: ' . $e->getMessage());
                 return new WP_Error('stripe_card_error', $e->getMessage(), ['status' => 402]);
