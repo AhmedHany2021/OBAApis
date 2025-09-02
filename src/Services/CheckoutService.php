@@ -348,8 +348,25 @@ class CheckoutService
                     require_once WP_PLUGIN_DIR . '/woocommerce-gateway-stripe/vendor/autoload.php';
                 }
 
-                \Stripe\Stripe::setApiKey(get_option('woocommerce_stripe_settings')['secret_key']);
+                // Get Stripe plugin settings
+                $stripe_settings = get_option('woocommerce_stripe_settings', []);
 
+                // Check if test mode is enabled
+                $is_test_mode = isset($stripe_settings['testmode']) && $stripe_settings['testmode'] === 'yes';
+
+                // Pick the right secret key based on mode
+                if ($is_test_mode) {
+                    $secret_key = $stripe_settings['test_secret_key'] ?? '';
+                } else {
+                    $secret_key = $stripe_settings['secret_key'] ?? '';
+                }
+
+                // Set the Stripe API key
+                if (!empty($secret_key)) {
+                    \Stripe\Stripe::setApiKey($secret_key);
+                } else {
+                    error_log('Stripe secret key is missing! Check WooCommerce Stripe settings.');
+                }
                 // Create a PaymentIntent manually
                 $payment_intent = \Stripe\PaymentIntent::create([
                     'amount'               => intval($order->get_total() * 100), // Stripe uses cents

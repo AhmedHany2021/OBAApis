@@ -678,8 +678,25 @@ class MembershipService {
         $order->total = pmpro_round_price($order->subtotal + $order->tax);
 
         // Set Stripe API key
-        \Stripe\Stripe::setApiKey(get_option('woocommerce_stripe_settings')['secret_key']);
+        // Get Stripe plugin settings
+        $stripe_settings = get_option('woocommerce_stripe_settings', []);
 
+        // Check if test mode is enabled
+        $is_test_mode = isset($stripe_settings['testmode']) && $stripe_settings['testmode'] === 'yes';
+
+        // Pick the right secret key based on mode
+        if ($is_test_mode) {
+            $secret_key = $stripe_settings['test_secret_key'] ?? '';
+        } else {
+            $secret_key = $stripe_settings['secret_key'] ?? '';
+        }
+
+        // Set the Stripe API key
+        if (!empty($secret_key)) {
+            \Stripe\Stripe::setApiKey($secret_key);
+        } else {
+            error_log('Stripe secret key is missing! Check WooCommerce Stripe settings.');
+        }
         // Ensure payment method ID is provided
         if (empty($params['payment_method_id'])) {
             return new \WP_Error('stripe_error', 'Payment method ID is required.');
