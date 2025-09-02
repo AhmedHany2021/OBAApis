@@ -157,7 +157,7 @@ class MembershipService {
             }
         } else {
             // Free membership
-            $result = $this->process_free_signup($user_id, $level);
+            $result = $this->process_free_signup($user_id, $level ,$params);
             if (is_wp_error($result)) {
                 wp_delete_user($user_id);
                 return $result;
@@ -763,15 +763,36 @@ class MembershipService {
     /**
      * Process free membership signup
      */
-    private function process_free_signup($user_id, $level) {
-        if (function_exists('pmpro_changeMembershipLevel')) {
-            $result = pmpro_changeMembershipLevel($level->id, $user_id);
-            if ($result !== false) {
-                return ['order_id' => null, 'subscription_id' => null];
-            }
+    private function process_free_signup($user_id, $level, $params = []) {
+        // Create a PMPro order
+        $order = new \MemberOrder();
+        $order->user_id       = $user_id;
+        $order->membership_id = $level->id;
+        $order->gateway       = 'free';
+        $order->billing       = $this->build_billing_object($params['billing'] ?? []);
+
+        // Totals all zero
+        $order->subtotal = 0;
+        $order->tax      = 0;
+        $order->total    = 0;
+        $order->status   = 'success';
+        $order->payment_type = 'free';
+        $order->payment_transaction_id = 'free-' . uniqid();
+
+        // Complete PMPro checkout
+        global $pmpro_level;
+        $pmpro_level = $level;
+
+        $completed = pmpro_complete_checkout($order);
+        if (!$completed) {
+            return new \WP_Error('checkout_failed', __('Checkout completion failed for free plan.', 'oba-apis-integration'));
         }
 
-        return new WP_Error('signup_failed', __('Failed to create free membership.', 'oba-apis-integration'));
+        return [
+            'order_id' => $order->id,
+            'subscription_id' => null,
+            'stripe_payment_intent_id' => null,
+        ];
     }
 
     /**
