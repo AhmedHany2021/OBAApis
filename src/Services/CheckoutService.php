@@ -270,7 +270,6 @@ class CheckoutService
         $shipping       = isset($data['shipping']) ? $this->sanitize_address($data['shipping']) : $billing;
         $payment_method = sanitize_text_field($data['payment_method'] ?? '');
 
-        // optionally respect chosen shipping method from client
         if (!empty($data['shipping_method'])) {
             $chosen = [ sanitize_text_field($data['shipping_method']) ];
             WC()->session->set('chosen_shipping_methods', $chosen);
@@ -311,13 +310,13 @@ class CheckoutService
             return new WP_Error('invalid_payment_method', __('Selected payment method is not available.', 'oba-apis-integration'), ['status' => 400]);
         }
 
-        // Make sure order knows which gateway we’ll use
         $order->set_payment_method($gateways[$payment_method]);
-
         $order->calculate_totals();
         $order->save();
 
-        // --- COD path (as you had it) ---
+        /**
+         * COD FLOW
+         */
         if ($payment_method === 'cod') {
             $order->update_status('processing', __('Cash on delivery order.', 'oba-apis-integration'));
             WC()->cart->empty_cart();
@@ -329,7 +328,10 @@ class CheckoutService
             ], 201);
         }
 
-        // --- Stripe (Option 2: let WC Stripe handle it) ---
+        /**
+         * STRIPE
+         * NEWLY ADDED SECTION
+         */
         if ($payment_method === 'stripe') {
             $stripe_payment_method_id = sanitize_text_field($data['stripe_payment_method_id'] ?? '');
             if (empty($stripe_payment_method_id)) {
@@ -340,36 +342,62 @@ class CheckoutService
                 );
             }
 
-            // Inject checkout fields into $_POST for Stripe gateway
-            $_POST = array_merge($_POST, $checkout_fields);
-            $_POST['payment_method'] = 'stripe';
-            $_POST['wc-stripe-payment-method'] = $stripe_payment_method_id;
-            $_POST['stripe_payment_method']    = $stripe_payment_method_id; // fallback for compatibility
-            $_POST['woocommerce-process-checkout-nonce'] = wp_create_nonce('woocommerce-process_checkout');
+            try {
+                // Load Stripe SDK
+                if (!class_exists(\Stripe\Stripe::class)) {
+                    require_once WP_PLUGIN_DIR . '/woocommerce-gateway-stripe/vendor/autoload.php';
+                }
 
-            // Recalculate order totals
-            $order->calculate_totals();
-            $order->save();
+                \Stripe\Stripe::setApiKey(get_option('woocommerce_stripe_settings')['secret_key']);
 
-            // Process payment via gateway
-            $result = $gateways['stripe']->process_payment($order_id);
+                // Create a PaymentIntent manually
+                $payment_intent = \Stripe\PaymentIntent::create([
+                    'amount'               => intval($order->get_total() * 100), // Stripe uses cents
+                    'currency'             => strtolower(get_woocommerce_currency()),
+                    'payment_method'       => $stripe_payment_method_id,
+                    'confirmation_method'  => 'automatic',
+                    'confirm'              => true, // charges immediately
+                    'off_session'          => true, // avoids requiring auth if possible
+                    'metadata'             => [
+                        'order_id' => $order_id,
+                        'customer' => $user_id,
+                    ],
+                ]);
 
-            if ($result['result'] === 'success') {
-                WC()->cart->empty_cart();
+                if ($payment_intent->status === 'succeeded') {
+                    $order->payment_complete($payment_intent->id);
+                    WC()->cart->empty_cart();
+
+                    return new WP_REST_Response([
+                        'success'         => true,
+                        'message'         => __('Stripe payment succeeded.', 'oba-apis-integration'),
+                        'order_id'        => $order_id,
+                        'payment_intent'  => $payment_intent->id,
+                        'status'          => $order->get_status(),
+                    ], 201);
+                }
+
+                // If not succeeded, require action
+                return new WP_REST_Response([
+                    'success'        => false,
+                    'message'        => __('Payment requires further action.', 'oba-apis-integration'),
+                    'order_id'       => $order_id,
+                    'payment_intent' => $payment_intent,
+                    'status'         => $order->get_status(),
+                ], 400);
+
+            } catch (\Stripe\Exception\CardException $e) {
+                $order->update_status('failed', 'Stripe Card Error: ' . $e->getMessage());
+                return new WP_Error('stripe_card_error', $e->getMessage(), ['status' => 402]);
+            } catch (\Exception $e) {
+                $order->update_status('failed', 'Stripe API Error: ' . $e->getMessage());
+                return new WP_Error('stripe_error', $e->getMessage(), ['status' => 500]);
             }
-
-            return new WP_REST_Response([
-                'success'        => $result['result'] === 'success',
-                'message'        => $result['result'] === 'success'
-                    ? __('Stripe payment completed.', 'oba-apis-integration')
-                    : __('Stripe payment failed.', 'oba-apis-integration'),
-                'order_id'       => $order_id,
-                'payment_result' => $result,
-                'status'         => $order->get_status(),
-            ], 201);
         }
 
-        // Fallback for other methods
+        /**
+         * FALLBACK - Other gateways
+         */
         return new WP_REST_Response([
             'success'  => true,
             'message'  => __('Order created. Awaiting payment.', 'oba-apis-integration'),
