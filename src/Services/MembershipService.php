@@ -16,9 +16,7 @@ use WP_User;
  * @package OBA\APIsIntegration\Services
  */
 
-if (!defined('STRIPE_SECRET_KEY')) {
-    define('STRIPE_SECRET_KEY', 'sk_test_51R1Z3iC4ArEICo4NLrLcGqXDpTqBkIxozvo4c9CyQMGO8CXq3ePL0DWcsxngcdFgr4lZruPeHYPcirffKRrmazh800v3HSx2bC');
-}
+
 class MembershipService {
 
     /**
@@ -680,7 +678,7 @@ class MembershipService {
         $order->total = pmpro_round_price($order->subtotal + $order->tax);
 
         // Set Stripe API key
-        \Stripe\Stripe::setApiKey(defined('STRIPE_SECRET_KEY') ? STRIPE_SECRET_KEY : '');
+        \Stripe\Stripe::setApiKey(get_option('woocommerce_stripe_settings')['secret_key']);
 
         // Ensure payment method ID is provided
         if (empty($params['payment_method_id'])) {
