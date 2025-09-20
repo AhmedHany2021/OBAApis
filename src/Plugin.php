@@ -437,7 +437,7 @@ class Plugin
 
         // Check if token is already used
         if ( $token_data['used'] ) {
-            wp_die( __( 'Token has already been used.', 'oba-apis-integration' ), __( 'Token Error', 'oba-apis-integration' ), [ 'response' => 401 ] );
+            return;
         }
 
         // Check if token is expired
@@ -476,9 +476,9 @@ class Plugin
         update_user_meta( $user->ID, 'last_login', current_time( 'mysql' ) );
 
         // Redirect to dashboard with call_id parameter
-        $redirect_url = home_url( '/dashboard' );
+        $redirect_url = home_url( '/video-call' );
         if ( ! empty( $token_data['call_id'] ) ) {
-            $redirect_url .= '?call_id=' . urlencode( $token_data['call_id'] );
+            $redirect_url .= '?appointment=' . urlencode( $token_data['call_id'] );
         }
 
         // Redirect user
