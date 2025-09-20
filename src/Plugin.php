@@ -9,6 +9,7 @@ use OBA\APIsIntegration\Middleware\WooCommerceAuthMiddleware;
 use OBA\APIsIntegration\Services\AppointmentService;
 use OBA\APIsIntegration\Services\AuthService;
 use OBA\APIsIntegration\Services\CallService;
+use OBA\APIsIntegration\Services\CreditSystemService;
 use OBA\APIsIntegration\Services\DoctorService;
 use OBA\APIsIntegration\Services\MedicationRequestService;
 use OBA\APIsIntegration\Services\SurveyService;
@@ -19,6 +20,8 @@ use OBA\APIsIntegration\Services\VendorService;
 use OBA\APIsIntegration\Services\MembershipService;
 use OBA\APIsIntegration\Services\CartService;
 use OBA\APIsIntegration\Services\CheckoutService;
+use OBA\APIsIntegration\Services\BlogService;
+use OBA\APIsIntegration\Services\ForgetPasswordService;
 
 /**
  * Main plugin class
@@ -107,6 +110,9 @@ class Plugin
         $this->services['call'] = new CallService();
         $this->services['medication'] = new MedicationRequestService();
         $this->services['doctor'] = new DoctorService();
+        $this->services['blog'] = new BlogService();
+        $this->services['forget_password'] = new ForgetPasswordService();
+        $this->services['credit_system'] = new CreditSystemService();
     }
 
     /**
@@ -130,6 +136,11 @@ class Plugin
         $this->router->register_route('auth/login', 'POST', [$this->services['auth'], 'login']);
         $this->router->register_route('auth/logout', 'POST', [$this->services['auth'], 'logout'], [AuthMiddleware::class]);
         $this->router->register_route('auth/refresh', 'POST', [$this->services['auth'], 'refresh_token']);
+
+        // Forget Password routes
+        $this->router->register_route('auth/forgot-password', 'POST', [$this->services['forget_password'], 'request_password_reset']);
+        $this->router->register_route('auth/verify-reset-token', 'POST', [$this->services['forget_password'], 'verify_reset_token']);
+        $this->router->register_route('auth/reset-password', 'POST', [$this->services['forget_password'], 'reset_password']);
 
         // User routes
         $this->router->register_route('user/me', 'GET', [$this->services['user'], 'get_current_user'], [AuthMiddleware::class]);
@@ -202,6 +213,15 @@ class Plugin
 
         //Doctor
         $this->router->register_route('doctors/rating' , 'GET' , [$this->services['doctor'] , 'get_doctor_rating']);
+        $this->router->register_route('doctors/emergency-clinics' , 'GET' , [$this->services['doctor'] , 'get_emergency_clinics']);
+
+        //Blog routes
+        $this->router->register_route('blog/posts', 'GET', [$this->services['blog'], 'get_blog_posts']);
+        $this->router->register_route('blog/posts/{id}', 'GET', [$this->services['blog'], 'get_blog_post']);
+
+        //Credit System
+        $this->router->register_route('credits', 'GET', [$this->services['credit'] , 'get_user_credit']);
+        $this->router->register_route('credits/add', 'POST', [$this->services['credit'] , 'add_user_credit']);
     }
 
     /**
@@ -230,7 +250,7 @@ class Plugin
         // Add activation hook
         register_activation_hook(ABSPATH . 'wp-content/plugins/oba-apis-integration/oba-apis-integration.php',
             [$this, 'activate_plugin']);
-            
+
         // Add deactivation hook
         register_deactivation_hook(ABSPATH . 'wp-content/plugins/oba-apis-integration/oba-apis-integration.php',
             [$this, 'deactivate_plugin']);
@@ -244,10 +264,10 @@ class Plugin
         // Initialize database tables
         \OBA\APIsIntegration\Database\Migration::create_tables();
         \OBA\APIsIntegration\Database\CartTable::init();
-        
+
         // Set default options
         $this->set_default_options();
-        
+
         // Flush rewrite rules for REST API
         flush_rewrite_rules();
     }
@@ -259,7 +279,7 @@ class Plugin
     {
         // Flush rewrite rules
         flush_rewrite_rules();
-        
+
         // Note: We don't drop tables on deactivation to preserve data
         // Tables will be dropped only on uninstall if needed
     }
@@ -273,38 +293,38 @@ class Plugin
         if ( ! get_option( 'oba_jwt_secret' ) ) {
             update_option( 'oba_jwt_secret', wp_generate_password( 64, false ) );
         }
-        
+
         if ( ! get_option( 'oba_jwt_access_expiration' ) ) {
             update_option( 'oba_jwt_access_expiration', 3600 ); // 1 hour
         }
-        
+
         if ( ! get_option( 'oba_jwt_refresh_expiration' ) ) {
             update_option( 'oba_jwt_refresh_expiration', 604800 ); // 7 days
         }
-        
+
         // Rate limiting settings
         if ( ! get_option( 'oba_rate_limit_enabled' ) ) {
             update_option( 'oba_rate_limit_enabled', true );
         }
-        
+
         if ( ! get_option( 'oba_rate_limit_requests' ) ) {
             update_option( 'oba_rate_limit_requests', 60 ); // 60 requests per minute
         }
-        
+
         // CORS settings
         if ( ! get_option( 'oba_cors_enabled' ) ) {
             update_option( 'oba_cors_enabled', true );
         }
-        
+
         if ( ! get_option( 'oba_cors_allowed_origins' ) ) {
             update_option( 'oba_cors_allowed_origins', '*' );
         }
-        
+
         // API logging settings
         if ( ! get_option( 'oba_api_logging_enabled' ) ) {
             update_option( 'oba_api_logging_enabled', true );
         }
-        
+
         if ( ! get_option( 'oba_api_log_retention_days' ) ) {
             update_option( 'oba_api_log_retention_days', 30 );
         }
