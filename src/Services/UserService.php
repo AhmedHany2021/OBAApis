@@ -139,6 +139,11 @@ class UserService {
 				}
 				$customer->save();
 			}
+
+            $custom_fields = $request->get_param( 'custom_fields' );
+            foreach ( $custom_fields as $request_field => $custom_field ) {
+                update_user_meta( $user->ID, $request_field, $custom_field );
+            }
 		}
 
 		// Update Dokan vendor data if available
