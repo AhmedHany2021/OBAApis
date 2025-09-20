@@ -220,8 +220,8 @@ class Plugin
         $this->router->register_route('blog/posts/{id}', 'GET', [$this->services['blog'], 'get_blog_post']);
 
         //Credit System
-        $this->router->register_route('credits', 'GET', [$this->services['credit'] , 'get_user_credit']);
-        $this->router->register_route('credits/add', 'POST', [$this->services['credit'] , 'add_user_credit']);
+        $this->router->register_route('credits', 'GET', [$this->services['credit'] , 'get_user_credit'] , [AuthMiddleware::class]);
+        $this->router->register_route('credits/add', 'POST', [$this->services['credit'] , 'add_user_credit'] , [AuthMiddleware::class]);
     }
 
     /**
