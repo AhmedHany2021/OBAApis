@@ -112,7 +112,7 @@ class Plugin
         $this->services['doctor'] = new DoctorService();
         $this->services['blog'] = new BlogService();
         $this->services['forget_password'] = new ForgetPasswordService();
-        $this->services['credit_system'] = new CreditSystemService();
+        $this->services['credit'] = new CreditSystemService();
     }
 
     /**
