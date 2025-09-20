@@ -193,7 +193,7 @@ class AuthService {
         $level = function_exists( 'pmpro_getMembershipLevelForUser' ) ? pmpro_getMembershipLevelForUser( $user->ID ) : false;
         if ($level)
         {
-            if (($level->id == 2 || $level->id == 3) ) {
+            if (($level->id == 2 || $level->id == 3 || $level->id == 5 || $level->id == 6	) ) {
                 $user_data['membership_status'] = $this->is_membership_active( $level );
             }
         }

@@ -4,7 +4,7 @@ namespace OBA\APIsIntegration\Services;
 use WP_REST_Request;
 use WP_REST_Response;
 use WP_Error;
-
+ 
 class DoctorService
 {
     public function get_doctor_rating(WP_REST_Request $request)
@@ -31,6 +31,33 @@ class DoctorService
         return new WP_REST_Response([
             'success' => true,
             'results' => $results
+        ]);
+    }
+
+    /**
+     * Get emergency clinics options
+     *
+     * @param WP_REST_Request $request
+     * @return WP_REST_Response
+     */
+    public function get_emergency_clinics(WP_REST_Request $request)
+    {
+        // Get the mdclara_emergency_clinics option from WordPress options
+        $emergency_clinics = get_option('mdclara_emergency_clinics', []);
+        
+        // If the option doesn't exist or is empty, return empty array
+        if (empty($emergency_clinics)) {
+            $emergency_clinics = [];
+        }
+        
+        // Ensure it's an array
+        if (!is_array($emergency_clinics)) {
+            $emergency_clinics = [];
+        }
+
+        return new WP_REST_Response([
+            'success' => true,
+            'data' => $emergency_clinics
         ]);
     }
 }
