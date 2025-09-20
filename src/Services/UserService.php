@@ -336,7 +336,7 @@ class UserService {
         }
 
         $call_id = $request->get_param( 'call_id' );
-        $expires_in = $request->get_param( 'expires_in' ) ?: 3600; // Default 1 hour
+        $expires_in = 3600; // Default 1 hour
 
         // Validate call_id is provided
         if ( empty( $call_id ) ) {
