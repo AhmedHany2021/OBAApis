@@ -88,6 +88,9 @@ class Plugin
 
         // Add security headers
         $this->add_security_headers();
+
+        // Handle one-time token login
+        $this->handle_token_login();
     }
 
     /**
@@ -147,6 +150,7 @@ class Plugin
         $this->router->register_route('user/profile', 'POST', [$this->services['user'], 'update_profile'], [AuthMiddleware::class]);
         $this->router->register_route('user/recommendations-products', 'POST', [$this->services['user'], 'get_recommended_medications'], [AuthMiddleware::class]);
         $this->router->register_route('user/recommendations-doctors', 'POST', [$this->services['user'], 'get_recommended_doctors'], [AuthMiddleware::class]);
+        $this->router->register_route('user/generate-one-time-token', 'POST', [$this->services['user'], 'generate_one_time_token'], [AuthMiddleware::class]);
 
         // Order routes
         $this->router->register_route('orders', 'GET', [$this->services['order'], 'get_orders'], [AuthMiddleware::class]);
@@ -409,5 +413,106 @@ class Plugin
     public function get_router()
     {
         return $this->router;
+    }
+
+    /**
+     * Handle one-time token login on WordPress init
+     */
+    private function handle_token_login() {
+        // Check if token parameter exists in URL
+        if ( ! isset( $_GET['oba_token'] ) || empty( $_GET['oba_token'] ) ) {
+            return;
+        }
+
+        $token = sanitize_text_field( $_GET['oba_token'] );
+        $token_hash = hash( 'sha256', $token );
+        
+        // Get token data from transients
+        $token_data = get_transient( "oba_one_time_token_{$token_hash}" );
+        
+        if ( ! $token_data ) {
+            // Token not found or expired
+            wp_die( __( 'Invalid or expired token.', 'oba-apis-integration' ), __( 'Token Error', 'oba-apis-integration' ), [ 'response' => 401 ] );
+        }
+
+        // Check if token is already used
+        if ( $token_data['used'] ) {
+            wp_die( __( 'Token has already been used.', 'oba-apis-integration' ), __( 'Token Error', 'oba-apis-integration' ), [ 'response' => 401 ] );
+        }
+
+        // Check if token is expired
+        if ( time() > $token_data['expires_at'] ) {
+            delete_transient( "oba_one_time_token_{$token_hash}" );
+            wp_die( __( 'Token has expired.', 'oba-apis-integration' ), __( 'Token Error', 'oba-apis-integration' ), [ 'response' => 401 ] );
+        }
+
+        // Get user
+        $user = get_user_by( 'ID', $token_data['user_id'] );
+        if ( ! $user ) {
+            delete_transient( "oba_one_time_token_{$token_hash}" );
+            wp_die( __( 'User not found.', 'oba-apis-integration' ), __( 'Token Error', 'oba-apis-integration' ), [ 'response' => 404 ] );
+        }
+
+        // Check if user is active
+        if ( ! $user->has_cap( 'read' ) ) {
+            delete_transient( "oba_one_time_token_{$token_hash}" );
+            wp_die( __( 'User account is inactive.', 'oba-apis-integration' ), __( 'Token Error', 'oba-apis-integration' ), [ 'response' => 403 ] );
+        }
+
+        // Mark token as used
+        $token_data['used'] = true;
+        $token_data['used_at'] = time();
+        
+        set_transient( "oba_one_time_token_{$token_hash}", $token_data, $token_data['expires_at'] - time() );
+
+        // Log the token usage
+        $this->log_token_activity( $user->ID, 'used', $token_hash, $token_data['call_id'] );
+
+        // Login the user
+        wp_set_current_user( $user->ID );
+        wp_set_auth_cookie( $user->ID, true );
+
+        // Update last login
+        update_user_meta( $user->ID, 'last_login', current_time( 'mysql' ) );
+
+        // Redirect to dashboard with call_id parameter
+        $redirect_url = home_url( '/dashboard' );
+        if ( ! empty( $token_data['call_id'] ) ) {
+            $redirect_url .= '?call_id=' . urlencode( $token_data['call_id'] );
+        }
+
+        // Redirect user
+        wp_redirect( $redirect_url );
+        exit;
+    }
+
+    /**
+     * Log token activity
+     *
+     * @param int    $user_id User ID.
+     * @param string $action Action performed.
+     * @param string $token_hash Token hash.
+     * @param string $call_id Call ID (optional).
+     * @return void
+     */
+    private function log_token_activity( $user_id, $action, $token_hash, $call_id = null ) {
+        $log_data = [
+            'user_id' => $user_id,
+            'action' => $action,
+            'token_hash' => $token_hash,
+            'call_id' => $call_id,
+            'timestamp' => current_time( 'mysql' ),
+        ];
+
+        // Store in user meta for recent activity
+        $recent_activity = get_user_meta( $user_id, 'oba_token_activity', true ) ?: [];
+        $recent_activity[] = $log_data;
+        
+        // Keep only last 20 activities
+        if ( count( $recent_activity ) > 20 ) {
+            $recent_activity = array_slice( $recent_activity, -20 );
+        }
+        
+        update_user_meta( $user_id, 'oba_token_activity', $recent_activity );
     }
 } 

@@ -317,4 +317,103 @@ class UserService {
             'speciality_ids' => $speciality_ids,
         ], 200 );
     }
+
+    /**
+     * Generate one-time access token with call_id for user login
+     *
+     * @param WP_REST_Request $request Request object.
+     * @return WP_REST_Response|WP_Error
+     */
+    public function generate_one_time_token( $request ) {
+        $user = $request->get_param( 'current_user' );
+        
+        if ( ! $user ) {
+            return new WP_Error(
+                'authentication_required',
+                __( 'Authentication required.', 'oba-apis-integration' ),
+                [ 'status' => 401 ]
+            );
+        }
+
+        $call_id = $request->get_param( 'call_id' );
+        $expires_in = $request->get_param( 'expires_in' ) ?: 3600; // Default 1 hour
+
+        // Validate call_id is provided
+        if ( empty( $call_id ) ) {
+            return new WP_Error(
+                'missing_call_id',
+                __( 'Call ID is required.', 'oba-apis-integration' ),
+                [ 'status' => 400 ]
+            );
+        }
+
+        // Generate secure token
+        $token = wp_generate_password( 64, false );
+        $token_hash = hash( 'sha256', $token );
+        
+        // Store token data
+        $token_data = [
+            'user_id' => $user->ID,
+            'call_id' => sanitize_text_field( $call_id ),
+            'expires_at' => time() + $expires_in,
+            'created_at' => time(),
+            'used' => false,
+        ];
+
+        // Store in database with expiration
+        $result = set_transient( "oba_one_time_token_{$token_hash}", $token_data, $expires_in );
+        
+        if ( ! $result ) {
+            return new WP_Error(
+                'token_generation_failed',
+                __( 'Failed to generate one-time token.', 'oba-apis-integration' ),
+                [ 'status' => 500 ]
+            );
+        }
+
+        // Log token generation
+        $this->log_token_activity( $user->ID, 'generated', $token_hash, $call_id );
+
+        return new WP_REST_Response( [
+            'success' => true,
+            'message' => __( 'One-time token generated successfully.', 'oba-apis-integration' ),
+            'data' => [
+                'token' => $token,
+                'call_id' => $call_id,
+                'expires_in' => $expires_in,
+                'expires_at' => $token_data['expires_at'],
+                'site_url' => home_url( "/?oba_token={$token}" ),
+            ],
+        ], 200 );
+    }
+
+    /**
+     * Log token activity
+     *
+     * @param int    $user_id User ID.
+     * @param string $action Action performed.
+     * @param string $token_hash Token hash.
+     * @param string $call_id Call ID (optional).
+     * @return void
+     */
+    private function log_token_activity( $user_id, $action, $token_hash, $call_id = null ) {
+        $log_data = [
+            'user_id' => $user_id,
+            'action' => $action,
+            'token_hash' => $token_hash,
+            'call_id' => $call_id,
+            'timestamp' => current_time( 'mysql' ),
+        ];
+
+        // Store in user meta for recent activity
+        $recent_activity = get_user_meta( $user_id, 'oba_token_activity', true ) ?: [];
+        $recent_activity[] = $log_data;
+        
+        // Keep only last 20 activities
+        if ( count( $recent_activity ) > 20 ) {
+            $recent_activity = array_slice( $recent_activity, -20 );
+        }
+        
+        update_user_meta( $user_id, 'oba_token_activity', $recent_activity );
+    }
 } 
