@@ -264,8 +264,21 @@ class MembershipService {
 
         $current_level = pmpro_getMembershipLevelForUser($user_id);
 
+        // Check if user is trying to upgrade to the same level
+        if ($current_level && $current_level->id === $new_level->id) {
+            return new WP_Error('same_level', __('User is already on this membership level.', 'oba-apis-integration'), ['status' => 400]);
+        }
+
+        // Check if user is trying to downgrade (this should be handled differently)
+        if ($current_level && $current_level->id > $new_level->id) {
+            return new WP_Error('downgrade_not_supported', __('Downgrading membership levels is not supported through this endpoint. Please contact support.', 'oba-apis-integration'), ['status' => 400]);
+        }
+
+        // Calculate upgrade cost
+        $upgrade_cost = $this->calculate_upgrade_cost($current_level, $new_level);
+
         // Check if upgrade requires payment
-        if (($new_level->initial_payment > 0 || $new_level->billing_amount > 0)) {
+        if ($upgrade_cost > 0) {
             if (empty($params['payment_method_id'])) {
                 return new WP_Error('payment_required', __('Payment method is required for paid membership upgrade.', 'oba-apis-integration'), ['status' => 400]);
             }
@@ -292,15 +305,22 @@ class MembershipService {
             'data' => [
                 'previous_level' => $current_level ? [
                     'id' => $current_level->id,
-                    'name' => $current_level->name
+                    'name' => $current_level->name,
+                    'billing_amount' => (float) $current_level->billing_amount,
+                    'initial_payment' => (float) $current_level->initial_payment
                 ] : null,
                 'new_level' => $updated_level ? [
                     'id' => $updated_level->id,
                     'name' => $updated_level->name,
                     'startdate' => $updated_level->startdate,
-                    'enddate' => $updated_level->enddate
+                    'enddate' => $updated_level->enddate,
+                    'billing_amount' => (float) $updated_level->billing_amount,
+                    'initial_payment' => (float) $updated_level->initial_payment
                 ] : null,
-                'order_id' => $result['order_id'] ?? null
+                'upgrade_cost' => $upgrade_cost,
+                'order_id' => $result['order_id'] ?? null,
+                'subscription_id' => $result['subscription_id'] ?? null,
+                'stripe_payment_intent_id' => $result['stripe_payment_intent_id'] ?? null
             ]
         ], 200);
     }
@@ -814,67 +834,129 @@ class MembershipService {
      * Process membership upgrade with payment
      */
     private function process_membership_upgrade($user_id, $current_level, $new_level, $params) {
-        // Create upgrade order
-        $order = new \MemberOrder();
-        $order->user_id       = $user_id;
-        $order->membership_id = $new_level->id;
-        $order->gateway       = 'stripe';
-        $order->billing       = $this->build_billing_object($params['billing'] ?? []);
-
         // Calculate upgrade cost
-        $upgrade_cost   = $this->calculate_upgrade_cost($current_level, $new_level);
-        $order->subtotal = pmpro_round_price($upgrade_cost);
-        $order->tax      = pmpro_round_price($order->getTax(true));
-        $order->total    = pmpro_round_price($order->subtotal + $order->tax);
-
-        // Attach Stripe payment method
-        if (!empty($params['payment_method_id'])) {
-            $order->payment_method_id = sanitize_text_field($params['payment_method_id']);
+        $upgrade_cost = $this->calculate_upgrade_cost($current_level, $new_level);
+        
+        // If no upgrade cost, just change the level
+        if ($upgrade_cost <= 0) {
+            return $this->process_free_upgrade($user_id, $new_level);
         }
 
-        // Process payment
-        $order->setGateway();
-        $processed = $order->process();
-
-        if (empty($processed)) {
-            return new \WP_Error(
-                'upgrade_payment_failed',
-                $order->error ?: __('Upgrade payment failed.', 'oba-apis-integration')
-            );
+        // Set up Stripe API key (same as signup)
+        $stripe_settings = get_option('woocommerce_stripe_settings', []);
+        $is_test_mode = isset($stripe_settings['testmode']) && $stripe_settings['testmode'] === 'yes';
+        
+        if ($is_test_mode) {
+            $secret_key = $stripe_settings['test_secret_key'] ?? '';
+        } else {
+            $secret_key = $stripe_settings['secret_key'] ?? '';
         }
 
-        // Change membership level
-        if (function_exists('pmpro_changeMembershipLevel')) {
-            $result = pmpro_changeMembershipLevel($new_level->id, $user_id, 'changed');
-            if ($result === false) {
-                return new \WP_Error('upgrade_failed', __('Failed to upgrade membership level.', 'oba-apis-integration'));
+        if (!empty($secret_key)) {
+            \Stripe\Stripe::setApiKey($secret_key);
+        } else {
+            return new \WP_Error('stripe_error', 'Stripe secret key is missing! Check WooCommerce Stripe settings.');
+        }
+
+        // Ensure payment method ID is provided
+        if (empty($params['payment_method_id'])) {
+            return new \WP_Error('stripe_error', 'Payment method ID is required for upgrade.');
+        }
+
+        $payment_method_id = sanitize_text_field($params['payment_method_id']);
+
+        try {
+            // 1. Get existing Stripe customer
+            $stripe_customer_id = get_user_meta($user_id, 'stripe_customer_id', true);
+            if (!$stripe_customer_id) {
+                return new \WP_Error('stripe_error', 'No Stripe customer found for user. Please contact support.');
             }
+
+            $customer = \Stripe\Customer::retrieve($stripe_customer_id);
+
+            // 2. Retrieve and attach payment method
+            $payment_method = \Stripe\PaymentMethod::retrieve($payment_method_id);
+            
+            if (empty($payment_method->customer) || $payment_method->customer !== $customer->id) {
+                $payment_method->attach(['customer' => $customer->id]);
+            }
+
+            // 3. Set as default payment method
+            \Stripe\Customer::update($customer->id, [
+                'invoice_settings' => ['default_payment_method' => $payment_method_id]
+            ]);
+
+            // 4. Create PaymentIntent for upgrade charge
+            $payment_intent = \Stripe\PaymentIntent::create([
+                'amount' => intval($upgrade_cost * 100), // amount in cents
+                'currency' => 'usd',
+                'customer' => $customer->id,
+                'payment_method' => $payment_method_id,
+                'off_session' => true,
+                'confirm' => true,
+                'description' => "Membership upgrade from {$current_level->name} to {$new_level->name}",
+                'metadata' => [
+                    'user_id' => $user_id,
+                    'upgrade_type' => 'membership_level_change',
+                    'old_level_id' => $current_level->id,
+                    'new_level_id' => $new_level->id
+                ]
+            ]);
+
+            // 5. Create PMPro order for upgrade
+            $order = new \MemberOrder();
+            $order->user_id = $user_id;
+            $order->membership_id = $new_level->id;
+            $order->gateway = 'stripe';
+            $order->billing = $this->build_billing_object($params['billing'] ?? []);
+            $order->subtotal = pmpro_round_price($upgrade_cost);
+            $order->tax = pmpro_round_price($order->getTax(true));
+            $order->total = pmpro_round_price($order->subtotal + $order->tax);
+            $order->stripe_customer_id = $customer->id;
+            $order->payment_method_id = $payment_method_id;
+            $order->payment_transaction_id = $payment_intent->id;
+            $order->payment_type = 'stripe';
+            $order->status = 'success';
+
+            // 6. Change membership level
+            if (function_exists('pmpro_changeMembershipLevel')) {
+                $result = pmpro_changeMembershipLevel($new_level->id, $user_id, 'changed');
+                if ($result === false) {
+                    // Refund the payment if membership change fails
+                    try {
+                        \Stripe\Refund::create([
+                            'payment_intent' => $payment_intent->id,
+                            'reason' => 'requested_by_customer'
+                        ]);
+                    } catch (\Exception $e) {
+                        error_log('Failed to refund payment after membership change failure: ' . $e->getMessage());
+                    }
+                    return new \WP_Error('upgrade_failed', __('Failed to upgrade membership level.', 'oba-apis-integration'));
+                }
+            }
+
+            // 7. Save the order
+            $order->saveOrder();
+
+            // 8. Get updated membership details
+            $membership = pmpro_getMembershipLevelForUser($user_id);
+
+            return [
+                'order_id' => $order->id,
+                'subscription_id' => $order->subscription_transaction_id ?? null,
+                'stripe_payment_intent_id' => $payment_intent->id,
+                'upgrade_cost' => $upgrade_cost,
+                'membership_level' => [
+                    'id' => $membership->id,
+                    'name' => $membership->name,
+                    'startdate' => $membership->startdate,
+                    'enddate' => $membership->enddate
+                ]
+            ];
+
+        } catch (\Exception $e) {
+            return new \WP_Error('stripe_error', 'Payment processing failed: ' . $e->getMessage());
         }
-
-        // Get membership details after upgrade
-        $membership = pmpro_getMembershipLevelForUser($user_id);
-
-        $data = [
-            'user_id' => $user_id,
-            'membership_level' => [
-                'id'        => $membership->id,
-                'name'      => $membership->name,
-                'startdate' => strtotime($membership->startdate),
-                'enddate'   => $membership->enddate ? strtotime($membership->enddate) : null,
-            ],
-            'order_id'        => $order->id,
-            'subscription_id' => $order->subscription_transaction_id ?? null,
-        ];
-
-        // If no enddate, but the level has a billing cycle, calculate next billing date
-        if (!$data['membership_level']['enddate'] && !empty($membership->cycle_number) && !empty($membership->cycle_period)) {
-            $interval_spec = "P{$membership->cycle_number}" . strtoupper(substr($membership->cycle_period, 0, 1));
-            $start = new \DateTime($membership->startdate);
-            $start->add(new \DateInterval($interval_spec));
-            $data['membership_level']['enddate'] = $start->getTimestamp();
-        }
-
-        return $data;
     }
 
     /**
@@ -912,11 +994,47 @@ class MembershipService {
      * Calculate upgrade cost between levels
      */
     private function calculate_upgrade_cost($current_level, $new_level) {
-        // This is a simplified calculation - you may need to implement more complex logic
-        $current_cost = (float) $current_level->billing_amount;
-        $new_cost = (float) $new_level->billing_amount;
+        // Handle null current level (user has no membership)
+        if (!$current_level) {
+            return (float) $new_level->initial_payment;
+        }
 
-        return max(0, $new_cost - $current_cost);
+        $current_initial = (float) $current_level->initial_payment;
+        $current_billing = (float) $current_level->billing_amount;
+        $new_initial = (float) $new_level->initial_payment;
+        $new_billing = (float) $new_level->billing_amount;
+
+        // Calculate the difference in initial payments
+        $initial_difference = $new_initial - $current_initial;
+        
+        // Calculate the difference in billing amounts
+        $billing_difference = $new_billing - $current_billing;
+
+        // For upgrades, we typically charge the difference
+        // If upgrading to a higher tier, charge the difference
+        // If downgrading, this should be handled differently (refund logic)
+        
+        $upgrade_cost = 0;
+        
+        // If new level has initial payment and current doesn't, charge the initial
+        if ($new_initial > 0 && $current_initial == 0) {
+            $upgrade_cost = $new_initial;
+        }
+        // If both have initial payments, charge the difference
+        elseif ($new_initial > 0 && $current_initial > 0) {
+            $upgrade_cost = max(0, $initial_difference);
+        }
+        // If new level has billing and current doesn't, charge the billing amount
+        elseif ($new_billing > 0 && $current_billing == 0) {
+            $upgrade_cost = $new_billing;
+        }
+        // If both have billing, charge the difference
+        elseif ($new_billing > 0 && $current_billing > 0) {
+            $upgrade_cost = max(0, $billing_difference);
+        }
+
+        // Ensure we don't charge negative amounts
+        return max(0, $upgrade_cost);
     }
 
     /**
