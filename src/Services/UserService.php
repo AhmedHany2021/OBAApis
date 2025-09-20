@@ -282,4 +282,34 @@ class UserService {
 
 		return $user_data;
 	}
+
+    public function get_recommended_medications ( $request )
+    {
+        $user_id = $request->get_param( 'current_user' )->ID;
+        $product_ids = (array)get_user_meta($user_id, 'user_product_recommendations', true);
+
+        if (empty($product_ids) || $product_ids === [ 0 => ""]) {
+            return;
+        }
+        $product_ids = array_slice( $product_ids, 1);
+        return new WP_REST_Response( [
+            'success' => true,
+            'product_ids' => $product_ids,
+        ], 200 );
+    }
+
+    public function get_recommended_doctors ( $request )
+    {
+        $user_id = $request->get_param( 'current_user' )->ID;
+        $speciality_ids = (array)get_user_meta($user_id, 'user_speciality_recommendations', true);
+
+        if (empty($speciality_ids) || $speciality_ids === [ 0 => ""]) {
+            return;
+        }
+        $speciality_ids = array_slice( $speciality_ids, 1);
+        return new WP_REST_Response( [
+            'success' => true,
+            'speciality_ids' => $speciality_ids,
+        ], 200 );
+    }
 } 

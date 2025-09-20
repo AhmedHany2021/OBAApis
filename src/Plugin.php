@@ -144,7 +144,9 @@ class Plugin
 
         // User routes
         $this->router->register_route('user/me', 'GET', [$this->services['user'], 'get_current_user'], [AuthMiddleware::class]);
-        $this->router->register_route('user/profile', 'PUT', [$this->services['user'], 'update_profile'], [AuthMiddleware::class]);
+        $this->router->register_route('user/profile', 'POST', [$this->services['user'], 'update_profile'], [AuthMiddleware::class]);
+        $this->router->register_route('user/recommendations-products', 'POST', [$this->services['user'], 'get_recommended_medications'], [AuthMiddleware::class]);
+        $this->router->register_route('user/recommendations-doctors', 'POST', [$this->services['user'], 'get_recommended_doctors'], [AuthMiddleware::class]);
 
         // Order routes
         $this->router->register_route('orders', 'GET', [$this->services['order'], 'get_orders'], [AuthMiddleware::class]);
