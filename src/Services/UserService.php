@@ -2,6 +2,7 @@
 
 namespace OBA\APIsIntegration\Services;
 
+use OBA\APIsIntegration\Helpers\ProductHelper;
 use WP_REST_Request;
 use WP_REST_Response;
 use WP_Error;
@@ -294,12 +295,39 @@ class UserService {
         $product_ids = (array)get_user_meta($user_id, 'user_product_recommendations', true);
 
         if (empty($product_ids) || $product_ids === [ 0 => ""]) {
-            return;
+            return new WP_REST_Response( [
+                'success' => true,
+                'data' => [],
+                'message' => __( 'No recommended medications found.', 'oba-apis-integration' ),
+            ], 200 );
         }
+        
         $product_ids = array_slice( $product_ids, 1);
+        $products = [];
+        
+        // Check if WooCommerce is available
+        if ( ! class_exists( 'WC_Product' ) ) {
+            return new WP_Error(
+                'woocommerce_required',
+                __( 'WooCommerce is required for product operations.', 'oba-apis-integration' ),
+                [ 'status' => 400 ]
+            );
+        }
+        
+        // Fetch and format each product
+        foreach ( $product_ids as $product_id ) {
+            $product_id = absint( $product_id );
+            if ( $product_id > 0 ) {
+                $product = wc_get_product( $product_id );
+                if ( $product ) {
+                    $products[] = ProductHelper::format_product( $product );
+                }
+            }
+        }
+        
         return new WP_REST_Response( [
             'success' => true,
-            'product_ids' => $product_ids,
+            'data' => $products,
         ], 200 );
     }
 
@@ -416,4 +444,5 @@ class UserService {
         
         update_user_meta( $user_id, 'oba_token_activity', $recent_activity );
     }
+
 } 
