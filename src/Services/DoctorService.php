@@ -54,11 +54,12 @@ class DoctorService
             ARRAY_A
         );
 
+        $rate = get_option('wps_wsfw_money_ratio' , 1);
         // Step 3: Attach user_id + appointment_price to each doctor result
         foreach ($results as &$row) {
             if (isset($doctor_map[$row['doctor_id']])) {
                 $row['user_id']          = $doctor_map[$row['doctor_id']]['user_id'];
-                $row['appointment_price']= $doctor_map[$row['doctor_id']]['appointment_price'];
+                $row['appointment_price']= $doctor_map[$row['doctor_id']]['appointment_price'] / $rate;
             } else {
                 $row['user_id'] = null;
                 $row['appointment_price'] = null;
