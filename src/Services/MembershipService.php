@@ -868,11 +868,27 @@ class MembershipService {
         try {
             // 1. Get existing Stripe customer
             $stripe_customer_id = get_user_meta($user_id, 'stripe_customer_id', true);
-            if (!$stripe_customer_id) {
-                return new \WP_Error('stripe_error', 'No Stripe customer found for user. Please contact support.');
-            }
 
-            $customer = \Stripe\Customer::retrieve($stripe_customer_id);
+            if (!$stripe_customer_id) {
+                // Create new Stripe customer
+                $customer = \Stripe\Customer::create([
+                    'email' => $params['email'] ?? '',
+                    'name'  => trim(($params['custom_fields']['Patient_first_name'] ?? '') . ' ' . ($params['custom_fields']['Patient_last_name'] ?? '')),
+                    'address' => [
+                        'line1'       => $params['custom_fields']['street_address'] ?? '',
+                        'city'        => $params['custom_fields']['town_city'] ?? '',
+                        'postal_code' => $params['custom_fields']['postcode_zip'] ?? '',
+                        'country'     => $params['custom_fields']['Patient_Country'] ?? '',
+                    ],
+                    'metadata' => ['wp_user_id' => $user_id],
+                ]);
+
+                $stripe_customer_id = $customer->id;
+                update_user_meta($user_id, 'stripe_customer_id', $stripe_customer_id);
+            } else {
+                // Retrieve existing customer
+                $customer = \Stripe\Customer::retrieve($stripe_customer_id);
+            }
 
             // 2. Retrieve and attach payment method
             $payment_method = \Stripe\PaymentMethod::retrieve($payment_method_id);
