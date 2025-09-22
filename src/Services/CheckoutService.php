@@ -539,9 +539,15 @@ class CheckoutService
 
     private function format_cart(): array
     {
+        $rechargeable_product_id = get_option('wps_wsfw_rechargeable_product_id');
+        $virtual = false;
         $items = [];
         foreach (WC()->cart->get_cart() as $key => $item) {
             $product = $item['data'];
+            if ($product->get_id() == $rechargeable_product_id)
+            {
+                $virtual = true;
+            }
             $items[] = [
                 'cart_item_key' => $key,
                 'product_id'    => $product->get_id(),
@@ -554,6 +560,28 @@ class CheckoutService
             ];
         }
 
+        // Collect fees
+        $fees = [];
+        foreach (WC()->cart->get_fees() as $fee) {
+            $fees[] = [
+                'id'     => $fee->id,
+                'name'   => $fee->name,
+                'amount' => wc_format_decimal($fee->amount, wc_get_price_decimals()),
+                'tax'    => wc_format_decimal($fee->tax, wc_get_price_decimals()),
+                'total'  => wc_format_decimal($fee->total, wc_get_price_decimals()),
+            ];
+        }
+
+        // Collect taxes (detailed breakdown like frontend)
+        $taxes = [];
+        foreach (WC()->cart->get_tax_totals() as $code => $tax) {
+            $taxes[] = [
+                'code'   => $code,
+                'label'  => $tax->label,
+                'amount' => $tax->amount,
+            ];
+        }
+
         return [
             'items'       => $items,
             'subtotal'    => WC()->cart->get_subtotal(),
@@ -563,6 +591,9 @@ class CheckoutService
             'total'       => WC()->cart->get_total('edit'),
             'currency'    => get_woocommerce_currency(),
             'item_count'  => WC()->cart->get_cart_contents_count(),
+            'fees'        => $fees,
+            'taxes'       => $taxes,
+            'virtual'     => $virtual,
         ];
     }
 
