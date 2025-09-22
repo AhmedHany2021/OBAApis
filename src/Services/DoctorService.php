@@ -14,25 +14,63 @@ class DoctorService
         $feedback_table = $wpdb->prefix . 'mdclara_feedback';
         $usermeta_table = $wpdb->usermeta;
 
+        // Step 1: Get mapping of doctor_id → user_id + appointment_price
+        $doctor_users = $wpdb->get_results(
+            $wpdb->prepare("
+            SELECT u1.user_id, u1.meta_value AS doctor_id, u2.meta_value AS appointment_price
+            FROM {$usermeta_table} u1
+            LEFT JOIN {$usermeta_table} u2 
+                ON u1.user_id = u2.user_id AND u2.meta_key = %s
+            WHERE u1.meta_key = %s
+        ", 'appointment_price', 'mdclara_doctor_id'),
+            ARRAY_A
+        );
+
+        if (empty($doctor_users)) {
+            return new \WP_REST_Response([
+                'success' => false,
+                'message' => 'No doctors found'
+            ], 404);
+        }
+
+        // Build mapping doctor_id => [user_id, appointment_price]
+        $doctor_map = [];
+        foreach ($doctor_users as $du) {
+            $doctor_map[$du['doctor_id']] = [
+                'user_id'          => $du['user_id'],
+                'appointment_price'=> $du['appointment_price'],
+            ];
+        }
+
+        // Step 2: Fetch average ratings for doctors
         $results = $wpdb->get_results(
             "
         SELECT 
-            um.meta_value AS mdclara_doctor_id, 
+            f.doctor_id,
             AVG((f.overall_satisfaction + f.doctor_professionalism + f.platform_experience + f.likelihood_reuse) / 4) AS avg_rating
         FROM {$feedback_table} f
-        INNER JOIN {$usermeta_table} um 
-            ON um.meta_key = 'mdclara_doctor_id' 
-            AND um.meta_value = f.doctor_id
-        GROUP BY um.user_id, um.meta_value
+        GROUP BY f.doctor_id
         ",
             ARRAY_A
         );
 
-        return new WP_REST_Response([
+        // Step 3: Attach user_id + appointment_price to each doctor result
+        foreach ($results as &$row) {
+            if (isset($doctor_map[$row['doctor_id']])) {
+                $row['user_id']          = $doctor_map[$row['doctor_id']]['user_id'];
+                $row['appointment_price']= $doctor_map[$row['doctor_id']]['appointment_price'];
+            } else {
+                $row['user_id'] = null;
+                $row['appointment_price'] = null;
+            }
+        }
+
+        return new \WP_REST_Response([
             'success' => true,
             'results' => $results
         ]);
     }
+
 
     /**
      * Get emergency clinics options
