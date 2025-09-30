@@ -4,7 +4,7 @@ namespace OBA\APIsIntegration\Services;
 use WP_REST_Request;
 use WP_REST_Response;
 use WP_Error;
- 
+
 class DoctorService
 {
     public function get_doctor_rating(WP_REST_Request $request)
@@ -14,7 +14,7 @@ class DoctorService
         $feedback_table = $wpdb->prefix . 'mdclara_feedback';
         $usermeta_table = $wpdb->usermeta;
 
-        // Step 1: Get mapping of doctor_id → user_id + appointment_price
+        // Step 1: Get all doctors with their appointment_price
         $doctor_users = $wpdb->get_results(
             $wpdb->prepare("
             SELECT u1.user_id, u1.meta_value AS doctor_id, u2.meta_value AS appointment_price
@@ -37,13 +37,13 @@ class DoctorService
         $doctor_map = [];
         foreach ($doctor_users as $du) {
             $doctor_map[$du['doctor_id']] = [
-                'user_id'          => $du['user_id'],
-                'appointment_price'=> $du['appointment_price'],
+                'user_id'           => $du['user_id'],
+                'appointment_price' => $du['appointment_price'],
             ];
         }
 
-        // Step 2: Fetch average ratings for doctors
-        $results = $wpdb->get_results(
+        // Step 2: Fetch average ratings (only for doctors that have feedback)
+        $feedback_results = $wpdb->get_results(
             "
         SELECT 
             f.doctor_id,
@@ -54,16 +54,22 @@ class DoctorService
             ARRAY_A
         );
 
-        $rate = get_option('wps_wsfw_money_ratio' , 1);
-        // Step 3: Attach user_id + appointment_price to each doctor result
-        foreach ($results as &$row) {
-            if (isset($doctor_map[$row['doctor_id']])) {
-                $row['user_id']          = $doctor_map[$row['doctor_id']]['user_id'];
-                $row['appointment_price']= $doctor_map[$row['doctor_id']]['appointment_price'] / $rate;
-            } else {
-                $row['user_id'] = null;
-                $row['appointment_price'] = null;
-            }
+        $feedback_map = [];
+        foreach ($feedback_results as $fr) {
+            $feedback_map[$fr['doctor_id']] = $fr['avg_rating'];
+        }
+
+        $rate = get_option('wps_wsfw_money_ratio', 1);
+
+        // Step 3: Build final result: include all doctors, feedback if exists
+        $results = [];
+        foreach ($doctor_map as $doctor_id => $doctor_data) {
+            $results[] = [
+                'doctor_id'         => $doctor_id,
+                'user_id'           => $doctor_data['user_id'],
+                'appointment_price' => $doctor_data['appointment_price'] / $rate,
+                'avg_rating'        => $feedback_map[$doctor_id] ?? null, // null if no feedback yet
+            ];
         }
 
         return new \WP_REST_Response([
@@ -83,12 +89,12 @@ class DoctorService
     {
         // Get the mdclara_emergency_clinics option from WordPress options
         $emergency_clinics = get_option('mdclara_emergency_clinics', []);
-        
+
         // If the option doesn't exist or is empty, return empty array
         if (empty($emergency_clinics)) {
             $emergency_clinics = [];
         }
-        
+
         // Ensure it's an array
         if (!is_array($emergency_clinics)) {
             $emergency_clinics = [];
