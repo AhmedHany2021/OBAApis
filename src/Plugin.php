@@ -22,6 +22,7 @@ use OBA\APIsIntegration\Services\CartService;
 use OBA\APIsIntegration\Services\CheckoutService;
 use OBA\APIsIntegration\Services\BlogService;
 use OBA\APIsIntegration\Services\ForgetPasswordService;
+use OBA\APIsIntegration\API\Controllers\AppleNotificationsController;
 
 /**
  * Main plugin class
@@ -82,6 +83,9 @@ class Plugin
 
         // Register REST API routes
         $this->register_routes();
+        
+        // Initialize Apple Notifications
+        $this->init_apple_notifications();
 
         // Add admin hooks
         $this->add_admin_hooks();
@@ -230,6 +234,15 @@ class Plugin
         $this->router->register_route('credits/add', 'POST', [$this->services['credit'] , 'add_user_credit'] , [AuthMiddleware::class]);
     }
 
+    /**
+     * Initialize Apple Notifications
+     *
+     * @return void
+     */
+    private function init_apple_notifications() {
+        new \OBA\APIsIntegration\API\Controllers\AppleNotificationsController();
+    }
+    
     /**
      * Add admin hooks
      *

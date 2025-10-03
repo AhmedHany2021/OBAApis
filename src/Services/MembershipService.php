@@ -20,6 +20,187 @@ use WP_User;
 class MembershipService {
 
     /**
+     * Map Apple product ID to PMPro membership level ID
+     *
+     * @param string $productId Apple product ID (e.g., 'com.yourapp.membership.monthly')
+     * @return int|false PMPro level ID or false if not found
+     */
+    /**
+     * Map Apple product ID to PMPro membership level ID
+     *
+     * @param string $productId Apple product ID (e.g., 'com.yourapp.membership.monthly')
+     * @return int|false PMPro level ID or false if not found
+     */
+    public function mapProductToLevel($productId) {
+        // Get all PMPro levels
+        $levels = pmpro_getAllLevels(true, true);
+        
+        if (empty($levels)) {
+            return false;
+        }
+        
+        // Define a mapping of product IDs to level IDs
+        // You should customize this based on your actual product IDs
+        $productToLevelMap = [
+            // Example: 'com.yourapp.membership.monthly' => 1,
+            // Add your product ID to level ID mappings here
+        ];
+        
+        // Check if we have a direct mapping
+        if (isset($productToLevelMap[$productId])) {
+            return $productToLevelMap[$productId];
+        }
+        
+        // Fallback: Try to find a level with a matching name or ID in the product ID
+        foreach ($levels as $level) {
+            // Check if product ID contains level ID or name (case-insensitive)
+            if (stripos($productId, (string)$level->id) !== false || 
+                (isset($level->name) && stripos($productId, $level->name) !== false)) {
+                return $level->id;
+            }
+        }
+        
+        // If no match found, return the first level as fallback (or false if you prefer)
+        return !empty($levels) ? reset($levels)->id : false;
+    }
+    
+    /**
+     * Activate a membership for a user
+     *
+     * @param int $userId WordPress user ID
+     * @param int $levelId PMPro level ID
+     * @param string $endDate Membership end date in Y-m-d H:i:s format
+     * @return bool|WP_Error True on success, WP_Error on failure
+     */
+    public function activateMembership($userId, $levelId, $endDate) {
+        try {
+            // Check if user exists
+            if (!get_user_by('ID', $userId)) {
+                return new WP_Error('user_not_found', 'User not found', ['status' => 404]);
+            }
+            
+            // Check if level exists
+            $level = pmpro_getLevel($levelId);
+            if (empty($level)) {
+                return new WP_Error('invalid_level', 'Invalid membership level', ['status' => 400]);
+            }
+            
+            // Create membership record
+            $result = pmpro_changeMembershipLevel($levelId, $userId, 'active');
+            
+            if ($result === false) {
+                return new WP_Error('membership_error', 'Failed to activate membership', ['status' => 500]);
+            }
+            
+            // Update end date if provided
+            if ($endDate) {
+                update_user_meta($userId, 'pmpro_next_payment_date', $endDate);
+                
+                // Also update the membership end date in the pmpro_memberships_users table
+                global $wpdb;
+                $wpdb->update(
+                    $wpdb->pmpro_memberships_users,
+                    ['enddate' => $endDate],
+                    [
+                        'user_id' => $userId,
+                        'membership_id' => $levelId,
+                        'status' => 'active'
+                    ],
+                    ['%s'],
+                    ['%d', '%d', '%s']
+                );
+            }
+            
+            return true;
+            
+        } catch (Exception $e) {
+            return new WP_Error('membership_error', $e->getMessage(), ['status' => 500]);
+        }
+    }
+    
+    /**
+     * Renew a user's membership
+     *
+     * @param int $userId WordPress user ID
+     * @param int $levelId PMPro level ID
+     * @param string $endDate New end date in Y-m-d H:i:s format
+     * @return bool|WP_Error True on success, WP_Error on failure
+     */
+    public function renewMembership($userId, $levelId, $endDate) {
+        try {
+            // Check if user has an active membership
+            $userLevel = pmpro_getMembershipLevelForUser($userId);
+            
+            if (empty($userLevel) || $userLevel->ID != $levelId) {
+                // If user doesn't have this level, activate it
+                return $this->activateMembership($userId, $levelId, $endDate);
+            }
+            
+            // Update the end date
+            update_user_meta($userId, 'pmpro_next_payment_date', $endDate);
+            
+            // Update the membership end date in the pmpro_memberships_users table
+            global $wpdb;
+            $result = $wpdb->update(
+                $wpdb->pmpro_memberships_users,
+                [
+                    'enddate' => $endDate,
+                    'modified' => current_time('mysql')
+                ],
+                [
+                    'user_id' => $userId,
+                    'membership_id' => $levelId,
+                    'status' => 'active'
+                ],
+                ['%s', '%s'],
+                ['%d', '%d', '%s']
+            );
+            
+            if ($result === false) {
+                return new WP_Error('membership_error', 'Failed to update membership end date', ['status' => 500]);
+            }
+            
+            // Trigger any hooks that might be needed for renewal
+            do_action('pmpro_after_change_membership_level', $levelId, $userId, null);
+            
+            return true;
+            
+        } catch (Exception $e) {
+            return new WP_Error('membership_error', $e->getMessage(), ['status' => 500]);
+        }
+    }
+    
+    /**
+     * Cancel a user's membership
+     *
+     * @param int $userId WordPress user ID
+     * @return bool|WP_Error True on success, WP_Error on failure
+     */
+    public function cancelMembership($userId) {
+        try {
+            // Get user's current level
+            $userLevel = pmpro_getMembershipLevelForUser($userId);
+            
+            if (empty($userLevel)) {
+                // User doesn't have an active membership
+                return true;
+            }
+            
+            // Cancel the membership
+            $result = pmpro_cancelMembershipLevel($userLevel->ID, $userId, 'cancelled');
+            
+            if ($result === false) {
+                return new WP_Error('membership_error', 'Failed to cancel membership', ['status' => 500]);
+            }
+            
+            return true;
+            
+        } catch (Exception $e) {
+            return new WP_Error('membership_error', $e->getMessage(), ['status' => 500]);
+        }
+    }
+
+    /**
      * Get comprehensive checkout fields including group fields based on level
      *
      * @param WP_REST_Request $request
@@ -93,6 +274,7 @@ class MembershipService {
      */
     public function process_signup($request) {
         $params = $request->get_json_params();
+        $source = isset($params['source']) ? $params['source'] : null;
         if (empty($params)) {
             return new WP_Error('invalid_payload', __('Checkout payload is required.', 'oba-apis-integration'), ['status' => 400]);
         }
@@ -118,7 +300,7 @@ class MembershipService {
         }
 
         // Validate payment method for paid levels
-        if (($level->initial_payment > 0 || $level->billing_amount > 0)) {
+        if (($level->initial_payment > 0 || $level->billing_amount > 0) && !$source) {
             if (empty($params['payment_method_id'])) {
                 return new WP_Error('payment_required', __('Payment method is required for paid membership.', 'oba-apis-integration'), ['status' => 400]);
             }
@@ -146,7 +328,7 @@ class MembershipService {
 
 
         // Process payment and create membership
-        if ($level->initial_payment > 0 || $level->billing_amount > 0) {
+        if (($level->initial_payment > 0 || $level->billing_amount > 0) && !$source) {
             $result = $this->process_paid_signup($user_id, $level, $params);
             if (is_wp_error($result)) {
                 // Clean up user if payment fails
@@ -155,7 +337,10 @@ class MembershipService {
             }
         } else {
             // Free membership
-            $result = $this->process_free_signup($user_id, $level ,$params);
+            if (!$source) {
+                $source = 'free';
+            }
+            $result = $this->process_free_signup($user_id, $level ,$params , $source);
             if (is_wp_error($result)) {
                 wp_delete_user($user_id);
                 return $result;
@@ -264,39 +449,36 @@ class MembershipService {
 
         $current_level = pmpro_getMembershipLevelForUser($user_id);
 
-        // Check if user is trying to upgrade to the same level
         if ($current_level && $current_level->id === $new_level->id) {
             return new WP_Error('same_level', __('User is already on this membership level.', 'oba-apis-integration'), ['status' => 400]);
         }
 
-        // Check if user is trying to downgrade (this should be handled differently)
-        if ($current_level && $current_level->id > $new_level->id) {
-            return new WP_Error('downgrade_not_supported', __('Downgrading membership levels is not supported through this endpoint. Please contact support.', 'oba-apis-integration'), ['status' => 400]);
-        }
+//        if ($current_level && $current_level->id > $new_level->id) {
+//            return new WP_Error('downgrade_not_supported', __('Downgrading membership levels is not supported through this endpoint. Please contact support.', 'oba-apis-integration'), ['status' => 400]);
+//        }
 
-        // Calculate upgrade cost
         $upgrade_cost = $this->calculate_upgrade_cost($current_level, $new_level);
 
-        // Check if upgrade requires payment
-        if ($upgrade_cost > 0) {
-            if (empty($params['payment_method_id'])) {
+        // Detect source: stripe (default), free, android, ios
+        $source = $params['source'] ?? 'stripe';
+        $result = null;
+
+        if ($upgrade_cost <= 0 && $source === 'free') {
+            $result = $this->process_free_upgrade($user_id, $new_level);
+        } elseif (in_array($source, ['android', 'ios'], true)) {
+            $result = $this->process_in_app_upgrade($user_id, $new_level, $params, $source);
+        } else {
+            // Stripe (requires payment_method_id if cost > 0)
+            if ($upgrade_cost > 0 && empty($params['payment_method_id'])) {
                 return new WP_Error('payment_required', __('Payment method is required for paid membership upgrade.', 'oba-apis-integration'), ['status' => 400]);
             }
-
-            // Process payment for upgrade
-            $result = $this->process_membership_upgrade($user_id, $current_level, $new_level, $params);
-            if (is_wp_error($result)) {
-                return $result;
-            }
-        } else {
-            // Free upgrade
-            $result = $this->process_free_upgrade($user_id, $new_level);
-            if (is_wp_error($result)) {
-                return $result;
-            }
+            $result = $this->process_stripe_upgrade($user_id, $current_level, $new_level, $params, $upgrade_cost);
         }
 
-        // Get updated membership status
+        if (is_wp_error($result)) {
+            return $result;
+        }
+
         $updated_level = pmpro_getMembershipLevelForUser($user_id);
 
         return new WP_REST_Response([
@@ -320,10 +502,62 @@ class MembershipService {
                 'upgrade_cost' => $upgrade_cost,
                 'order_id' => $result['order_id'] ?? null,
                 'subscription_id' => $result['subscription_id'] ?? null,
-                'stripe_payment_intent_id' => $result['stripe_payment_intent_id'] ?? null
+                'transaction_id' => $result['transaction_id'] ?? null,
+                'stripe_payment_intent_id' => $result['stripe_payment_intent_id'] ?? null,
             ]
         ], 200);
     }
+
+    private function process_in_app_upgrade($user_id, $new_level, $params, $source) {
+        if (!function_exists('pmpro_changeMembershipLevel')) {
+            return new \WP_Error('pmpro_missing', __('PMPro not available.', 'oba-apis-integration'));
+        }
+
+        // Verify receipt first (stub — you’d replace with actual Apple/Google verification)
+        $transaction_id = $params['transaction_id'] ?? null;
+        $receipt_data   = $params['receipt'] ?? null;
+
+        if (!$transaction_id || !$receipt_data) {
+            return new \WP_Error('invalid_iap', __('Missing transaction or receipt data for in-app purchase.', 'oba-apis-integration'));
+        }
+
+        // 🔒 Here you should call your receipt validation function
+        // $verified = $this->verify_iap_receipt($receipt_data, $source);
+        // if (!$verified) {
+        //     return new \WP_Error('iap_verification_failed', __('In-app purchase verification failed.', 'oba-apis-integration'));
+        // }
+
+        // Create PMPro order for tracking
+        $order = new \MemberOrder();
+        $order->user_id       = $user_id;
+        $order->membership_id = $new_level->id;
+        $order->gateway       = ($source === 'android') ? 'iap_android' : 'iap_ios';
+        $order->billing       = null;
+
+        // Payment info
+        $order->subtotal = 0; // handled externally by app store
+        $order->tax      = 0;
+        $order->total    = 0;
+        $order->status   = 'success';
+        $order->payment_type = 'in_app_purchase';
+        $order->payment_transaction_id = $transaction_id;
+
+        // Save order
+        $order->saveOrder();
+
+        // Apply new membership level
+        $result = pmpro_changeMembershipLevel($new_level->id, $user_id, 'in-app-upgrade');
+        if ($result === false) {
+            return new \WP_Error('upgrade_failed', __('Failed to apply new membership level.', 'oba-apis-integration'));
+        }
+
+        return [
+            'order_id' => $order->id,
+            'subscription_id' => null,
+            'transaction_id' => $transaction_id,
+        ];
+    }
+
 
     /**
      * Get user membership profile information
@@ -480,10 +714,11 @@ class MembershipService {
     public function get_plans($request) {
         $levels = pmpro_getAllLevels(true, true);
         $plans = [];
+        $Membership_Level = new \PMPro_Membership_Level();
 
         foreach ($levels as $level) {
             $group_info = $this->get_level_group_info($level->id);
-
+            $level_meta = $Membership_Level->get_membership_level( $level->id);
             $plans[] = [
                 'id' => $level->id,
                 'name' => $level->name,
@@ -497,6 +732,7 @@ class MembershipService {
                 'trial_limit' => (int) $level->trial_limit,
                 'expiration_number' => (int) $level->expiration_number,
                 'expiration_period' => $level->expiration_period,
+                'ios_purchase_id' => $level_meta->ios_purchase_id,
                 'allow_signups' => (bool) $level->allow_signups,
                 'group' => $group_info,
                 'features' => $this->get_level_features($level->id)
@@ -798,21 +1034,36 @@ class MembershipService {
     /**
      * Process free membership signup
      */
-    private function process_free_signup($user_id, $level, $params = []) {
+    private function process_free_signup($user_id, $level, $params = [] , $source = '') {
         // Create a PMPro order
         $order = new \MemberOrder();
         $order->user_id       = $user_id;
         $order->membership_id = $level->id;
-        $order->gateway       = 'free';
-        $order->billing       = $this->build_billing_object($params['billing'] ?? []);
 
-        // Totals all zero
-        $order->subtotal = 0;
+        // Decide gateway based on source
+        if ($source === 'android') {
+            $order->gateway = 'android';
+            $order->payment_type = 'in_app_purchase';
+            $order->payment_transaction_id = 'android-' . ($params['payment_method_id'] ?? uniqid());
+        } elseif ($source === 'ios') {
+            $order->gateway = 'ios';
+            $order->payment_type = 'in_app_purchase';
+            $order->payment_transaction_id = 'ios-' . ($params['payment_method_id'] ?? uniqid());
+        } else {
+            // Default: free
+            $order->gateway = 'free';
+            $order->payment_type = 'free';
+            $order->payment_transaction_id = 'free-' . uniqid();
+        }
+
+        // Billing (skip for IAP if not relevant)
+        $order->billing = $this->build_billing_object($params['billing'] ?? []);
+
+        // Totals (IAP handled outside, so store as zero in PMPro)
+        $order->subtotal = pmpro_round_price((float) $level->initial_payment);
         $order->tax      = 0;
-        $order->total    = 0;
+        $order->total    = pmpro_round_price((float) $level->initial_payment);
         $order->status   = 'success';
-        $order->payment_type = 'free';
-        $order->payment_transaction_id = 'free-' . uniqid();
 
         // Complete PMPro checkout
         global $pmpro_level;
@@ -820,13 +1071,16 @@ class MembershipService {
 
         $completed = pmpro_complete_checkout($order);
         if (!$completed) {
-            return new \WP_Error('checkout_failed', __('Checkout completion failed for free plan.', 'oba-apis-integration'));
+            return new \WP_Error(
+                'checkout_failed',
+                __('Checkout completion failed.', 'oba-apis-integration')
+            );
         }
 
         return [
             'order_id' => $order->id,
             'subscription_id' => null,
-            'stripe_payment_intent_id' => null,
+            'transaction_id' => $order->payment_transaction_id,
         ];
     }
 
@@ -836,7 +1090,7 @@ class MembershipService {
     private function process_membership_upgrade($user_id, $current_level, $new_level, $params) {
         // Calculate upgrade cost
         $upgrade_cost = $this->calculate_upgrade_cost($current_level, $new_level);
-        
+
         // If no upgrade cost, just change the level
         if ($upgrade_cost <= 0) {
             return $this->process_free_upgrade($user_id, $new_level);
@@ -845,7 +1099,7 @@ class MembershipService {
         // Set up Stripe API key (same as signup)
         $stripe_settings = get_option('woocommerce_stripe_settings', []);
         $is_test_mode = isset($stripe_settings['testmode']) && $stripe_settings['testmode'] === 'yes';
-        
+
         if ($is_test_mode) {
             $secret_key = $stripe_settings['test_secret_key'] ?? '';
         } else {
@@ -892,7 +1146,7 @@ class MembershipService {
 
             // 2. Retrieve and attach payment method
             $payment_method = \Stripe\PaymentMethod::retrieve($payment_method_id);
-            
+
             if (empty($payment_method->customer) || $payment_method->customer !== $customer->id) {
                 $payment_method->attach(['customer' => $customer->id]);
             }
@@ -1022,16 +1276,16 @@ class MembershipService {
 
         // Calculate the difference in initial payments
         $initial_difference = $new_initial - $current_initial;
-        
+
         // Calculate the difference in billing amounts
         $billing_difference = $new_billing - $current_billing;
 
         // For upgrades, we typically charge the difference
         // If upgrading to a higher tier, charge the difference
         // If downgrading, this should be handled differently (refund logic)
-        
+
         $upgrade_cost = 0;
-        
+
         // If new level has initial payment and current doesn't, charge the initial
         if ($new_initial > 0 && $current_initial == 0) {
             $upgrade_cost = $new_initial;
