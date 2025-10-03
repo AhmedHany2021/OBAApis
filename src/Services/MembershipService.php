@@ -472,7 +472,7 @@ class MembershipService {
             if ($upgrade_cost > 0 && empty($params['payment_method_id'])) {
                 return new WP_Error('payment_required', __('Payment method is required for paid membership upgrade.', 'oba-apis-integration'), ['status' => 400]);
             }
-            $result = $this->process_stripe_upgrade($user_id, $current_level, $new_level, $params, $upgrade_cost);
+            $result = $this->process_membership_upgrade($user_id, $current_level, $new_level, $params);
         }
 
         if (is_wp_error($result)) {
@@ -507,6 +507,8 @@ class MembershipService {
             ]
         ], 200);
     }
+
+
 
     private function process_in_app_upgrade($user_id, $new_level, $params, $source) {
         if (!function_exists('pmpro_changeMembershipLevel')) {
