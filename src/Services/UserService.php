@@ -92,42 +92,49 @@ class UserService {
 			$customer = new \WC_Customer( $user->ID );
 			$woo_data = [];
 
-			// Billing address
+			// Get billing and shipping data from request
+			$billing_data = $request->get_param( 'billing' ) ?: [];
+			$shipping_data = $request->get_param( 'shipping' ) ?: [];
+
+			// Billing address fields mapping
 			$billing_fields = [
-				'billing_first_name' => 'billing_first_name',
-				'billing_last_name' => 'billing_last_name',
-				'billing_company' => 'billing_company',
-				'billing_address_1' => 'billing_address_1',
-				'billing_address_2' => 'billing_address_2',
-				'billing_city' => 'billing_city',
-				'billing_state' => 'billing_state',
-				'billing_postcode' => 'billing_postcode',
-				'billing_country' => 'billing_country',
-				'billing_phone' => 'billing_phone',
+				'first_name' => 'billing_first_name',
+				'last_name' => 'billing_last_name',
+				'company' => 'billing_company',
+				'address_1' => 'billing_address_1',
+				'address_2' => 'billing_address_2',
+				'city' => 'billing_city',
+				'state' => 'billing_state',
+				'postcode' => 'billing_postcode',
+				'country' => 'billing_country',
+				'email' => 'billing_email',
+				'phone' => 'billing_phone',
 			];
 
+			// Process billing data
 			foreach ( $billing_fields as $request_field => $customer_field ) {
-				$value = $request->get_param( $request_field );
+				$value = isset( $billing_data[ $request_field ] ) ? $billing_data[ $request_field ] : null;
 				if ( ! empty( $value ) ) {
 					$woo_data[ $customer_field ] = sanitize_text_field( $value );
 				}
 			}
 
-			// Shipping address
+			// Shipping address fields mapping
 			$shipping_fields = [
-				'shipping_first_name' => 'shipping_first_name',
-				'shipping_last_name' => 'shipping_last_name',
-				'shipping_company' => 'shipping_company',
-				'shipping_address_1' => 'shipping_address_1',
-				'shipping_address_2' => 'shipping_address_2',
-				'shipping_city' => 'shipping_city',
-				'shipping_state' => 'shipping_state',
-				'shipping_postcode' => 'shipping_postcode',
-				'shipping_country' => 'shipping_country',
+				'first_name' => 'shipping_first_name',
+				'last_name' => 'shipping_last_name',
+				'company' => 'shipping_company',
+				'address_1' => 'shipping_address_1',
+				'address_2' => 'shipping_address_2',
+				'city' => 'shipping_city',
+				'state' => 'shipping_state',
+				'postcode' => 'shipping_postcode',
+				'country' => 'shipping_country',
 			];
 
+			// Process shipping data
 			foreach ( $shipping_fields as $request_field => $customer_field ) {
-				$value = $request->get_param( $request_field );
+				$value = isset( $shipping_data[ $request_field ] ) ? $shipping_data[ $request_field ] : null;
 				if ( ! empty( $value ) ) {
 					$woo_data[ $customer_field ] = sanitize_text_field( $value );
 				}
