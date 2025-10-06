@@ -44,7 +44,7 @@ class CheckoutService
                 ['status' => 401]
             );
         }
-        return (int) $user->ID;
+        return (int)$user->ID;
     }
 
     /**
@@ -80,11 +80,11 @@ class CheckoutService
 
         return new WP_REST_Response([
             'success' => true,
-            'data' => [
-                'cart'            => $cart,
-                'payment_methods' => $this->get_available_payment_methods(),
-                'shipping_methods'=> $this->list_current_package_methods(), // labels of currently calculated methods (if any)
-                'addresses'       => $this->get_user_addresses($user_id),
+            'data'    => [
+                'cart'             => $cart,
+                'payment_methods'  => $this->get_available_payment_methods(),
+                'shipping_methods' => $this->list_current_package_methods(), // labels of currently calculated methods (if any)
+                'addresses'        => $this->get_user_addresses($user_id),
             ],
         ]);
     }
@@ -102,10 +102,10 @@ class CheckoutService
             return new WP_Error('empty_cart', __('Cart is empty.', 'oba-apis-integration'), ['status' => 400]);
         }
 
-        $country  = sanitize_text_field($request->get_param('country') ?: $request->get_param('shipping_country'));
-        $state    = sanitize_text_field($request->get_param('state') ?: $request->get_param('shipping_state'));
+        $country = sanitize_text_field($request->get_param('country') ?: $request->get_param('shipping_country'));
+        $state = sanitize_text_field($request->get_param('state') ?: $request->get_param('shipping_state'));
         $postcode = sanitize_text_field($request->get_param('postcode') ?: $request->get_param('shipping_postcode'));
-        $city     = sanitize_text_field($request->get_param('city') ?: $request->get_param('shipping_city'));
+        $city = sanitize_text_field($request->get_param('city') ?: $request->get_param('shipping_city'));
 
         // Update customer location (both billing & shipping to keep taxes coherent)
         WC()->customer->set_shipping_country($country);
@@ -127,8 +127,8 @@ class CheckoutService
         $rates_response = $this->collect_package_rates();
 
         return new WP_REST_Response([
-            'success' => true,
-            'packages' => $rates_response['packages'],
+            'success'     => true,
+            'packages'    => $rates_response['packages'],
             'cart_totals' => [
                 'subtotal' => WC()->cart->get_subtotal(),
                 'shipping' => WC()->cart->get_shipping_total(),
@@ -180,8 +180,8 @@ class CheckoutService
         WC()->cart->calculate_totals();
 
         return new WP_REST_Response([
-            'success' => true,
-            'message' => __('Shipping method(s) updated.', 'oba-apis-integration'),
+            'success'     => true,
+            'message'     => __('Shipping method(s) updated.', 'oba-apis-integration'),
             'cart_totals' => [
                 'subtotal' => WC()->cart->get_subtotal(),
                 'shipping' => WC()->cart->get_shipping_total(),
@@ -266,12 +266,12 @@ class CheckoutService
             return new WP_Error('invalid_checkout_data', __('Checkout data is required.', 'oba-apis-integration'), ['status' => 400]);
         }
 
-        $billing        = isset($data['billing'])  ? $this->sanitize_address($data['billing'])  : [];
-        $shipping       = isset($data['shipping']) ? $this->sanitize_address($data['shipping']) : $billing;
+        $billing = isset($data['billing']) ? $this->sanitize_address($data['billing']) : [];
+        $shipping = isset($data['shipping']) ? $this->sanitize_address($data['shipping']) : $billing;
         $payment_method = sanitize_text_field($data['payment_method'] ?? '');
 
         if (!empty($data['shipping_method'])) {
-            $chosen = [ sanitize_text_field($data['shipping_method']) ];
+            $chosen = [sanitize_text_field($data['shipping_method'])];
             WC()->session->set('chosen_shipping_methods', $chosen);
         }
 
@@ -320,17 +320,7 @@ class CheckoutService
         if ($payment_method === 'cod') {
             $order->update_status('processing', __('Cash on delivery order.', 'oba-apis-integration'));
             WC()->cart->empty_cart();
-
-            $wallet_id              = get_option( 'wps_wsfw_rechargeable_product_id', '' );
-            $order_items            = $order->get_items();
-            foreach ( $order_items as $item_id => $item ) {
-                $product_id = $item->get_product_id();
-                if ( isset( $product_id ) && ! empty( $product_id ) && $product_id == $wallet_id ) {
-                    $order->update_status('completed', __('Auto-completed because it contains wallet product', 'oba-apis-integration'));
-                    break;
-                }
-            }
-
+            $this->update_user_credit($order);
             return new WP_REST_Response([
                 'success' => true,
                 'message' => __('Order placed with Cash on Delivery.', 'oba-apis-integration'),
@@ -379,13 +369,13 @@ class CheckoutService
                 }
                 // Create a PaymentIntent manually
                 $payment_intent = \Stripe\PaymentIntent::create([
-                    'amount'               => intval($order->get_total() * 100), // Stripe uses cents
-                    'currency'             => strtolower(get_woocommerce_currency()),
-                    'payment_method'       => $stripe_payment_method_id,
-                    'confirmation_method'  => 'automatic',
-                    'confirm'              => true, // charges immediately
-                    'off_session'          => true, // avoids requiring auth if possible
-                    'metadata'             => [
+                    'amount'              => intval($order->get_total() * 100), // Stripe uses cents
+                    'currency'            => strtolower(get_woocommerce_currency()),
+                    'payment_method'      => $stripe_payment_method_id,
+                    'confirmation_method' => 'automatic',
+                    'confirm'             => true, // charges immediately
+                    'off_session'         => true, // avoids requiring auth if possible
+                    'metadata'            => [
                         'order_id' => $order_id,
                         'customer' => $user_id,
                     ],
@@ -394,23 +384,13 @@ class CheckoutService
                 if ($payment_intent->status === 'succeeded') {
                     $order->payment_complete($payment_intent->id);
                     WC()->cart->empty_cart();
-
-                    $wallet_id              = get_option( 'wps_wsfw_rechargeable_product_id', '' );
-                    $order_items            = $order->get_items();
-                    foreach ( $order_items as $item_id => $item ) {
-                        $product_id = $item->get_product_id();
-                        if ( isset( $product_id ) && ! empty( $product_id ) && $product_id == $wallet_id ) {
-                            $order->update_status('completed', __('Auto-completed because it contains wallet product', 'oba-apis-integration'));
-                            break;
-                        }
-                    }
-
+                    $this->update_user_credit($order);
                     return new WP_REST_Response([
-                        'success'         => true,
-                        'message'         => __('Stripe payment succeeded.', 'oba-apis-integration'),
-                        'order_id'        => $order_id,
-                        'payment_intent'  => $payment_intent->id,
-                        'status'          => $order->get_status(),
+                        'success'        => true,
+                        'message'        => __('Stripe payment succeeded.', 'oba-apis-integration'),
+                        'order_id'       => $order_id,
+                        'payment_intent' => $payment_intent->id,
+                        'status'         => $order->get_status(),
                     ], 201);
                 }
 
@@ -443,6 +423,72 @@ class CheckoutService
     }
 
     /* -------------------------- Helpers -------------------------- */
+
+    private function update_user_credit($order)
+    {
+        $chargeable = false;
+        $total = 0;
+        $wallet_id = get_option('wps_wsfw_rechargeable_product_id', '');
+
+        // Check if order contains the wallet product
+        foreach ($order->get_items() as $item) {
+            $product_id = $item->get_product_id();
+            if (!empty($product_id) && (int) $product_id === (int) $wallet_id) {
+                $chargeable = true;
+                $total = (float) $item->get_total();
+                break;
+            }
+        }
+
+        if (!$chargeable) {
+            return;
+        }
+
+        $wps_keys = get_option('wps_wsfw_wallet_rest_api_keys');
+        if (empty($wps_keys['consumer_key']) || empty($wps_keys['consumer_secret'])) {
+            return;
+        }
+
+        $user_id = $order->get_user_id();
+        if (empty($user_id)) {
+            return;
+        }
+
+        $url = home_url("/wp-json/wsfw-route/v1/wallet/{$user_id}");
+
+        $body = [
+            'amount'             => $total,
+            'action'             => 'credit',
+            'consumer_key'       => $wps_keys['consumer_key'],
+            'consumer_secret'    => $wps_keys['consumer_secret'],
+            'transaction_detail' => sprintf('Wallet top-up from order #%d', $order->get_id()),
+            'payment_method'     => $order->get_payment_method(),
+            'note'               => 'Auto wallet credit after purchase',
+            'order_id'           => $order->get_id(),
+        ];
+
+        $response = wp_remote_request($url, [
+            'method'  => 'PUT',
+            'headers' => [
+                'Content-Type' => 'application/json',
+            ],
+            'body'    => wp_json_encode($body),
+        ]);
+
+        if (is_wp_error($response)) {
+            return;
+        }
+
+        $status_code = wp_remote_retrieve_response_code($response);
+        $response_body = json_decode(wp_remote_retrieve_body($response), true);
+
+        if ($status_code === 200 || $status_code === 201) {
+            $order->update_status('completed', __('Auto-completed because it contains wallet credit product.', 'oba-apis-integration'));
+        } else {
+            return;
+        }
+        return;
+    }
 
     private function sanitize_address(array $addr): array
     {
@@ -483,15 +529,15 @@ class CheckoutService
         if (empty($payment_methods)) {
             $payment_methods = [
                 'stripe' => [
-                    'id' => 'stripe',
-                    'title' => 'Credit Card (Stripe)',
-                    'description' => 'Pay securely with your card.',
+                    'id'           => 'stripe',
+                    'title'        => 'Credit Card (Stripe)',
+                    'description'  => 'Pay securely with your card.',
                     'method_title' => 'Stripe',
                 ],
-                'cod' => [
-                    'id' => 'cod',
-                    'title' => 'Cash on Delivery',
-                    'description' => 'Pay when you receive your order.',
+                'cod'    => [
+                    'id'           => 'cod',
+                    'title'        => 'Cash on Delivery',
+                    'description'  => 'Pay when you receive your order.',
                     'method_title' => 'Cash on Delivery',
                 ],
             ];
@@ -536,12 +582,12 @@ class CheckoutService
     {
         $errors = [];
         $required = ('billing' === $type)
-            ? ['first_name','last_name','address_1','city','state','postcode','country','email']
-            : ['first_name','last_name','address_1','city','state','postcode','country'];
+            ? ['first_name', 'last_name', 'address_1', 'city', 'state', 'postcode', 'country', 'email']
+            : ['first_name', 'last_name', 'address_1', 'city', 'state', 'postcode', 'country'];
 
         foreach ($required as $field) {
             if (empty($address[$field])) {
-                $errors[$field] = sprintf(__('%s is required.', 'oba-apis-integration'), ucfirst(str_replace('_',' ',$field)));
+                $errors[$field] = sprintf(__('%s is required.', 'oba-apis-integration'), ucfirst(str_replace('_', ' ', $field)));
             }
         }
 
@@ -564,18 +610,17 @@ class CheckoutService
         $items = [];
         foreach (WC()->cart->get_cart() as $key => $item) {
             $product = $item['data'];
-            if ($product->get_id() == $rechargeable_product_id)
-            {
+            if ($product->get_id() == $rechargeable_product_id) {
                 $virtual = true;
             }
             $items[] = [
                 'cart_item_key' => $key,
                 'product_id'    => $product->get_id(),
                 'name'          => $product->get_name(),
-                'quantity'      => (int) $item['quantity'],
-                'price'         => (float) $product->get_price(),
-                'subtotal'      => (float) $item['line_subtotal'],
-                'total'         => (float) $item['line_total'],
+                'quantity'      => (int)$item['quantity'],
+                'price'         => (float)$product->get_price(),
+                'subtotal'      => (float)$item['line_subtotal'],
+                'total'         => (float)$item['line_total'],
                 'thumbnail'     => wp_get_attachment_image_url($product->get_image_id(), 'thumbnail'),
             ];
         }
@@ -603,39 +648,39 @@ class CheckoutService
         }
 
         return [
-            'items'       => $items,
-            'subtotal'    => WC()->cart->get_subtotal(),
-            'shipping'    => WC()->cart->get_shipping_total(),
-            'discount'    => WC()->cart->get_discount_total(),
-            'tax'         => WC()->cart->get_total_tax(),
-            'total'       => WC()->cart->get_total('edit'),
-            'currency'    => get_woocommerce_currency(),
-            'item_count'  => WC()->cart->get_cart_contents_count(),
-            'fees'        => $fees,
-            'taxes'       => $taxes,
-            'virtual'     => $virtual,
+            'items'      => $items,
+            'subtotal'   => WC()->cart->get_subtotal(),
+            'shipping'   => WC()->cart->get_shipping_total(),
+            'discount'   => WC()->cart->get_discount_total(),
+            'tax'        => WC()->cart->get_total_tax(),
+            'total'      => WC()->cart->get_total('edit'),
+            'currency'   => get_woocommerce_currency(),
+            'item_count' => WC()->cart->get_cart_contents_count(),
+            'fees'       => $fees,
+            'taxes'      => $taxes,
+            'virtual'    => $virtual,
         ];
     }
 
     private function format_order(\WC_Order $order, bool $detailed = false): array
     {
         $data = [
-            'id'                    => $order->get_id(),
-            'number'                => $order->get_order_number(),
-            'status'                => $order->get_status(),
-            'date_created'          => $order->get_date_created() ? $order->get_date_created()->format('c') : null,
-            'date_modified'         => $order->get_date_modified() ? $order->get_date_modified()->format('c') : null,
-            'total'                 => $order->get_total(),
-            'currency'              => $order->get_currency(),
-            'customer_id'           => $order->get_customer_id(),
-            'payment_method'        => $order->get_payment_method(),
-            'payment_method_title'  => $order->get_payment_method_title(),
-            'shipping_method'       => $order->get_shipping_method(),
-            'subtotal'              => $order->get_subtotal(),
-            'shipping_total'        => $order->get_shipping_total(),
-            'tax_total'             => $order->get_total_tax(),
-            'discount_total'        => $order->get_total_discount(),
-            'billing_address' => [
+            'id'                   => $order->get_id(),
+            'number'               => $order->get_order_number(),
+            'status'               => $order->get_status(),
+            'date_created'         => $order->get_date_created() ? $order->get_date_created()->format('c') : null,
+            'date_modified'        => $order->get_date_modified() ? $order->get_date_modified()->format('c') : null,
+            'total'                => $order->get_total(),
+            'currency'             => $order->get_currency(),
+            'customer_id'          => $order->get_customer_id(),
+            'payment_method'       => $order->get_payment_method(),
+            'payment_method_title' => $order->get_payment_method_title(),
+            'shipping_method'      => $order->get_shipping_method(),
+            'subtotal'             => $order->get_subtotal(),
+            'shipping_total'       => $order->get_shipping_total(),
+            'tax_total'            => $order->get_total_tax(),
+            'discount_total'       => $order->get_total_discount(),
+            'billing_address'      => [
                 'first_name' => $order->get_billing_first_name(),
                 'last_name'  => $order->get_billing_last_name(),
                 'company'    => $order->get_billing_company(),
@@ -648,7 +693,7 @@ class CheckoutService
                 'email'      => $order->get_billing_email(),
                 'phone'      => $order->get_billing_phone(),
             ],
-            'shipping_address' => [
+            'shipping_address'     => [
                 'first_name' => $order->get_shipping_first_name(),
                 'last_name'  => $order->get_shipping_last_name(),
                 'company'    => $order->get_shipping_company(),
@@ -699,7 +744,7 @@ class CheckoutService
             }
             $result[] = [
                 'package_index' => $idx,
-                'rates' => $pkgRates,
+                'rates'         => $pkgRates,
             ];
         }
         return $result;
@@ -717,12 +762,12 @@ class CheckoutService
             $rates = [];
             foreach ($package['rates'] as $rate_id => $rate) {
                 $rates[] = [
-                    'id'       => $rate_id,                   // e.g. shipstation:1:GROUND
-                    'label'    => $rate->get_label(),         // e.g. UPS® Ground
-                    'cost'     => wc_price($rate->get_cost()),
-                    'raw_cost' => $rate->get_cost(),
-                    'taxes'    => $rate->get_taxes(),
-                    'method_id'=> $rate->get_method_id(),
+                    'id'        => $rate_id,                   // e.g. shipstation:1:GROUND
+                    'label'     => $rate->get_label(),         // e.g. UPS® Ground
+                    'cost'      => wc_price($rate->get_cost()),
+                    'raw_cost'  => $rate->get_cost(),
+                    'taxes'     => $rate->get_taxes(),
+                    'method_id' => $rate->get_method_id(),
                 ];
             }
             $packages_out[] = [
@@ -755,7 +800,7 @@ class CheckoutService
 
         // Check coupon validity against current cart
         $discounts = new WC_Discounts(WC()->cart);
-        $validity  = $discounts->is_coupon_valid($coupon);
+        $validity = $discounts->is_coupon_valid($coupon);
 
         if (is_wp_error($validity)) {
             return $validity; // Return detailed WC error
@@ -765,10 +810,10 @@ class CheckoutService
             'success' => true,
             'message' => 'Coupon is valid',
             'coupon'  => [
-                'code'       => $coupon->get_code(),
-                'amount'     => $coupon->get_amount(),
-                'type'       => $coupon->get_discount_type(),
-                'expiry'     => $coupon->get_date_expires() ? $coupon->get_date_expires()->date('Y-m-d H:i:s') : null
+                'code'   => $coupon->get_code(),
+                'amount' => $coupon->get_amount(),
+                'type'   => $coupon->get_discount_type(),
+                'expiry' => $coupon->get_date_expires() ? $coupon->get_date_expires()->date('Y-m-d H:i:s') : null
             ]
         ], 200);
     }
