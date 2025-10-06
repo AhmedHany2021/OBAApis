@@ -88,86 +88,71 @@ class UserService {
 		}
 
 		// Update WooCommerce customer data if available
-        if ( class_exists( 'WC_Customer' ) ) {
-            $customer = new \WC_Customer( $user->ID );
+		if ( class_exists( 'WC_Customer' ) ) {
+			$customer = new \WC_Customer( $user->ID );
+			$woo_data = [];
 
-            // Get billing and shipping data from request
-            $billing_data  = $request->get_param( 'billing' ) ?: [];
-            $shipping_data = $request->get_param( 'shipping' ) ?: [];
+			// Get billing and shipping data from request
+			$billing_data = $request->get_param( 'billing' ) ?: [];
+			$shipping_data = $request->get_param( 'shipping' ) ?: [];
 
-            // Billing fields
-            $billing_fields = [
-                'first_name' => 'billing_first_name',
-                'last_name'  => 'billing_last_name',
-                'company'    => 'billing_company',
-                'address_1'  => 'billing_address_1',
-                'address_2'  => 'billing_address_2',
-                'city'       => 'billing_city',
-                'state'      => 'billing_state',
-                'postcode'   => 'billing_postcode',
-                'country'    => 'billing_country',
-                'email'      => 'billing_email',
-                'phone'      => 'billing_phone',
-            ];
+			// Billing address fields mapping
+			$billing_fields = [
+				'first_name' => 'billing_first_name',
+				'last_name' => 'billing_last_name',
+				'company' => 'billing_company',
+				'address_1' => 'billing_address_1',
+				'address_2' => 'billing_address_2',
+				'city' => 'billing_city',
+				'state' => 'billing_state',
+				'postcode' => 'billing_postcode',
+				'country' => 'billing_country',
+				'email' => 'billing_email',
+				'phone' => 'billing_phone',
+			];
 
-            foreach ( $billing_fields as $req_field => $cust_field ) {
-                if ( isset( $billing_data[ $req_field ] ) ) {
-                    $value = sanitize_text_field( $billing_data[ $req_field ] );
-                    $method = "set_{$cust_field}";
-                    if ( method_exists( $customer, $method ) ) {
-                        $customer->$method( $value );
-                    }
-                }
-            }
+			// Process billing data
+			foreach ( $billing_fields as $request_field => $customer_field ) {
+				$value = isset( $billing_data[ $request_field ] ) ? $billing_data[ $request_field ] : null;
+				if ( ! empty( $value ) ) {
+					$woo_data[ $customer_field ] = sanitize_text_field( $value );
+				}
+			}
 
-            // Shipping fields
-            $shipping_fields = [
-                'first_name' => 'shipping_first_name',
-                'last_name'  => 'shipping_last_name',
-                'company'    => 'shipping_company',
-                'address_1'  => 'shipping_address_1',
-                'address_2'  => 'shipping_address_2',
-                'city'       => 'shipping_city',
-                'state'      => 'shipping_state',
-                'postcode'   => 'shipping_postcode',
-                'country'    => 'shipping_country',
-            ];
+			// Shipping address fields mapping
+			$shipping_fields = [
+				'first_name' => 'shipping_first_name',
+				'last_name' => 'shipping_last_name',
+				'company' => 'shipping_company',
+				'address_1' => 'shipping_address_1',
+				'address_2' => 'shipping_address_2',
+				'city' => 'shipping_city',
+				'state' => 'shipping_state',
+				'postcode' => 'shipping_postcode',
+				'country' => 'shipping_country',
+			];
 
-            foreach ( $shipping_fields as $req_field => $cust_field ) {
-                if ( isset( $shipping_data[ $req_field ] ) ) {
-                    $value = sanitize_text_field( $shipping_data[ $req_field ] );
-                    $method = "set_{$cust_field}";
-                    if ( method_exists( $customer, $method ) ) {
-                        $customer->$method( $value );
-                    }
-                }
-            }
+			// Process shipping data
+			foreach ( $shipping_fields as $request_field => $customer_field ) {
+				$value = isset( $shipping_data[ $request_field ] ) ? $shipping_data[ $request_field ] : null;
+				if ( ! empty( $value ) ) {
+					$woo_data[ $customer_field ] = sanitize_text_field( $value );
+				}
+			}
 
-            // Save all updates
-            $customer->save();
+			// Update customer data
+			if ( ! empty( $woo_data ) ) {
+				foreach ( $woo_data as $field => $value ) {
+					$customer->{"set_{$field}"}( $value );
+				}
+				$customer->save();
+			}
 
-            // Optional: Sync shipping if empty but billing exists
-            if ( empty( $shipping_data ) ) {
-                $customer->set_shipping_first_name( $customer->get_billing_first_name() );
-                $customer->set_shipping_last_name( $customer->get_billing_last_name() );
-                $customer->set_shipping_company( $customer->get_billing_company() );
-                $customer->set_shipping_address_1( $customer->get_billing_address_1() );
-                $customer->set_shipping_address_2( $customer->get_billing_address_2() );
-                $customer->set_shipping_city( $customer->get_billing_city() );
-                $customer->set_shipping_state( $customer->get_billing_state() );
-                $customer->set_shipping_postcode( $customer->get_billing_postcode() );
-                $customer->set_shipping_country( $customer->get_billing_country() );
-                $customer->save();
-            }
-
-            // Custom fields
             $custom_fields = $request->get_param( 'custom_fields' );
-            if ( ! empty( $custom_fields ) && is_array( $custom_fields ) ) {
-                foreach ( $custom_fields as $meta_key => $meta_value ) {
-                    update_user_meta( $user->ID, $meta_key, sanitize_text_field( $meta_value ) );
-                }
+            foreach ( $custom_fields as $request_field => $custom_field ) {
+                update_user_meta( $user->ID, $request_field, $custom_field );
             }
-        }
+		}
 
 		// Update Dokan vendor data if available
 		if ( class_exists( 'WeDevs_Dokan' ) && in_array( 'seller', $user->roles, true ) ) {
