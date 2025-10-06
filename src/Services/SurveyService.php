@@ -97,36 +97,38 @@ class SurveyService
         $existing_request = $this->CheckMedicationRequestExists($user_id, $product_id);
 
         if (!$submission) {
-            return $this->response_data(true, true, false, 'No Submission added yet', 200);
+            return $this->response_data(true, true, false, 'No Submission added yet', 200 , 'not_submitted');
         }
 
         if ($existing_request) {
             if ($existing_request['status'] == 'approved' || $existing_request['status'] == 'complete') {
-                return $this->response_data(true, false, true, 'User request approved');
-            } elseif ($existing_request['status'] == 'rejected') {
-                return $this->response_data(true, false, false, 'User request rejected');
+                return $this->response_data(true, false, true, 'User request approved' , 200 , 'approved');
+            } elseif ($existing_request['status'] == 'rejected' || $existing_request['status'] == 'auto_reject') {
+                return $this->response_data(true, false, false, 'User request rejected', 200 ,'rejected');
             } elseif ($existing_request['status'] == 'pending approval') {
-                $conditions = json_decode($survey->conditions, true);
-                $condition_met = $this->CheckConditionMet($submission, $conditions, $product_id);
-                if ($condition_met) {
-                    $this->UpdateRequestStatus($existing_request['id'], 'approved');
-                    return $this->response_data(true, false, true, 'User can add product');
-
-                } else {
-                    return $this->response_data(true, false, false, 'User request pending approval');
-                }
+                return $this->response_data(true, false, false, 'User request pending approval');
             }
         } else {
             $conditions = json_decode($survey->conditions, true);
-            $condition_met = $this->CheckConditionMet($submission, $conditions, $product_id);
+            $condition_met_res = $this->CheckConditionMet($submission, $conditions, $product_id);
+            $condition_met = $condition_met_res['condition_met'];
+            $condition_met_auto_reject = $condition_met_res['auto_reject'];
             $status = $condition_met ? 'approved' : 'pending approval';
+            if ($condition_met_auto_reject) {
+                $status = 'auto_reject';
+            }
             $medication_request = $this->HandleNewMedicationRequest($submission, $product_id, $user_id, $status);
+
             if (!$medication_request) {
                 return $this->response_data(false, false, false, "couldn't create request in mdclara");
             }
             if ($condition_met) {
-                return $this->response_data(true, false, true, "user can add product");
-            } else {
+                return $this->response_data(true, false, true, "user can add product" , 200 , 'approved');
+            }
+            elseif ($condition_met_auto_reject) {
+                return $this->response_data(true, false, false, 'User request rejected', 200 ,'rejected');
+            }
+            else {
                 return $this->response_data(true, false, false, 'user request pending approval');
             }
         }
@@ -283,10 +285,15 @@ class SurveyService
             // Handle medication request if needed
             if (!empty($survey->conditions)) {
                 $conditions = json_decode($survey->conditions, true);
-                $condition_met = $this->CheckConditionMet($submission_id, $conditions, $product_id);
-                
+                $condition_met_res = $this->CheckConditionMet($submission_id, $conditions, $product_id);
+                $condition_met = $condition_met_res['condition_met'];
+                $condition_met_auto_reject = $condition_met_res['auto_reject'];
                 $status = $condition_met ? 'approved' : 'pending approval';
-                $this->HandleNewMedicationRequest($submission_id, $product_id, $user_id, $status);
+                if ($condition_met_auto_reject) {
+                    $status = 'auto_reject';
+                }
+                $medication_request = $this->HandleNewMedicationRequest($submission_id, $product_id, $user_id, $status);
+
             }
 
             return new WP_REST_Response([
@@ -462,13 +469,14 @@ class SurveyService
 
     }
 
-    private function response_data($success = true, $not_submitted = false, $can_add = false, $message = '', $status = 200): WP_REST_Response
+    private function response_data($success = true, $not_submitted = false, $can_add = false, $message = '', $status = 200 ,$survey_status = 'pending_approval'): WP_REST_Response
     {
         return new WP_REST_Response([
             'success'       => $success,
             'message'       => $message,
             'not_submitted' => $not_submitted,
             'can_add'       => $can_add,
+            'status'        => $survey_status,
         ], $status);
     }
 

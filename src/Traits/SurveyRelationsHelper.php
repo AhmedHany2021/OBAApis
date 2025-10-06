@@ -48,52 +48,51 @@ trait SurveyRelationsHelper
         return $existing;
     }
 
-    private function CheckConditionMet($submission , $conditions , $product_id)
+    private function CheckConditionMet($submission, $conditions, $product_id)
     {
         if (empty($conditions)) {
-            return true;
+            return ['condition_met' => true, 'auto_reject' => false];
         }
 
         global $wpdb;
+        $relations_table = $wpdb->prefix . 'ays_qcategory_relations';
 
         // Get user answers from submission
         $answers = $this->GetUserAnswersFromSubmission($submission);
 
-        // Check each condition
+        // Track results
+        $auto_reject_triggered = false;
+        $all_conditions_met    = true;
+
         foreach ($conditions as $condition) {
-            // Check if this condition has WooCommerce products
-            if (!isset($condition['messages']['wooproduct']) || empty($condition['messages']['wooproduct'])) {
+            if (empty($condition['messages']['wooproduct']) ||
+                !in_array($product_id, $condition['messages']['wooproduct'])) {
                 continue;
             }
 
-            // Check if this product is in the condition's products
-            if (!in_array($product_id, $condition['messages']['wooproduct'])) {
-                continue;
-            }
-
-            // Check if all condition rules are met
             $condition_met = true;
-            if (isset($condition['condition_question_add']) && !empty($condition['condition_question_add'])) {
+
+            if (!empty($condition['condition_question_add'])) {
                 foreach ($condition['condition_question_add'] as $rule) {
                     $question_id = isset($rule['question_id']) ? intval($rule['question_id']) : 0;
                     if (!$question_id) {
                         continue;
                     }
 
-                    // Find the answer for this question
                     $answer_found = false;
+                    $answer_id    = null;
+                    $user_answer  = null;
+
                     foreach ($answers as $answer) {
                         if ($answer['question_id'] == $question_id) {
                             $answer_found = true;
-                            $user_answer = $answer['user_answer'];
-                            $answer_id = $answer['answer_id'];
+                            $answer_id    = $answer['answer_id'];
+                            $user_answer  = $answer['user_answer'];
 
-                            // Compare the answer
-                            $rule_answer = isset($rule['answer']) ? $rule['answer'] : '';
-                            $rule_type = isset($rule['type']) ? $rule['type'] : '';
+                            $rule_answer = $rule['answer'] ?? '';
+                            $rule_type   = $rule['type'] ?? '';
 
-                            // For radio/select type questions, check the answer_id
-                            if ($rule_type == 'radio' || $rule_type == 'select') {
+                            if ($rule_type === 'radio' || $rule_type === 'select') {
                                 if ($answer_id != $rule_answer) {
                                     $condition_met = false;
                                 }
@@ -110,17 +109,47 @@ trait SurveyRelationsHelper
                         $condition_met = false;
                     }
 
+                    // If condition failed, check auto_reject but continue processing
                     if (!$condition_met) {
-                        break;
+                        $auto_reject_serialized = $wpdb->get_var(
+                            $wpdb->prepare(
+                                "SELECT auto_reject FROM $relations_table WHERE question_id = %d LIMIT 1",
+                                $question_id
+                            )
+                        );
+
+                        $auto_reject_data = maybe_unserialize($auto_reject_serialized);
+
+                        if (is_array($auto_reject_data)) {
+                            foreach ($auto_reject_data as $rejectEntry) {
+                                if (
+                                    isset($rejectEntry['answer_id'], $rejectEntry['reject']) &&
+                                    $rejectEntry['answer_id'] == $answer_id &&
+                                    $rejectEntry['reject']
+                                ) {
+                                    $auto_reject_triggered = true;
+                                }
+                            }
+                        }
                     }
                 }
             }
 
-            if ($condition_met) {
-                return true;
+            // If this condition failed → mark the global tracker
+            if (!$condition_met) {
+                $all_conditions_met = false;
             }
         }
-        return false;
+
+        // Final priority:
+        if ($auto_reject_triggered) {
+            return ['condition_met' => false, 'auto_reject' => true];
+        }
+
+        return [
+            'condition_met' => $all_conditions_met,
+            'auto_reject'   => false
+        ];
     }
 
     /**
@@ -167,7 +196,7 @@ trait SurveyRelationsHelper
         return $answers;
     }
 
-    private function HandleNewMedicationRequest($submission , $product_id , $user_id , $status)
+    private function HandleNewMedicationRequest($submission, $product_id, $user_id, $status)
     {
         global $wpdb;
         $product_access_table = $wpdb->prefix . "survey_maker_woo_product_access";
@@ -179,9 +208,9 @@ trait SurveyRelationsHelper
             $wpdb->insert(
                 $product_access_table,
                 array(
-                    'user_id' => $user_id,
+                    'user_id'    => $user_id,
                     'product_id' => $product_id,
-                    'status' => $status
+                    'status'     => $status
                 ),
                 array('%d', '%d', '%s')
             );
@@ -192,7 +221,13 @@ trait SurveyRelationsHelper
                 return false;
             }
 
-            if ($this->CreateNewMedicationRequest($submission, $product_id , $user_id , $insert_id, $status)) {
+            if ($status == 'auto_reject')
+            {
+                $wpdb->query('COMMIT');
+                return true;
+            }
+
+            if ($this->CreateNewMedicationRequest($submission, $product_id, $insert_id, $status)) {
                 $wpdb->query('COMMIT');
                 return true;
             } else {
