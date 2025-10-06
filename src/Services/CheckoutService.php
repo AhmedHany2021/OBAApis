@@ -321,6 +321,16 @@ class CheckoutService
             $order->update_status('processing', __('Cash on delivery order.', 'oba-apis-integration'));
             WC()->cart->empty_cart();
 
+            $wallet_id              = get_option( 'wps_wsfw_rechargeable_product_id', '' );
+            $order_items            = $order->get_items();
+            foreach ( $order_items as $item_id => $item ) {
+                $product_id = $item->get_product_id();
+                if ( isset( $product_id ) && ! empty( $product_id ) && $product_id == $wallet_id ) {
+                    $order->update_status('completed', __('Auto-completed because it contains wallet product', 'oba-apis-integration'));
+                    break;
+                }
+            }
+
             return new WP_REST_Response([
                 'success' => true,
                 'message' => __('Order placed with Cash on Delivery.', 'oba-apis-integration'),
