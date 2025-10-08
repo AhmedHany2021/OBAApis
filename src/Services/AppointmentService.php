@@ -43,7 +43,7 @@ class AppointmentService
         $appointment_time = $request->get_param('appointment_time');
         $appointment_id = $request->get_param('appointment_id');
 
-        if (empty($doctor_id) || empty($clinic_id) || empty($patient_id) || empty($appointment_date) || empty($appointment_time)) {
+        if ( empty($clinic_id) || empty($patient_id) || empty($appointment_date) || empty($appointment_time)) {
             return new WP_Error(
                 'missing_fields',
                 __('Required appointment fields are missing.', 'oba-apis-integration'),
