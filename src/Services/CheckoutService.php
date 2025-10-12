@@ -237,6 +237,11 @@ class CheckoutService
             return new WP_REST_Response(['success' => false, 'errors' => $errors], 400);
         }
 
+        // Validation passed - update user meta with billing and shipping addresses
+        $billing = $this->sanitize_address($data['billing']);
+        $shipping = isset($data['shipping']) ? $this->sanitize_address($data['shipping']) : $billing;
+        $this->update_user_addresses($user_id, $billing, $shipping);
+            
         return new WP_REST_Response(['success' => true, 'message' => __('Checkout data is valid.', 'oba-apis-integration')]);
     }
 
@@ -423,6 +428,71 @@ class CheckoutService
     }
 
     /* -------------------------- Helpers -------------------------- */
+
+    /**
+     * Update user meta with billing and shipping addresses
+     */
+    private function update_user_addresses(int $user_id, array $billing, array $shipping)
+    {
+        if (empty($user_id)) {
+            return;
+        }
+
+        // Update billing address meta
+        $billing_fields = [
+            'first_name', 'last_name', 'company', 'address_1', 'address_2',
+            'city', 'state', 'postcode', 'country', 'email', 'phone'
+        ];
+
+        foreach ($billing_fields as $field) {
+            if (isset($billing[$field])) {
+                update_user_meta($user_id, 'billing_' . $field, $billing[$field]);
+            }
+        }
+
+        // Update shipping address meta
+        $shipping_fields = [
+            'first_name', 'last_name', 'company', 'address_1', 'address_2',
+            'city', 'state', 'postcode', 'country'
+        ];
+
+        foreach ($shipping_fields as $field) {
+            if (isset($shipping[$field])) {
+                update_user_meta($user_id, 'shipping_' . $field, $shipping[$field]);
+            }
+        }
+
+        // Also update WC_Customer object to keep it in sync
+        if (class_exists('WC_Customer')) {
+            $customer = new \WC_Customer($user_id);
+            
+            // Set billing address
+            if (isset($billing['first_name'])) $customer->set_billing_first_name($billing['first_name']);
+            if (isset($billing['last_name'])) $customer->set_billing_last_name($billing['last_name']);
+            if (isset($billing['company'])) $customer->set_billing_company($billing['company']);
+            if (isset($billing['address_1'])) $customer->set_billing_address_1($billing['address_1']);
+            if (isset($billing['address_2'])) $customer->set_billing_address_2($billing['address_2']);
+            if (isset($billing['city'])) $customer->set_billing_city($billing['city']);
+            if (isset($billing['state'])) $customer->set_billing_state($billing['state']);
+            if (isset($billing['postcode'])) $customer->set_billing_postcode($billing['postcode']);
+            if (isset($billing['country'])) $customer->set_billing_country($billing['country']);
+            if (isset($billing['email'])) $customer->set_billing_email($billing['email']);
+            if (isset($billing['phone'])) $customer->set_billing_phone($billing['phone']);
+
+            // Set shipping address
+            if (isset($shipping['first_name'])) $customer->set_shipping_first_name($shipping['first_name']);
+            if (isset($shipping['last_name'])) $customer->set_shipping_last_name($shipping['last_name']);
+            if (isset($shipping['company'])) $customer->set_shipping_company($shipping['company']);
+            if (isset($shipping['address_1'])) $customer->set_shipping_address_1($shipping['address_1']);
+            if (isset($shipping['address_2'])) $customer->set_shipping_address_2($shipping['address_2']);
+            if (isset($shipping['city'])) $customer->set_shipping_city($shipping['city']);
+            if (isset($shipping['state'])) $customer->set_shipping_state($shipping['state']);
+            if (isset($shipping['postcode'])) $customer->set_shipping_postcode($shipping['postcode']);
+            if (isset($shipping['country'])) $customer->set_shipping_country($shipping['country']);
+
+            $customer->save();
+        }
+    }
 
     private function update_user_credit($order)
     {
