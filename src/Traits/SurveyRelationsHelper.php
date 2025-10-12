@@ -227,7 +227,7 @@ trait SurveyRelationsHelper
                 return true;
             }
 
-            if ($this->CreateNewMedicationRequest($submission, $product_id, $insert_id, $status)) {
+            if ($this->CreateNewMedicationRequest($submission, $product_id,$user_id, $insert_id, $status)) {
                 $wpdb->query('COMMIT');
                 return true;
             } else {
