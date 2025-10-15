@@ -678,20 +678,46 @@ class CheckoutService
         $rechargeable_product_id = get_option('wps_wsfw_rechargeable_product_id');
         $virtual = false;
         $items = [];
+
         foreach (WC()->cart->get_cart() as $key => $item) {
+            /** @var WC_Product $product */
             $product = $item['data'];
+
             if ($product->get_id() == $rechargeable_product_id) {
                 $virtual = true;
             }
+
+            // Check if this product (or variation) is virtual
+            $is_virtual = $product->is_virtual();
+
+            // Get variation ID if exists
+            $variation_id = $item['variation_id'] ?? 0;
+
+            // Retrieve the _variation_membership_price custom meta
+            // If variation exists, check its meta, otherwise fall back to product meta
+            $membership_price = '';
+            if ($variation_id) {
+                $membership_price = get_post_meta($variation_id, '_variation_membership_price', true);
+            } else {
+                $membership_price = get_post_meta($product->get_id(), '_variation_membership_price', true);
+            }
+
+            // Handle possible array stored in meta
+            if (is_array($membership_price)) {
+                $membership_price = $membership_price[0] ?? '';
+            }
+
             $items[] = [
-                'cart_item_key' => $key,
-                'product_id'    => $product->get_id(),
-                'name'          => $product->get_name(),
-                'quantity'      => (int)$item['quantity'],
-                'price'         => (float)$product->get_price(),
-                'subtotal'      => (float)$item['line_subtotal'],
-                'total'         => (float)$item['line_total'],
-                'thumbnail'     => wp_get_attachment_image_url($product->get_image_id(), 'thumbnail'),
+                'cart_item_key'            => $key,
+                'product_id'               => $product->get_id(),
+                'name'                     => $product->get_name(),
+                'quantity'                 => (int) $item['quantity'],
+                'price'                    => (float) $product->get_price(),
+                'subtotal'                 => (float) $item['line_subtotal'],
+                'total'                    => (float) $item['line_total'],
+                'thumbnail'                => wp_get_attachment_image_url($product->get_image_id(), 'thumbnail'),
+                'is_virtual'               => $is_virtual,
+                '_variation_membership_price' => $membership_price,
             ];
         }
 
@@ -707,7 +733,7 @@ class CheckoutService
             ];
         }
 
-        // Collect taxes (detailed breakdown like frontend)
+        // Collect taxes
         $taxes = [];
         foreach (WC()->cart->get_tax_totals() as $code => $tax) {
             $taxes[] = [
@@ -731,6 +757,7 @@ class CheckoutService
             'virtual'    => $virtual,
         ];
     }
+
 
     private function format_order(\WC_Order $order, bool $detailed = false): array
     {
