@@ -261,20 +261,35 @@ class CartService
         $cart_items = [];
 
         foreach (WC()->cart->get_cart() as $cart_item_key => $item) {
+            /** @var WC_Product $product */
             $product = $item['data'];
 
-            // Default values
-            $subscription_data = null;
+            // Get variation ID if exists
+            $variation_id = $item['variation_id'] ?? 0;
+
+            // Get _variation_membership_price
+            $membership_price = '';
+            if ($variation_id) {
+                $membership_price = get_post_meta($variation_id, '_variation_membership_price', true);
+            } else {
+                $membership_price = get_post_meta($product->get_id(), '_variation_membership_price', true);
+            }
+
+            if (is_array($membership_price)) {
+                $membership_price = $membership_price[0] ?? '';
+            }
 
             $cart_items[] = [
-                'cart_item_key'     => $cart_item_key,
-                'product_id'        => $product->get_id(),
-                'name'              => $product->get_name(),
-                'quantity'          => $item['quantity'],
-                'price'             => $product->get_price(),
-                'subtotal'          => $item['line_subtotal'],
-                'total'             => $item['line_total'],
-                'thumbnail'         => wp_get_attachment_image_url($product->get_image_id(), 'thumbnail'),
+                'cart_item_key'              => $cart_item_key,
+                'product_id'                 => $product->get_id(),
+                'name'                       => $product->get_name(),
+                'quantity'                   => (int) $item['quantity'],
+                'price'                      => (float) $product->get_price(),
+                'subtotal'                   => (float) $item['line_subtotal'],
+                'total'                      => (float) $item['line_total'],
+                'thumbnail'                  => wp_get_attachment_image_url($product->get_image_id(), 'thumbnail'),
+                'is_virtual'                 => $product->is_virtual(),
+                '_variation_membership_price'=> $membership_price,
             ];
         }
 
@@ -282,9 +297,9 @@ class CartService
         $fees = [];
         foreach (WC()->cart->get_fees() as $fee) {
             $fees[] = [
-                'name'  => $fee->name,
-                'amount'=> $fee->amount,
-                'tax'   => $fee->tax,
+                'name'   => $fee->name,
+                'amount' => wc_format_decimal($fee->amount, wc_get_price_decimals()),
+                'tax'    => wc_format_decimal($fee->tax, wc_get_price_decimals()),
             ];
         }
 
@@ -293,10 +308,9 @@ class CartService
         foreach (WC()->cart->get_taxes() as $tax_rate_id => $tax_amount) {
             $taxes[] = [
                 'rate_id' => $tax_rate_id,
-                'amount'  => $tax_amount,
+                'amount'  => wc_format_decimal($tax_amount, wc_get_price_decimals()),
             ];
         }
-
 
         return [
             'items'      => $cart_items,
@@ -308,4 +322,5 @@ class CartService
             'taxes'      => $taxes,
         ];
     }
+
 }
