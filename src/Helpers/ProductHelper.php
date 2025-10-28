@@ -82,32 +82,44 @@ class ProductHelper {
         // ✅ Variations
         if ($product->is_type('variable')) {
             $variations_data = [];
+
             foreach ($product->get_children() as $variation_id) {
                 $variation_obj = wc_get_product($variation_id);
-                if (!$variation_obj) continue;
+                if (!$variation_obj) {
+                    continue;
+                }
 
+                // Get variation image IDs (main + gallery)
                 $var_image_ids = array_unique(array_merge(
                     [$variation_obj->get_image_id()],
                     $variation_obj->get_gallery_image_ids()
                 ));
 
+                // Get _variation_membership_price
+                $membership_price = get_post_meta($variation_id, '_variation_membership_price', true);
+                if (is_array($membership_price)) {
+                    $membership_price = $membership_price[0] ?? '';
+                }
+
                 $variations_data[] = [
-                    'id'            => $variation_id,
-                    'attributes'    => self::format_variation_attributes($variation_obj),
-                    'regular_price' => (float) $variation_obj->get_regular_price(),
-                    'sale_price'    => $variation_obj->get_sale_price() ? (float) $variation_obj->get_sale_price() : null,
-                    'stock_status'  => $variation_obj->get_stock_status(),
-                    'stock_quantity'=> $variation_obj->get_stock_quantity(),
-                    'images'        => array_values(array_filter(array_map(function ($image_id) {
+                    'id'                           => $variation_id,
+                    'attributes'                   => self::format_variation_attributes($variation_obj),
+                    'regular_price'                => (float) $variation_obj->get_regular_price(),
+                    'sale_price'                   => $variation_obj->get_sale_price() ? (float) $variation_obj->get_sale_price() : null,
+                    'stock_status'                 => $variation_obj->get_stock_status(),
+                    'stock_quantity'               => $variation_obj->get_stock_quantity(),
+                    'is_virtual'                   => $variation_obj->is_virtual(),
+                    '_variation_membership_price'  => $membership_price,
+                    'images'                       => array_values(array_filter(array_map(function ($image_id) {
                         if (!$image_id) return null;
                         return [
                             'id'  => $image_id,
                             'url' => wp_get_attachment_image_url($image_id, 'full')
                         ];
-                    }, $var_image_ids)))
+                    }, $var_image_ids))),
                 ];
             }
-            $product_data['variations'] = $variations_data;
+        $product_data['variations'] = $variations_data;
         }
 
         return $product_data;
