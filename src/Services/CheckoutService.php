@@ -301,9 +301,26 @@ class CheckoutService
 
         $order = wc_get_order($order_id);
 
-        if (!$order->get_shipping_first_name() && !empty($billing)) {
+        if (!$order->get_shipping_first_name() && !empty($shipping)) {
             $order->set_address($shipping, 'shipping');
         }
+
+        // Explicitly set shipping first name and last name if they exist
+        if (!empty($shipping['first_name'])) {
+            $order->set_shipping_first_name(sanitize_text_field($shipping['first_name']));
+        }
+        if (!empty($shipping['last_name'])) {
+            $order->set_shipping_last_name(sanitize_text_field($shipping['last_name']));
+        }
+
+        // Explicitly set billing first name and last name if they exist
+        if (!empty($billing['first_name'])) {
+            $order->set_billing_first_name(sanitize_text_field($billing['first_name']));
+        }
+        if (!empty($billing['last_name'])) {
+            $order->set_billing_last_name(sanitize_text_field($billing['last_name']));
+        }
+
         $order->set_customer_id($user_id);
 
         if (!empty($data['order_notes'])) {
