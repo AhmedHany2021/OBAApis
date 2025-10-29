@@ -33,11 +33,10 @@ class SurveyService
             return new WP_REST_Response(['success' => false, 'message' => 'Survey not found.'], 404);
         }
 
-        // 2. Read the comma‑separated question_ids
+        // 2. Read the comma-separated question_ids
         $question_ids = array_filter(array_map('absint', explode(',', $survey['question_ids'])));
 
         $questions = [];
-        $qustion_temp = [];
         if ($question_ids) {
             // 3. Fetch questions by IN list
             $placeholders = implode(',', array_fill(0, count($question_ids), '%d'));
@@ -48,12 +47,15 @@ class SurveyService
                 ),
                 ARRAY_A
             );
-
             foreach ($questions_temp as $question) {
-                $questions[] = ['id' => $question['id'], 'question' => $question['question'], 'type' => $question['type']];
+                $options = json_decode($question['options']);
+                $questions[] = [
+                    'id'        => $question['id'],
+                    'question'  => $question['question'],
+                    'type'      => $question['type'],
+                    'required'  => $options->required == 'on' ? true : false,
+                ];
             }
-
-            $answers_temp = [];
             // 4. For each question fetch its answers
             foreach ($questions as &$q) {
                 $answers_temp = $wpdb->get_results(
@@ -61,7 +63,10 @@ class SurveyService
                     ARRAY_A
                 );
                 foreach ($answers_temp as $answer) {
-                    $q['answers'][] = ['id' => $answer['id'], 'answer' => $answer['answer']];
+                    $q['answers'][] = [
+                        'id'     => $answer['id'],
+                        'answer' => $answer['answer'],
+                    ];
                 }
             }
         }
