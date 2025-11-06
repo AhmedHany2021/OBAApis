@@ -350,6 +350,44 @@ class MembershipService {
         // Get final membership status
         $membership_level = pmpro_getMembershipLevelForUser($user_id);
 
+        // Save user first and last name from custom fields
+        if (!empty($params['custom_fields'])) {
+            if (!empty($params['custom_fields']['Patient_first_name'])) {
+                update_user_meta($user_id, 'first_name', sanitize_text_field($params['custom_fields']['Patient_first_name']));
+            }
+            if (!empty($params['custom_fields']['Patient_last_name'])) {
+                update_user_meta($user_id, 'last_name', sanitize_text_field($params['custom_fields']['Patient_last_name']));
+            }
+
+            // Build and save billing address from custom fields
+            $billing_data = [
+                'first_name' => $params['custom_fields']['Patient_first_name'] ?? '',
+                'last_name' => $params['custom_fields']['Patient_last_name'] ?? '',
+                'address_1' => $params['custom_fields']['street_address'] ?? '',
+                'city' => $params['custom_fields']['town_city'] ?? '',
+                'state' => $params['custom_fields']['Patient_State'] ?? '',
+                'postcode' => $params['custom_fields']['postcode_zip'] ?? '',
+                'country' => $params['custom_fields']['Patient_Country'] ?? '',
+                'phone' => $params['custom_fields']['phone_paidmembership'] ?? ''
+            ];
+            
+            $this->set_user_billing_address($user_id, $billing_data);
+            
+            // Build and save shipping address from custom fields (same as billing by default)
+            $shipping_data = [
+                'first_name' => $params['custom_fields']['Patient_first_name'] ?? '',
+                'last_name' => $params['custom_fields']['Patient_last_name'] ?? '',
+                'address_1' => $params['custom_fields']['street_address'] ?? '',
+                'city' => $params['custom_fields']['town_city'] ?? '',
+                'state' => $params['custom_fields']['Patient_State'] ?? '',
+                'postcode' => $params['custom_fields']['postcode_zip'] ?? '',
+                'country' => $params['custom_fields']['Patient_Country'] ?? '',
+                'phone' => $params['custom_fields']['phone_paidmembership'] ?? ''
+            ];
+            
+            $this->set_user_shipping_address($user_id, $shipping_data);
+        }
+
         return new WP_REST_Response([
             'success' => true,
             'message' => __('Membership created successfully.', 'oba-apis-integration'),
@@ -1328,6 +1366,24 @@ class MembershipService {
     }
 
     /**
+     * Set user shipping address
+     */
+    private function set_user_shipping_address($user_id, $shipping_data) {
+        $shipping_fields = [
+            'shipping_first_name', 'shipping_last_name', 'shipping_company',
+            'shipping_address_1', 'shipping_address_2', 'shipping_city',
+            'shipping_state', 'shipping_postcode', 'shipping_country', 'shipping_phone'
+        ];
+
+        foreach ($shipping_fields as $field) {
+            $key = str_replace('shipping_', '', $field);
+            if (isset($shipping_data[$key])) {
+                update_user_meta($user_id, $field, sanitize_text_field($shipping_data[$key]));
+            }
+        }
+    }
+
+    /**
      * Get user billing address
      */
     private function get_user_billing_address($user_id) {
@@ -1344,6 +1400,8 @@ class MembershipService {
             'phone' => get_user_meta($user_id, 'billing_phone', true)
         ];
     }
+
+
 
     /**
      * Update user billing address
