@@ -61,7 +61,8 @@ class AppointmentService
             'appointment_time' => $appointment_time,
         ];
         $appointment = $this->save_appointment($appointment_data);
-        $this->send_email_to_patient($appointment_data['patient_id'], $appointment_data['appointment_date'], $appointment_data['appointment_time'], $appointment , $user_id);
+        $formatted_date = date('m/d/Y', strtotime($appointment_data['appointment_date']));
+        $this->send_email_to_patient($appointment_data['patient_id'], $formatted_date, $appointment_data['appointment_time'], $appointment , $user_id);
         if ($appointment && $appointment > 0) {
             $success = true;
             $message = "appointment created successfully";
