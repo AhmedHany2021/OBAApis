@@ -10,6 +10,7 @@ use OBA\APIsIntegration\Services\AppointmentService;
 use OBA\APIsIntegration\Services\AuthService;
 use OBA\APIsIntegration\Services\CallService;
 use OBA\APIsIntegration\Services\CreditSystemService;
+use OBA\APIsIntegration\Services\CreditCardService;
 use OBA\APIsIntegration\Services\DoctorService;
 use OBA\APIsIntegration\Services\MedicationRequestService;
 use OBA\APIsIntegration\Services\SurveyService;
@@ -120,6 +121,7 @@ class Plugin
         $this->services['blog'] = new BlogService();
         $this->services['forget_password'] = new ForgetPasswordService();
         $this->services['credit'] = new CreditSystemService();
+        $this->services['creditcard'] = new CreditCardService();
     }
 
     /**
@@ -232,6 +234,14 @@ class Plugin
         //Credit System
         $this->router->register_route('credits', 'GET', [$this->services['credit'] , 'get_user_credit'] , [AuthMiddleware::class]);
         $this->router->register_route('credits/add', 'POST', [$this->services['credit'] , 'add_user_credit'] , [AuthMiddleware::class]);
+
+        //Payment Methods (Credit Cards)
+        $this->router->register_route('payment-methods', 'POST', [$this->services['creditcard'], 'create_payment_method'], [AuthMiddleware::class]);
+        $this->router->register_route('payment-methods', 'GET', [$this->services['creditcard'], 'get_user_payment_methods'], [AuthMiddleware::class]);
+        $this->router->register_route('payment-methods/{id}', 'GET', [$this->services['creditcard'], 'get_payment_method'], [AuthMiddleware::class]);
+        $this->router->register_route('payment-methods/{id}', 'PUT', [$this->services['creditcard'], 'update_payment_method'], [AuthMiddleware::class]);
+        $this->router->register_route('payment-methods/{id}', 'DELETE', [$this->services['creditcard'], 'delete_payment_method'], [AuthMiddleware::class]);
+        $this->router->register_route('payment-methods/{id}/set-default', 'POST', [$this->services['creditcard'], 'set_default_payment_method'], [AuthMiddleware::class]);
     }
 
     /**
