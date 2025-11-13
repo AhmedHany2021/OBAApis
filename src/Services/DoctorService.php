@@ -68,6 +68,7 @@ class DoctorService
                 'doctor_id'         => $doctor_id,
                 'user_id'           => $doctor_data['user_id'],
                 'appointment_price' => $doctor_data['appointment_price'] / $rate,
+                'hide_clinic_information' =>(bool) get_user_meta($doctor_data['user_id'], 'hide-information', true),
                 'avg_rating'        => $feedback_map[$doctor_id] ?? null, // null if no feedback yet
             ];
         }
