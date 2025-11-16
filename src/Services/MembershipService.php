@@ -267,6 +267,108 @@ class MembershipService {
     }
 
     /**
+     * Sens verification code to Email
+     */
+    public function send_verification_email($request)
+    {
+        $params = $request->get_params();
+        $email = isset($params['email']) ? $params['email'] : null;
+        if (!$email || !is_email($email)) {
+            return new WP_Error('invalid_payload', __('Invalid Email', 'oba-apis-integration'), ['status' => 400]);
+        }
+
+        if (email_exists($email)) {
+            return new WP_Error('existing_email', __('This email already exists', 'oba-apis-integration'), ['status' => 400]);
+        }
+
+        $email = sanitize_email($email);
+
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'pmpro_email_otp';
+        $code = sprintf('%06d', rand(0, 999999));
+        $wpdb->delete($table_name, ['email' => $email], ['%s']);
+        $expires_at = date('Y-m-d H:i:s', strtotime('+15 minutes'));
+        $wpdb->insert(
+            $table_name,
+            [
+                'email' => $email,
+                'code' => $code,
+                'verified' => 0,
+                'expires_at' => $expires_at
+            ],
+            ['%s', '%s', '%d', '%s']
+        );
+
+        // Send email
+        $subject = 'Your Verification Code';
+        $message = "Your verification code is: " . $code . "\n\n";
+        $message .= "This code will expire in 15 minutes.\n\n";
+        $message .= "If you did not request this code, please ignore this email.\n\n";
+
+        $sent = wp_mail($email, $subject, $message);
+
+        if ($sent) {
+            return new WP_REST_Response([
+                'success' => true,
+                'message' => __('Verification email Sent', 'oba-apis-integration'),
+            ]);
+        } else {
+            return new WP_Error('failed_sending_email', __('Failed to send email. Please try again.', 'oba-apis-integration'), ['status' => 400]);
+
+        }
+    }
+
+    /**
+     * Verify the code
+     */
+
+    public function verify_code($request)
+    {
+        $params = $request->get_params();
+        $code = isset($params['code']) ? $params['code'] : null;
+        $email = isset($params['email']) ? $params['email'] : null;
+        if (!$email || !$code)
+        {
+            return new WP_Error('invalid_payload', __('Invalid Email or code', 'oba-apis-integration'), ['status' => 400]);
+        }
+
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'pmpro_email_otp';
+
+        $email = sanitize_email($_POST['email']);
+        $code = sanitize_text_field($_POST['code']);
+
+        $verification = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$table_name}
+            WHERE email = %s AND code = %s AND verified = 0 AND expires_at > NOW()",
+            $email,
+            $code
+        ));
+
+        if (!$verification) {
+            return new WP_REST_Response([
+                'success' => false,
+                'message' => __('Invalid Code', 'oba-apis-integration'),
+            ]);
+        }
+
+        // Mark as verified
+        $wpdb->update(
+            $table_name,
+            ['verified' => 1, 'verified_at' => current_time('mysql')],
+            ['id' => $verification->id],
+            ['%d', '%s'],
+            ['%d']
+        );
+
+        return new WP_REST_Response([
+            'success' => true,
+            'message' => __('Verification code is right', 'oba-apis-integration'),
+        ]);
+
+    }
+
+    /**
      * Process membership signup with Stripe integration
      *
      * @param WP_REST_Request $request

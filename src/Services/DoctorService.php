@@ -14,45 +14,70 @@ class DoctorService
         $feedback_table = $wpdb->prefix . 'mdclara_feedback';
         $usermeta_table = $wpdb->usermeta;
 
-        // Step 1: Get all doctors with their appointment_price
-        $doctor_users = $wpdb->get_results(
-            $wpdb->prepare("
-            SELECT u1.user_id, u1.meta_value AS doctor_id, u2.meta_value AS appointment_price
-            FROM {$usermeta_table} u1
-            LEFT JOIN {$usermeta_table} u2 
-                ON u1.user_id = u2.user_id AND u2.meta_key = %s
-            WHERE u1.meta_key = %s
-        ", 'appointment_price', 'mdclara_doctor_id'),
-            ARRAY_A
-        );
+        // STEP 1 — Get all usermeta for doctors (doctor_id + any *_appointment_price)
+        $raw_rows = $wpdb->get_results("
+        SELECT user_id, meta_key, meta_value 
+        FROM {$usermeta_table}
+        WHERE meta_key = 'mdclara_doctor_id'
+           OR meta_key LIKE '%\\_appointment_price'
+    ", ARRAY_A);
 
-        if (empty($doctor_users)) {
+        if (empty($raw_rows)) {
             return new \WP_REST_Response([
                 'success' => false,
                 'message' => 'No doctors found'
             ], 404);
         }
 
-        // Build mapping doctor_id => [user_id, appointment_price]
+        // Build mapping doctor_id → data
         $doctor_map = [];
-        foreach ($doctor_users as $du) {
-            $doctor_map[$du['doctor_id']] = [
-                'user_id'           => $du['user_id'],
-                'appointment_price' => $du['appointment_price'],
-            ];
+
+        foreach ($raw_rows as $row) {
+
+            // Case 1 — Doctor ID entry
+            if ($row['meta_key'] === 'mdclara_doctor_id') {
+
+                $doctor_id = $row['meta_value'];
+
+                if (!isset($doctor_map[$doctor_id])) {
+                    $doctor_map[$doctor_id] = [
+                        'user_id'            => $row['user_id'],
+                        'appointment_prices' => []
+                    ];
+                }
+
+                continue;
+            }
+
+            // Case 2 — Appointment prices: pattern "{plan_id}_appointment_price"
+            if (preg_match('/^(\d+)_appointment_price$/', $row['meta_key'], $match)) {
+
+                $plan_id = intval($match[1]);
+
+                // Get doctor_id from meta
+                $doctor_id = get_user_meta($row['user_id'], 'mdclara_doctor_id', true);
+                if (!$doctor_id) continue;
+
+                if (!isset($doctor_map[$doctor_id])) {
+                    $doctor_map[$doctor_id] = [
+                        'user_id'            => $row['user_id'],
+                        'appointment_prices' => []
+                    ];
+                }
+
+                // Assign price
+                $doctor_map[$doctor_id]['appointment_prices'][$plan_id] = $row['meta_value'];
+            }
         }
 
-        // Step 2: Fetch average ratings (only for doctors that have feedback)
-        $feedback_results = $wpdb->get_results(
-            "
+        // STEP 2 — Fetch average ratings
+        $feedback_results = $wpdb->get_results("
         SELECT 
             f.doctor_id,
             AVG((f.overall_satisfaction + f.doctor_professionalism + f.platform_experience + f.likelihood_reuse) / 4) AS avg_rating
         FROM {$feedback_table} f
         GROUP BY f.doctor_id
-        ",
-            ARRAY_A
-        );
+    ", ARRAY_A);
 
         $feedback_map = [];
         foreach ($feedback_results as $fr) {
@@ -61,15 +86,21 @@ class DoctorService
 
         $rate = get_option('wps_wsfw_money_ratio', 1);
 
-        // Step 3: Build final result: include all doctors, feedback if exists
+        // STEP 3 — Build final results
         $results = [];
+
         foreach ($doctor_map as $doctor_id => $doctor_data) {
+
+            $converted_prices = array_map(function ($price) use ($rate) {
+                return floatval($price) / $rate;
+            }, $doctor_data['appointment_prices']);
+
             $results[] = [
-                'doctor_id'         => $doctor_id,
-                'user_id'           => $doctor_data['user_id'],
-                'appointment_price' => $doctor_data['appointment_price'] / $rate,
-                'hide_clinic_information' =>(bool) get_user_meta($doctor_data['user_id'], 'hide-information', true),
-                'avg_rating'        => $feedback_map[$doctor_id] ?? null, // null if no feedback yet
+                'doctor_id'               => $doctor_id,
+                'user_id'                 => $doctor_data['user_id'],
+                'appointment_prices'      => $converted_prices,
+                'hide_clinic_information' => (bool) get_user_meta($doctor_data['user_id'], 'hide-information', true),
+                'avg_rating'              => $feedback_map[$doctor_id] ?? null,
             ];
         }
 

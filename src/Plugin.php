@@ -176,6 +176,8 @@ class Plugin
 
         // Membership routes - Complete PMPro Integration
         $this->router->register_route('membership/checkout/fields', 'GET', [$this->services['membership'], 'get_checkout_fields']);
+        $this->router->register_route('membership/send-otp', 'POST', [$this->services['membership'], 'send_verification_email']);
+        $this->router->register_route('membership/verify-otp', 'POST', [$this->services['membership'], 'verify_code']);
         $this->router->register_route('membership/signup', 'POST', [$this->services['membership'], 'process_signup']);
         $this->router->register_route('membership/status', 'GET', [$this->services['membership'], 'get_status'], [AuthMiddleware::class]);
         $this->router->register_route('membership/plans', 'GET', [$this->services['membership'], 'get_plans']);
