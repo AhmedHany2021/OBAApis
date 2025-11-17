@@ -335,8 +335,8 @@ class MembershipService {
         global $wpdb;
         $table_name = $wpdb->prefix . 'pmpro_email_otp';
 
-        $email = sanitize_email($_POST['email']);
-        $code = sanitize_text_field($_POST['code']);
+        $email = sanitize_email($email);
+        $code = sanitize_text_field($code);
 
         $verification = $wpdb->get_row($wpdb->prepare(
             "SELECT * FROM {$table_name}
