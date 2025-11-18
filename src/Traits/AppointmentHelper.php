@@ -39,7 +39,7 @@ trait AppointmentHelper
         // Get doctor & patient IDs from appointment
         $ids = $wpdb->get_row(
             $wpdb->prepare(
-                "SELECT doctor_id, user_id 
+                "SELECT doctor_id, user_id, clinic_id
              FROM `$table_name` 
              WHERE `id` = %d 
              LIMIT 1",
@@ -55,25 +55,51 @@ trait AppointmentHelper
         // Get corresponding WP user IDs
         $patient_id = $ids['user_id'];
 
-        $doctor_user_id = $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT user_id 
-             FROM {$wpdb->usermeta} 
-             WHERE meta_key = 'mdclara_doctor_id' 
-               AND meta_value = %s 
-             LIMIT 1",
-                $ids['doctor_id']
-            )
-        );
-
-        if (!$patient_id || !$doctor_user_id) {
-            return new \WP_Error('no_user', 'Patient or doctor user not found');
+        $doctor_user_id = null;
+        if (!empty($ids['doctor_id'])) {
+            $doctor_user_id = $wpdb->get_var(
+                $wpdb->prepare(
+                    "SELECT user_id 
+                 FROM {$wpdb->usermeta} 
+                 WHERE meta_key = 'mdclara_doctor_id' 
+                   AND meta_value = %s 
+                 LIMIT 1",
+                    $ids['doctor_id']
+                )
+            );
         }
 
-        // Get price from doctor's profile
-        $price = (float) get_user_meta($doctor_user_id, 'appointment_price', true);
+        if (!$patient_id) {
+            return new \WP_Error('no_user', 'Patient user not found');
+        }
+
+        // Determine patient's membership level to fetch the matching doctor/clinic price
+        $membership_level = function_exists('pmpro_getMembershipLevelForUser')
+            ? pmpro_getMembershipLevelForUser($patient_id)
+            : null;
+        $membership_level_id = $membership_level->id ?? null;
+        $price = null;
+
+        if (empty($ids['doctor_id'])) {
+            $price = $this->get_clinic_price($ids['clinic_id'] ?? null, $membership_level_id);
+            if (is_wp_error($price)) {
+                return $price;
+            }
+        } else {
+            if (!$doctor_user_id) {
+                return new \WP_Error('no_user', 'Doctor user not found');
+            }
+
+            $price_meta_key = $membership_level_id
+                ? "{$membership_level_id}_appointment_price"
+                : 'appointment_price';
+
+            // Get price from doctor's profile using membership-specific key when available
+            $price = (float) get_user_meta($doctor_user_id, $price_meta_key, true);
+        }
+
         if ($price <= 0) {
-            return new \WP_Error('no_price', 'No appointment price set for doctor');
+            return new \WP_Error('no_price', 'Invalid appointment price');
         }
 
         // Get API keys
@@ -105,6 +131,41 @@ trait AppointmentHelper
         }
 
         return wp_remote_retrieve_body($response);
+    }
+
+    private function get_clinic_price($clinic_id, $membership_level_id)
+    {
+        if (!$clinic_id) {
+            return new \WP_Error('no_clinic', 'No clinic assigned to appointment');
+        }
+
+        $clinics = get_option('mdclara_emergency_clinics');
+        if (empty($clinics) || !is_array($clinics)) {
+            return new \WP_Error('no_clinics', 'No clinic pricing configured');
+        }
+
+        foreach ($clinics as $clinic) {
+            if (($clinic['id'] ?? null) !== $clinic_id) {
+                continue;
+            }
+
+            $price_key = $membership_level_id
+                ? "{$membership_level_id}_price"
+                : '1_price';
+
+            $price = isset($clinic[$price_key]) ? (float) $clinic[$price_key] : 0.0;
+            if ($price <= 0 && $price_key !== '1_price' && isset($clinic['1_price'])) {
+                $price = (float) $clinic['1_price'];
+            }
+
+            if ($price > 0) {
+                return $price;
+            }
+
+            return new \WP_Error('no_price', 'No clinic price set for this membership level');
+        }
+
+        return new \WP_Error('clinic_not_found', 'Clinic price configuration not found');
     }
 
     private function send_email_to_patient($patient_id, $selected_date, $selected_time, $appointment_id , $user_id)
