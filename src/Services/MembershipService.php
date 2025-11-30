@@ -368,6 +368,82 @@ class MembershipService {
 
     }
 
+    private function check_register_source($params)
+    {
+        $check = [
+            'source' => 'email',
+            'token' => null,
+        ];
+        if (isset($params['custom_fields'])) {
+            if(isset($params['custom_fields']['token'])) {
+                if(isset($params['custom_fields']['google_in']) && $params['custom_fields']['google_in']) {
+                    $check['source'] = 'google';
+                }elseif(isset($params['custom_fields']['apple_in']) && $params['custom_fields']['apple_in'])
+                {
+                    $check['source'] = 'apple';
+                }
+                $check['token'] = $params['custom_fields']['token'];
+
+            }
+        }
+        return $check;
+    }
+
+    private function assign_google_credentials_to_user($user_id ,  $credential)
+    {
+        $token_parts = explode('.', $credential);
+        if (count($token_parts) !== 3) {
+            return false;
+        }
+        $payload = json_decode(base64_decode(str_replace(['-', '_'], ['+', '/'], $token_parts[1])), true);
+
+        if (!$payload || !isset($payload['email']) || !isset($payload['sub'])) {
+            return false;
+        }
+
+        $email = sanitize_email($payload['email']);
+        $google_sub = sanitize_text_field($payload['sub']);
+        $email_verified = isset($payload['email_verified']) ? $payload['email_verified'] : false;
+
+        if (!$email_verified) {
+            return false;
+        }
+
+        update_user_meta($user_id, 'pmpro_google_signup', 1);
+        update_user_meta($user_id, 'pmpro_google_sub', $google_sub);
+        update_user_meta($user_id, 'pmpro_signup_method', 'google');
+        return true;
+
+    }
+
+    private function assign_apple_credentials_to_user($user_id, $identityToken) {
+        if (empty($identityToken) || !$user_id) {
+            return false;
+        }
+
+        $token_parts = explode('.', $identityToken);
+        if (count($token_parts) !== 3) {
+            return false;
+        }
+
+        // Decode payload
+        $payload = json_decode(base64_decode(str_replace(['-', '_'], ['+', '/'], $token_parts[1])), true);
+        if (!$payload || !isset($payload['email']) || !isset($payload['sub'])) {
+            return false;
+        }
+
+        $email = sanitize_email($payload['email']);
+        $apple_sub = sanitize_text_field($payload['sub']);
+
+        // Save Apple sign-up info to user meta
+        update_user_meta($user_id, 'pmpro_apple_signup', 1);
+        update_user_meta($user_id, 'pmpro_apple_sub', $apple_sub);
+        update_user_meta($user_id, 'pmpro_signup_method', 'apple');
+
+        return true;
+    }
+
+
     /**
      * Process membership signup with Stripe integration
      *
@@ -381,8 +457,13 @@ class MembershipService {
             return new WP_Error('invalid_payload', __('Checkout payload is required.', 'oba-apis-integration'), ['status' => 400]);
         }
 
+        $login_source = $this->check_register_source($params);
+
         // Validate required parameters
-        $required_fields = ['level_id', 'email', 'password', 'username'];
+        $required_fields = ['level_id', 'email', 'username'];
+        if($login_source['source'] == 'email') {
+            $required_fields[] =  'password';
+        }
         foreach ($required_fields as $field) {
             if (empty($params[$field])) {
                 return new WP_Error('missing_field', sprintf(__('Missing required field: %s', 'oba-apis-integration'), $field), ['status' => 400]);
@@ -408,11 +489,19 @@ class MembershipService {
             }
         }
 
+        // Generate password if it is not from email
+        $password = null;
+        if($login_source['source'] == 'email') {
+            $password = (string) $params['password'];
+        } else {
+            $password = wp_generate_password( 12, true, true );
+        }
+
         // Create user account
         $user_data = [
             'user_login' => sanitize_user($params['username']),
             'user_email' => sanitize_email($params['email']),
-            'user_pass' => (string) $params['password'],
+            'user_pass' => $password,
             'role' => 'subscriber',
             'show_admin_bar_front' => false
         ];
@@ -421,6 +510,19 @@ class MembershipService {
         $user_id = wp_insert_user($user_data);
         if (is_wp_error($user_id)) {
             return $user_id;
+        }
+
+        if($login_source['source'] == 'google') {
+            $this->assign_google_credentials_to_user($user_id , $login_source['token']);
+        }
+        elseif ($login_source['source'] == 'apple')
+        {
+            $this->assign_apple_credentials_to_user($user_id , $login_source['token']);
+        }
+        else
+        {
+            update_user_meta($user_id, 'pmpro_google_signup', 0);
+            update_user_meta($user_id, 'pmpro_signup_method', 'email');
         }
 
         // Set custom fields

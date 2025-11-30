@@ -143,6 +143,8 @@ class Plugin
     {
         // Auth routes
         $this->router->register_route('auth/login', 'POST', [$this->services['auth'], 'login']);
+        $this->router->register_route('auth/google-login', 'POST', [$this->services['auth'], 'login_with_google']);
+        $this->router->register_route('auth/apple-login', 'POST', [$this->services['auth'], 'login_with_apple']);
         $this->router->register_route('auth/logout', 'POST', [$this->services['auth'], 'logout'], [AuthMiddleware::class]);
         $this->router->register_route('auth/refresh', 'POST', [$this->services['auth'], 'refresh_token']);
 

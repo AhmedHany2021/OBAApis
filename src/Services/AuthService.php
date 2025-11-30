@@ -110,7 +110,207 @@ class AuthService {
 		], 200 );
 	}
 
-	/**
+    public function login_with_google( $request ) {
+        $credential = $request->get_param('token');
+
+        // Validate input
+        if ( empty( $credential ) ) {
+            return new WP_Error(
+                'missing_credential',
+                __( 'Google credential is required.', 'oba-apis-integration' ),
+                [ 'status' => 400 ]
+            );
+        }
+
+        // Decode JWT token (Google ID token)
+        $parts = explode('.', $credential);
+        if ( count($parts) < 2 ) {
+            return new WP_Error(
+                'invalid_token',
+                __( 'Invalid Google token.', 'oba-apis-integration' ),
+                [ 'status' => 400 ]
+            );
+        }
+
+        $payload = json_decode(base64_decode(strtr($parts[1], '-_', '+/')), true);
+        if ( ! isset($payload['sub']) ) {
+            return new WP_Error(
+                'invalid_token_data',
+                __( 'Google token missing "sub".', 'oba-apis-integration' ),
+                [ 'status' => 400 ]
+            );
+        }
+
+        $sub = sanitize_text_field($payload['sub']);
+        $email = isset($payload['email']) ? sanitize_email($payload['email']) : '';
+
+        // Find user by Google sub
+        $users = get_users([
+            'meta_key'   => 'pmpro_google_sub',
+            'meta_value' => $sub,
+            'number'     => 1,
+            'fields'     => 'ID'
+        ]);
+
+        if ( empty($users) ) {
+            return new WP_Error(
+                'user_not_found',
+                __( 'No account linked to this Google account.', 'oba-apis-integration' ),
+                [ 'status' => 404 ]
+            );
+        }
+
+        $user_id = $users[0];
+        $user = get_user_by('ID', $user_id);
+
+        // Optional: check if user is active
+        if ( ! $user->has_cap('read') ) {
+            return new WP_Error(
+                'user_inactive',
+                __( 'User account is inactive.', 'oba-apis-integration' ),
+                [ 'status' => 403 ]
+            );
+        }
+
+        // Optional: check patient meta if needed
+        if ( ! get_user_meta( $user->ID, 'mdclara_patient_id', true ) ) {
+            return new WP_Error(
+                'user_is_not_patient',
+                __( 'User is not patient', 'oba-apis-integration' ),
+                [ 'status' => 403 ]
+            );
+        }
+
+        // Log in the user
+        wp_set_current_user( $user_id );
+        wp_set_auth_cookie( $user_id, true );
+
+        // Generate tokens
+        $access_token = JWT::generate_token( $user, 'access' );
+        $refresh_token = JWT::generate_token( $user, 'refresh' );
+
+        if ( is_wp_error( $access_token ) ) return $access_token;
+        if ( is_wp_error( $refresh_token ) ) return $refresh_token;
+
+        // Log successful login
+        $this->log_login_attempt( $user->ID, true );
+
+        // Return response
+        return new WP_REST_Response([
+            'success' => true,
+            'message' => __( 'Login successful.', 'oba-apis-integration' ),
+            'data' => [
+                'access_token'  => $access_token,
+                'refresh_token' => $refresh_token,
+                'expires_in'    => Options::get_jwt_expiration(),
+                'token_type'    => 'Bearer',
+                'user'          => $this->format_user_data( $user ),
+            ]
+        ], 200 );
+    }
+
+    public function login_with_apple( $request ) {
+        $credential = $request->get_param('token');
+
+        // Validate input
+        if ( empty( $credential ) ) {
+            return new WP_Error(
+                'missing_credential',
+                __( 'Apple credential is required.', 'oba-apis-integration' ),
+                [ 'status' => 400 ]
+            );
+        }
+
+        // Decode JWT token (Apple identity token)
+        $parts = explode('.', $credential);
+        if ( count($parts) < 2 ) {
+            return new WP_Error(
+                'invalid_token',
+                __( 'Invalid Apple token.', 'oba-apis-integration' ),
+                [ 'status' => 400 ]
+            );
+        }
+
+        $payload = json_decode(base64_decode(strtr($parts[1], '-_', '+/')), true);
+        if ( ! isset($payload['sub']) ) {
+            return new WP_Error(
+                'invalid_token_data',
+                __( 'Apple token missing "sub".', 'oba-apis-integration' ),
+                [ 'status' => 400 ]
+            );
+        }
+
+        $sub = sanitize_text_field($payload['sub']);
+        $email = isset($payload['email']) ? sanitize_email($payload['email']) : '';
+
+        // Find user by Apple sub
+        $users = get_users([
+            'meta_key'   => 'pmpro_apple_sub',
+            'meta_value' => $sub,
+            'number'     => 1,
+            'fields'     => 'ID'
+        ]);
+
+        if ( empty($users) ) {
+            return new WP_Error(
+                'user_not_found',
+                __( 'No account linked to this Apple account.', 'oba-apis-integration' ),
+                [ 'status' => 404 ]
+            );
+        }
+
+        $user_id = $users[0];
+        $user = get_user_by('ID', $user_id);
+
+        // Optional: check if user is active
+        if ( ! $user->has_cap('read') ) {
+            return new WP_Error(
+                'user_inactive',
+                __( 'User account is inactive.', 'oba-apis-integration' ),
+                [ 'status' => 403 ]
+            );
+        }
+
+        // Optional: check patient meta if needed
+        if ( ! get_user_meta( $user->ID, 'mdclara_patient_id', true ) ) {
+            return new WP_Error(
+                'user_is_not_patient',
+                __( 'User is not patient', 'oba-apis-integration' ),
+                [ 'status' => 403 ]
+            );
+        }
+
+        // Log in the user
+        wp_set_current_user( $user_id );
+        wp_set_auth_cookie( $user_id, true );
+
+        // Generate tokens
+        $access_token = JWT::generate_token( $user, 'access' );
+        $refresh_token = JWT::generate_token( $user, 'refresh' );
+
+        if ( is_wp_error( $access_token ) ) return $access_token;
+        if ( is_wp_error( $refresh_token ) ) return $refresh_token;
+
+        // Log successful login
+        $this->log_login_attempt( $user->ID, true );
+
+        // Return response
+        return new WP_REST_Response([
+            'success' => true,
+            'message' => __( 'Login successful.', 'oba-apis-integration' ),
+            'data' => [
+                'access_token'  => $access_token,
+                'refresh_token' => $refresh_token,
+                'expires_in'    => Options::get_jwt_expiration(),
+                'token_type'    => 'Bearer',
+                'user'          => $this->format_user_data( $user ),
+            ]
+        ], 200 );
+    }
+
+
+
+    /**
 	 * Handle user logout
 	 *
 	 * @param WP_REST_Request $request Request object.
