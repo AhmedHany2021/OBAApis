@@ -368,23 +368,21 @@ class MembershipService {
 
     }
 
+    
     private function check_register_source($params)
     {
         $check = [
             'source' => 'email',
             'token' => null,
         ];
-        if (isset($params['custom_fields'])) {
-            if(isset($params['custom_fields']['token'])) {
-                if(isset($params['custom_fields']['google_in']) && $params['custom_fields']['google_in']) {
-                    $check['source'] = 'google';
-                }elseif(isset($params['custom_fields']['apple_in']) && $params['custom_fields']['apple_in'])
-                {
-                    $check['source'] = 'apple';
-                }
-                $check['token'] = $params['custom_fields']['token'];
-
+        if(isset($params['token'])) {
+            if(isset($params['google_in']) && $params['google_in']) {
+                $check['source'] = 'google';
+            }elseif(isset($params['apple_in']) && $params['apple_in'])
+            {
+                $check['source'] = 'apple';
             }
+            $check['token'] = $params['token'];
         }
         return $check;
     }
