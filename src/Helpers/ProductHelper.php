@@ -50,10 +50,49 @@ class ProductHelper {
 
         // ✅ Categories
         $categories = get_the_terms($id, 'product_cat') ?: [];
-        $product_data['categories'] = array_map(function ($cat) {
+        
+        // Get category survey settings from database
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'product_category_survey_settings';
+        $category_settings = [];
+        
+        if (is_array($categories) && !empty($categories)) {
+            $category_ids = array_map(function ($cat) {
+                return $cat->term_id;
+            }, $categories);
+            
+            // Safely prepare IN clause
+            $category_ids_escaped = array_map('absint', $category_ids);
+            $category_ids_string = implode(',', $category_ids_escaped);
+            
+            $settings_query = "SELECT category_id, enable_terms, enable_taken_history 
+                               FROM $table_name 
+                               WHERE category_id IN ($category_ids_string)";
+            
+            $settings_results = $wpdb->get_results($settings_query, OBJECT_K);
+            
+            if ($settings_results) {
+                foreach ($settings_results as $setting) {
+                    $category_settings[$setting->category_id] = [
+                        'enable_terms' => (bool) $setting->enable_terms,
+                        'enable_taken_history' => (bool) $setting->enable_taken_history
+                    ];
+                }
+            }
+        }
+        
+        $product_data['categories'] = array_map(function ($cat) use ($category_settings) {
+            $cat_id = $cat->term_id;
+            $settings = $category_settings[$cat_id] ?? [
+                'enable_terms' => false,
+                'enable_taken_history' => false
+            ];
+            
             return [
-                'id'   => $cat->term_id,
-                'name' => $cat->name
+                'id'                   => $cat_id,
+                'name'                 => $cat->name,
+                'enable_terms'         => $settings['enable_terms'],
+                'enable_taken_history' => $settings['enable_taken_history']
             ];
         }, is_array($categories) ? $categories : []);
 
