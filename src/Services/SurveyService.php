@@ -86,6 +86,8 @@ class SurveyService
     {
         $survey_id = $request->get_param('survey_id');
         $product_id = $request->get_param('product_id');
+        $medication_confirmed = $request->get_param('medication_confirmed');
+        $terms_approved = $request->get_param('terms_approved');
         $user_id = $request->get_param('current_user')->ID;
 
         if (!$survey_id || !$product_id) {
@@ -120,6 +122,16 @@ class SurveyService
             $condition_met_auto_reject = $condition_met_res['auto_reject'];
             $status = $condition_met ? 'approved' : 'pending approval';
             if ($condition_met_auto_reject) {
+                $status = 'auto_reject';
+            }
+            // Only validate checkboxes if they are present in POST
+            // If missing: don't reject (pass)
+            // If unchecked (0): reject
+            // If checked (1): pass
+            if ($medication_confirmed !== null && !$medication_confirmed) {
+                $status = 'auto_reject';
+            }   
+            if ($terms_approved !== null && !$terms_approved) {
                 $status = 'auto_reject';
             }
             $medication_request = $this->HandleNewMedicationRequest($submission, $product_id, $user_id, $status);

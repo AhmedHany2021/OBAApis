@@ -1,1211 +1,581 @@
 # OBA APIs Integration
 
-A comprehensive WordPress plugin that provides a secure, scalable backend API service for mobile applications. Built with modern PHP architecture, JWT authentication, and full integration with WooCommerce, Dokan multi-vendor, and Paid Memberships Pro.
+A comprehensive WordPress plugin providing backend API services for mobile applications with JWT authentication, WooCommerce integration, and extensive e-commerce and healthcare functionality.
 
-## Features
+![Version](https://img.shields.io/badge/version-1.0.3-blue.svg)
+![WordPress](https://img.shields.io/badge/wordpress-5.0%2B-brightgreen.svg)
+![PHP](https://img.shields.io/badge/php-7.4%2B-purple.svg)
+![WooCommerce](https://img.shields.io/badge/woocommerce-required-orange.svg)
 
-- **Secure JWT Authentication**: Token-based authentication with refresh tokens
-- **Modern Architecture**: PSR-4 autoloading, clean separation of concerns
-- **RESTful API**: Full REST API with proper HTTP status codes and responses
-- **Rate Limiting**: Configurable rate limiting per user
-- **CORS Support**: Cross-origin resource sharing for mobile apps
-- **Database Logging**: Comprehensive API request logging
-- **Admin Interface**: WordPress admin settings page with API documentation
-- **Multi-Platform Integration**: WooCommerce, Dokan, Paid Memberships Pro
+## 📋 Table of Contents
 
-## Requirements
+- [Overview](#overview)
+- [Features](#features)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [API Documentation](#api-documentation)
+- [Authentication](#authentication)
+- [Testing](#testing)
+- [Development](#development)
+- [Security](#security)
+- [Support](#support)
 
-- WordPress 5.0+
-- PHP 7.4+
-- WooCommerce (required)
-- Dokan Multi-vendor (optional)
-- Paid Memberships Pro (optional)
-- Composer (for dependency management)
+## 🌟 Overview
 
-## Installation
+OBA APIs Integration is a powerful WordPress plugin designed to provide a complete backend API solution for mobile applications. It features JWT-based authentication, seamless WooCommerce integration, and a comprehensive set of REST API endpoints for e-commerce, healthcare appointments, membership management, and more.
 
-1. **Clone or download the plugin** to your WordPress plugins directory:
+The plugin is built with modern PHP practices, including PSR-4 autoloading, namespacing, and a modular service-oriented architecture.
+
+## ✨ Features
+
+### Core Features
+- **JWT Authentication** - Secure token-based authentication with access and refresh tokens
+- **Social Login** - Google and Apple Sign-In integration
+- **WooCommerce Integration** - Complete e-commerce functionality
+- **Membership Management** - Paid Memberships Pro integration
+- **Custom Cart System** - Enhanced cart management for mobile apps
+- **Apple App Store Notifications** - ASSN v2 integration for subscription management
+
+### API Endpoints
+- **Authentication** - Login, logout, token refresh, social login
+- **User Management** - Profile management, recommendations
+- **Products** - Product catalog, categories, search, filtering
+- **Orders** - Order history, creation, tracking
+- **Cart & Checkout** - Cart management, shipping, coupons, payment
+- **Appointments** - Healthcare appointment scheduling and management
+- **Video Calls** - Appointment-based video call integration
+- **Doctors** - Doctor profiles, ratings, emergency clinics
+- **Vendors** - Multi-vendor support with product listings
+- **Membership** - Subscription plans, signup, cancellation
+- **Blog** - Blog post integration
+- **Surveys** - User surveys for personalized recommendations
+- **Medication Requests** - Prescription and medication management
+- **Credit System** - User credit wallet functionality
+- **Payment Methods** - Credit card management
+
+### Security Features
+- JWT token blacklisting
+- Rate limiting
+- CORS configuration
+- Security headers (X-Frame-Options, X-Content-Type-Options, etc.)
+- Request validation and sanitization
+- One-time token login for secure redirects
+
+## 📦 Requirements
+
+- **WordPress**: 5.0 or higher
+- **PHP**: 7.4 or higher
+- **WooCommerce**: Latest version
+- **Paid Memberships Pro**: Latest version (optional, for membership features)
+- **PHP Extensions**: 
+  - OpenSSL
+  - JSON
+  - cURL
+
+## 🚀 Installation
+
+### Method 1: Manual Installation
+
+1. **Download or Clone the Repository**
    ```bash
    cd wp-content/plugins/
-   git clone <repository-url> oba-apis-integration
-   ```
-
-2. **Install dependencies**:
-   ```bash
+   git clone https://github.com/AhmedHany2021/OBAApis.git oba-apis-integration
    cd oba-apis-integration
-   composer install
    ```
 
-3. **Activate the plugin** through WordPress admin or via WP-CLI:
+2. **Install Dependencies**
    ```bash
-   wp plugin activate oba-apis-integration
+   composer install --no-dev
    ```
 
-4. **Configure the plugin** by going to WooCommerce → OBA APIs in the WordPress admin
+3. **Activate the Plugin**
+   - Go to WordPress Admin → Plugins
+   - Find "OBA APIs Integration"
+   - Click "Activate"
 
-## Configuration
+### Method 2: Upload via WordPress Admin
+
+1. Download the plugin as a ZIP file
+2. Go to WordPress Admin → Plugins → Add New
+3. Click "Upload Plugin"
+4. Choose the ZIP file and click "Install Now"
+5. Click "Activate Plugin"
+
+### Post-Installation
+
+After activation, the plugin will:
+- Create necessary database tables
+- Set up default configuration options
+- Generate a secure JWT secret key
+- Flush rewrite rules for REST API endpoints
+
+## ⚙️ Configuration
+
+### Access Settings
+
+Go to **WooCommerce → OBA APIs** in the WordPress admin panel to configure:
 
 ### JWT Settings
-- **JWT Secret**: Secret key for token signing (auto-generated if empty)
-- **Access Token Expiration**: How long access tokens are valid (300-86400 seconds)
-- **Refresh Token Expiration**: How long refresh tokens are valid (3600-2592000 seconds)
+- **JWT Secret**: Auto-generated secure key (can be regenerated)
+- **Access Token Expiration**: Default 3600 seconds (1 hour)
+- **Refresh Token Expiration**: Default 604800 seconds (7 days)
 
 ### Rate Limiting
-- **API Rate Limit**: Maximum requests per minute per user (0 to disable)
+- **Enable Rate Limiting**: ON/OFF
+- **Requests Per Minute**: Default 60 requests
 
 ### CORS Settings
-- **Enable CORS**: Enable Cross-Origin Resource Sharing
-- **Allowed Origins**: Comma-separated list of allowed origins (use * for all)
+- **Enable CORS**: ON/OFF
+- **Allowed Origins**: Comma-separated list or `*` for all origins
 
-## API Endpoints
+### API Logging
+- **Enable Logging**: ON/OFF
+- **Log Retention**: Default 30 days
 
-### Appointments
+### Constants
 
-#### POST /wp-json/oba/v1/appointments
-Create a new medical appointment.
+You can define these constants in `wp-config.php` for additional configuration:
 
-**Required Parameters:**
-- doctor_id: ID of the doctor
-- clinic_id: ID of the clinic
-- patient_id: ID of the patient
-- appointment_date: Date of appointment (YYYY-MM-DD)
-- appointment_time: Time of appointment (HH:MM)
-- appointment_id: Unique appointment identifier
+```php
+// Instance name for MDClara integration
+define('MDCLARA_INSTANCE_NAME', 'OBA');
 
-**Request Body:**
-```json
-{
-    "doctor_id": "{{doctor_id}}",
-    "clinic_id": "{{clinic_id}}",
-    "patient_id": "{{patient_id}}",
-    "appointment_date": "{{appointment_date}}",
-    "appointment_time": "{{appointment_time}}",
-    "appointment_id": "{{appointment_id}}"
-}
+// MDClara API key
+define('MDCLARA_KEY', 'your-mdclara-api-key');
 ```
 
-#### GET /wp-json/oba/v1/appointments
-Get all appointments for the current user.
+## 📚 API Documentation
 
-#### GET /wp-json/oba/v1/appointments/{id}
-Get details of a specific appointment.
+### Base URL
 
-### Calls
-
-#### GET /wp-json/oba/v1/call/pending
-Check if there's a pending call for the current user.
-
-#### GET /wp-json/oba/v1/call/end/{appointment_id}
-Check the end status of a call for a specific appointment.
-
-**Note:** The 'appointment_id' parameter refers to the appointment ID.
-
-#### POST /wp-json/oba/v1/call/update/{appointment_id}
-Update the call ID for a specific appointment.
-
-**Request Body:**
-```json
-{
-    "call_id": "{{call_id}}"
-}
+All API endpoints are available under:
+```
+https://your-site.com/wp-json/oba/v1/
 ```
 
-**Note:** The 'appointment_id' parameter in the URL refers to the appointment ID.
+### API Namespace
 
-### Authentication
-
-#### POST /wp-json/oba/v1/auth/login
-User login with email and password.
-
-**Request Body:**
-```json
-{
-  "email": "user@example.com",
-  "password": "userpassword"
-}
+```
+oba/v1
 ```
 
-**Response:**
+### Endpoints Overview
+
+#### Authentication
+```
+POST   /auth/login                    - Login with email/password
+POST   /auth/google-login             - Login with Google
+POST   /auth/apple-login              - Login with Apple
+POST   /auth/logout                   - Logout (requires auth)
+POST   /auth/refresh                  - Refresh access token
+POST   /auth/forgot-password          - Request password reset
+POST   /auth/verify-reset-token       - Verify reset token
+POST   /auth/reset-password           - Reset password
+```
+
+#### User Management
+```
+GET    /user/me                       - Get current user (requires auth)
+POST   /user/profile                  - Update profile (requires auth)
+POST   /user/recommendations-products - Get recommended products (requires auth)
+POST   /user/recommendations-doctors  - Get recommended doctors (requires auth)
+POST   /user/generate-one-time-token  - Generate one-time login token (requires auth)
+```
+
+#### Products
+```
+GET    /products                      - Get all products
+GET    /products/{id}                 - Get single product
+GET    /products/categories           - Get product categories
+GET    /products/check-survey         - Check user survey status (requires auth)
+```
+
+#### Orders
+```
+GET    /orders                        - Get user orders (requires auth)
+GET    /orders/{id}                   - Get single order (requires auth)
+POST   /orders                        - Create order (requires auth)
+```
+
+#### Cart
+```
+GET    /cart                          - Get cart (requires auth)
+GET    /cart/summary                  - Get cart summary (requires auth)
+POST   /cart/add                      - Add item to cart (requires auth)
+POST   /cart/remove                   - Remove item from cart (requires auth)
+POST   /cart/update                   - Update cart item (requires auth)
+POST   /cart/clear                    - Clear cart (requires auth)
+```
+
+#### Checkout
+```
+GET    /checkout                      - Get checkout data (requires auth)
+POST   /checkout/shipping             - Get shipping rates (requires auth)
+POST   /checkout/shipping/update      - Update shipping method (requires auth)
+POST   /checkout/process              - Process checkout (requires auth)
+POST   /checkout/validate             - Validate checkout (requires auth)
+POST   /checkout/coupon/check         - Check coupon validity (requires auth)
+POST   /checkout/coupon/apply         - Apply coupon (requires auth)
+POST   /checkout/coupon/remove        - Remove coupon (requires auth)
+```
+
+#### Vendors
+```
+GET    /vendors                       - Get all vendors
+GET    /vendors/{id}                  - Get single vendor
+GET    /vendors/{id}/products         - Get vendor products
+```
+
+#### Membership
+```
+GET    /membership/checkout/fields    - Get checkout fields
+POST   /membership/send-otp           - Send OTP for verification
+POST   /membership/verify-otp         - Verify OTP code
+POST   /membership/signup             - Complete signup
+GET    /membership/status             - Get membership status (requires auth)
+GET    /membership/plans              - Get membership plans
+POST   /membership/cancel             - Cancel membership (requires auth)
+POST   /membership/change             - Change membership (requires auth)
+GET    /membership/profile            - Get user profile (requires auth)
+PUT    /membership/profile/update     - Update profile (requires auth)
+```
+
+#### Appointments
+```
+POST   /appointments                  - Create appointment (requires auth)
+GET    /appointments                  - Get appointments (requires auth)
+GET    /appointments/{id}             - Get single appointment (requires auth)
+GET    /call-requests                 - Get call requests (requires auth)
+```
+
+#### Video Calls
+```
+GET    /call/pending                  - Check call status (requires auth)
+GET    /call/end/{id}                 - Check call end status (requires auth)
+POST   /call/update/{id}              - Update appointment call ID (requires auth)
+POST   /call/feedback/submit          - Submit call feedback (requires auth)
+```
+
+#### Doctors
+```
+GET    /doctors/rating                - Get doctor ratings
+GET    /doctors/emergency-clinics     - Get emergency clinics
+```
+
+#### Blog
+```
+GET    /blog/posts                    - Get all blog posts
+GET    /blog/posts/{id}               - Get single blog post
+```
+
+#### Surveys
+```
+GET    /survey/{id}                   - Get survey by ID
+POST   /survey/submit                 - Submit survey (requires auth)
+POST   /survey/retake                 - Retake survey (requires auth)
+```
+
+#### Medication Requests
+```
+GET    /medication-requests           - Get medication requests (requires auth)
+```
+
+#### Credit System
+```
+GET    /credits                       - Get user credit balance (requires auth)
+POST   /credits/add                   - Add user credit (requires auth)
+```
+
+#### Payment Methods
+```
+POST   /payment-methods               - Create payment method (requires auth)
+GET    /payment-methods               - Get all payment methods (requires auth)
+GET    /payment-methods/{id}          - Get payment method (requires auth)
+PUT    /payment-methods/{id}          - Update payment method (requires auth)
+DELETE /payment-methods/{id}          - Delete payment method (requires auth)
+POST   /payment-methods/{id}/set-default - Set default payment method (requires auth)
+```
+
+#### Apple Notifications
+```
+POST   /apple/notifications           - Apple App Store Server Notifications webhook
+```
+
+### Response Format
+
+All API responses follow a consistent format:
+
+**Success Response:**
 ```json
 {
   "success": true,
-  "message": "Login successful.",
   "data": {
-    "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
-    "refresh_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
-    "expires_in": 3600,
-    "token_type": "Bearer",
-    "user": {
-      "id": 1,
-      "email": "user@example.com",
-      "username": "username",
-      "display_name": "User Name",
-      "roles": ["customer"],
-      "woocommerce": {
-        "customer_id": 1,
-        "billing_address": {...},
-        "shipping_address": {...}
-      }
-    }
-  }
-}
-```
-
-#### POST /wp-json/oba/v1/auth/logout
-User logout (requires authentication).
-
-**Headers:**
-```
-Authorization: Bearer <access_token>
-```
-
-#### POST /wp-json/oba/v1/auth/refresh
-Refresh access token using refresh token.
-
-**Request Body:**
-```json
-{
-  "refresh_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
-}
-```
-
-### User Management
-
-#### GET /wp-json/oba/v1/user/me
-Get current user information (requires authentication).
-
-**Headers:**
-```
-Authorization: Bearer <access_token>
-```
-
-#### PUT /wp-json/oba/v1/user/profile
-Update user profile (requires authentication).
-
-**Headers:**
-```
-Authorization: Bearer <access_token>
-```
-
-**Request Body:**
-```json
-{
-  "first_name": "John",
-  "last_name": "Doe",
-  "display_name": "John Doe",
-  "billing_first_name": "John",
-  "billing_last_name": "Doe",
-  "billing_address_1": "123 Main St",
-  "billing_city": "New York",
-  "billing_state": "NY",
-  "billing_postcode": "10001",
-  "billing_country": "US"
-}
-```
-
-### Products
-
-#### GET /wp-json/oba/v1/products
-Get products list with filtering and pagination.
-
-**Query Parameters:**
-- `page` (optional): Page number (default: 1)
-- `per_page` (optional): Items per page (default: 10, max: 50)
-- `category` (optional): Product category slug
-- `search` (optional): Search term
-- `orderby` (optional): Sort field (date, title, price, etc.)
-- `order` (optional): Sort order (ASC, DESC)
-- `vendor_id` (optional): Filter by vendor ID
-
-#### GET /wp-json/oba/v1/products/{id}
-Get specific product details.
-
-#### GET /wp-json/oba/v1/products/categories
-Get product categories.
-
-**Query Parameters:**
-- `parent` (optional): Parent category ID
-- `hide_empty` (optional): Hide empty categories (default: true)
-
-### Orders
-
-#### GET /wp-json/oba/v1/orders
-Get user orders (requires authentication).
-
-**Headers:**
-```
-Authorization: Bearer <access_token>
-```
-
-**Query Parameters:**
-- `page` (optional): Page number
-- `per_page` (optional): Items per page
-- `status` (optional): Order status filter
-- `orderby` (optional): Sort field
-- `order` (optional): Sort order
-
-#### GET /wp-json/oba/v1/orders/{id}
-Get specific order details (requires authentication).
-
-#### POST /wp-json/oba/v1/orders
-Create new order (requires authentication).
-
-**Request Body:**
-```json
-{
-  "items": [
-    {
-      "product_id": 123,
-      "quantity": 2
-    }
-  ],
-  "billing_address": {
-    "first_name": "John",
-    "last_name": "Doe",
-    "address_1": "123 Main St",
-    "city": "New York",
-    "state": "NY",
-    "postcode": "10001",
-    "country": "US",
-    "email": "john@example.com",
-    "phone": "+1234567890"
+    // Response data
   },
-  "shipping_address": {
-    "first_name": "John",
-    "last_name": "Doe",
-    "address_1": "123 Main St",
-    "city": "New York",
-    "state": "NY",
-    "postcode": "10001",
-    "country": "US"
-  },
-  "payment_method": "stripe",
-  "status": "pending"
+  "message": "Success message"
 }
 ```
 
-### Cart
-
-#### GET /wp-json/oba/v1/cart
-Get user cart contents with detailed item information (requires authentication).
-
-**Headers:**
-```
-Authorization: Bearer <access_token>
-```
-
-**Response:**
+**Error Response:**
 ```json
 {
-  "success": true,
-  "data": {
-    "items": [
-      {
-        "id": 1,
-        "product_id": 123,
-        "variation_id": 456,
-        "quantity": 2,
-        "name": "Product Name",
-        "price": 29.99,
-        "subtotal": 59.98,
-        "image": "https://example.com/image.jpg",
-        "options": {},
-        "stock_status": "instock",
-        "stock_quantity": 10,
-        "created_at": "2024-01-01 10:00:00",
-        "updated_at": "2024-01-01 10:00:00"
-      }
-    ],
-    "subtotal": 59.98,
-    "total": 59.98,
-    "currency": "USD",
-    "currency_symbol": "$",
-    "item_count": 1,
-    "total_quantity": 2
-  }
+  "success": false,
+  "message": "Error message",
+  "code": "error_code",
+  "status": 400
 }
 ```
 
-#### GET /wp-json/oba/v1/cart/summary
-Get cart summary (item count and total quantity) (requires authentication).
+## 🔐 Authentication
 
-**Headers:**
-```
-Authorization: Bearer <access_token>
-```
+### JWT Token Flow
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "item_count": 3,
-    "total_quantity": 5
-  }
-}
-```
+1. **Login**: Send credentials to `/auth/login` to receive access and refresh tokens
+2. **Authenticated Requests**: Include access token in the `Authorization` header
+3. **Token Refresh**: Use refresh token at `/auth/refresh` when access token expires
+4. **Logout**: Call `/auth/logout` to blacklist tokens
 
-#### POST /wp-json/oba/v1/cart/add
-Add product to cart or update quantity if already exists (requires authentication).
+### Request Headers
 
-**Headers:**
+For authenticated endpoints, include:
+
 ```
-Authorization: Bearer <access_token>
+Authorization: Bearer {access_token}
 Content-Type: application/json
 ```
 
-**Request Body:**
-```json
-{
-  "product_id": 123,
-  "quantity": 2,
-  "variation_id": 456,
-  "options": {}
-}
+### Example Login Request
+
+```bash
+curl -X POST https://your-site.com/wp-json/oba/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "password123"
+  }'
 ```
 
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Product added to cart successfully.",
-  "data": {
-    "product_id": 123,
-    "variation_id": 456,
-    "quantity": 2,
-    "cart": {
-      "items": [...],
-      "subtotal": 59.98,
-      "total": 59.98,
-      "currency": "USD",
-      "currency_symbol": "$",
-      "item_count": 1,
-      "total_quantity": 2
-    }
-  }
-}
+### Example Authenticated Request
+
+```bash
+curl -X GET https://your-site.com/wp-json/oba/v1/user/me \
+  -H "Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGc..."
 ```
 
-#### POST /wp-json/oba/v1/cart/remove
-Remove product from cart (requires authentication). Supports both cart item ID and product ID methods.
+## 🧪 Testing
 
-**Headers:**
-```
-Authorization: Bearer <access_token>
-Content-Type: application/json
-```
+### Postman Collection
 
-**Method 1 - Using Cart Item ID:**
-```json
-{
-  "cart_item_id": 1
-}
-```
+A complete Postman collection is available in the `/postman` directory:
 
-**Method 2 - Using Product ID:**
-```json
-{
-  "product_id": 123,
-  "variation_id": 456
-}
-```
+1. **Import Collection**
+   - Open Postman
+   - Import `OBA-APIs-Integration.postman_collection.json`
+   - Import `OBA-APIs-Integration.postman_environment.json`
 
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Product removed from cart successfully.",
-  "data": {
-    "cart": {
-      "items": [...],
-      "subtotal": 0,
-      "total": 0,
-      "currency": "USD",
-      "currency_symbol": "$",
-      "item_count": 0,
-      "total_quantity": 0
-    }
-  }
-}
+2. **Configure Environment**
+   - Select "OBA APIs Integration Environment"
+   - Update `base_url` with your WordPress site URL
+   - Update test credentials and IDs
+
+3. **Run Tests**
+   - Start with Authentication → Login
+   - Tokens are automatically saved for subsequent requests
+   - Test endpoints in logical order
+
+For detailed testing instructions, see [postman/README.md](postman/README.md)
+
+### Newman CLI
+
+Run automated tests with Newman:
+
+```bash
+npm install -g newman
+newman run postman/OBA-APIs-Integration.postman_collection.json \
+  -e postman/OBA-APIs-Integration.postman_environment.json
 ```
 
-#### POST /wp-json/oba/v1/cart/update
-Update cart item quantity (requires authentication). Supports both cart item ID and product ID methods.
+## 👨‍💻 Development
 
-**Headers:**
-```
-Authorization: Bearer <access_token>
-Content-Type: application/json
-```
+### Project Structure
 
-**Method 1 - Using Cart Item ID:**
-```json
-{
-  "cart_item_id": 1,
-  "quantity": 3
-}
 ```
-
-**Method 2 - Using Product ID:**
-```json
-{
-  "product_id": 123,
-  "variation_id": 456,
-  "quantity": 3
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Cart item quantity updated successfully.",
-  "data": {
-    "quantity": 3,
-    "cart": {
-      "items": [...],
-      "subtotal": 89.97,
-      "total": 89.97,
-      "currency": "USD",
-      "currency_symbol": "$",
-      "item_count": 1,
-      "total_quantity": 3
-    }
-  }
-}
+oba-apis-integration/
+├── src/
+│   ├── API/
+│   │   ├── Controllers/       # API controllers
+│   │   ├── Middleware/        # Auth and request middleware
+│   │   └── Router.php         # REST API router
+│   ├── Core/
+│   │   ├── JWT.php            # JWT token handling
+│   │   └── Options.php        # Plugin options management
+│   ├── Database/
+│   │   ├── Migration.php      # Database migrations
+│   │   └── CartTable.php      # Custom cart table
+│   ├── Helpers/               # Helper classes
+│   ├── Middleware/            # Additional middleware
+│   ├── Services/              # Business logic services
+│   ├── Traits/                # Reusable traits
+│   └── Plugin.php             # Main plugin class
+├── templates/
+│   └── admin/
+│       └── settings.php       # Admin settings page
+├── postman/                   # Postman collection and docs
+├── composer.json              # Composer dependencies
+├── oba-apis-integration.php   # Plugin entry point
+└── README.md                  # This file
 ```
 
-#### POST /wp-json/oba/v1/cart/clear
-Clear entire cart (requires authentication).
+### Composer Scripts
 
-**Headers:**
+```bash
+# Run PHPUnit tests
+composer test
+
+# Run PHP CodeSniffer
+composer phpcs
+
+# Auto-fix coding standards
+composer phpcbf
 ```
-Authorization: Bearer <access_token>
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Cart cleared successfully.",
-  "data": {
-    "cart": {
-      "items": [],
-      "subtotal": 0,
-      "total": 0,
-      "currency": "USD",
-      "currency_symbol": "$",
-      "item_count": 0
-    }
-  }
-}
-```
-
-### Checkout
-
-#### GET /wp-json/oba/v1/checkout
-Get checkout data including cart summary, addresses, payment methods, and shipping methods (requires authentication).
-
-**Headers:**
-```
-Authorization: Bearer <access_token>
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "cart": {
-      "items": [...],
-      "subtotal": 99.99,
-      "shipping_total": 5.99,
-      "tax_total": 8.99,
-      "total": 114.97,
-      "currency": "USD",
-      "currency_symbol": "$"
-    },
-    "payment_methods": {
-      "stripe": {
-        "id": "stripe",
-        "title": "Credit Card (Stripe)",
-        "description": "Pay securely with your credit card."
-      }
-    },
-    "shipping_methods": {
-      "flat_rate": {
-        "id": "flat_rate",
-        "title": "Flat Rate",
-        "description": "Fixed shipping cost."
-      }
-    },
-    "addresses": {
-      "billing": {...},
-      "shipping": {...}
-    }
-  }
-}
-```
-
-#### POST /wp-json/oba/v1/checkout/validate
-Validate checkout data before processing (requires authentication).
-
-**Headers:**
-```
-Authorization: Bearer <access_token>
-Content-Type: application/json
-```
-
-**Request Body:**
-```json
-{
-  "billing_address": {
-    "first_name": "John",
-    "last_name": "Doe",
-    "address_1": "123 Main St",
-    "city": "New York",
-    "state": "NY",
-    "postcode": "10001",
-    "country": "US",
-    "email": "john@example.com",
-    "phone": "+1234567890"
-  },
-  "shipping_address": {
-    "first_name": "John",
-    "last_name": "Doe",
-    "address_1": "123 Main St",
-    "city": "New York",
-    "state": "NY",
-    "postcode": "10001",
-    "country": "US"
-  },
-  "payment_method": "stripe",
-  "shipping_method": "flat_rate",
-  "order_notes": "Please deliver in the morning"
-}
-```
-
-#### POST /wp-json/oba/v1/checkout/process
-Process checkout and create order (requires authentication).
-
-**Headers:**
-```
-Authorization: Bearer <access_token>
-Content-Type: application/json
-```
-
-**Request Body:**
-```json
-{
-  "billing_address": {
-    "first_name": "John",
-    "last_name": "Doe",
-    "address_1": "123 Main St",
-    "city": "New York",
-    "state": "NY",
-    "postcode": "10001",
-    "country": "US",
-    "email": "john@example.com",
-    "phone": "+1234567890"
-  },
-  "shipping_address": {
-    "first_name": "John",
-    "last_name": "Doe",
-    "address_1": "123 Main St",
-    "city": "New York",
-    "state": "NY",
-    "postcode": "10001",
-    "country": "US"
-  },
-  "payment_method": "stripe",
-  "shipping_method": "flat_rate",
-  "order_notes": "Please deliver in the morning"
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Order created successfully.",
-  "data": {
-    "id": 123,
-    "number": "123",
-    "status": "pending",
-    "total": 114.97,
-    "currency": "USD",
-    "billing_address": {...},
-    "shipping_address": {...},
-    "payment_method": "stripe",
-    "items": [...]
-  }
-}
-```
-
-### Vendors (Dokan)
-
-#### GET /wp-json/oba/v1/vendors
-Get vendors list.
-
-**Query Parameters:**
-- `page` (optional): Page number
-- `per_page` (optional): Items per page
-- `search` (optional): Search term
-- `orderby` (optional): Sort field
-- `order` (optional): Sort order
-
-#### GET /wp-json/oba/v1/vendors/{id}
-Get specific vendor details.
-
-#### GET /wp-json/oba/v1/vendors/{id}/products
-Get vendor products.
-
-**Query Parameters:**
-- `page` (optional): Page number
-- `per_page` (optional): Items per page
-- `category` (optional): Product category
-- `search` (optional): Search term
-
-### Membership (Paid Memberships Pro)
-
-#### GET /wp-json/oba/v1/membership/status
-Get user's current membership status and details (requires authentication).
-
-**Headers:**
-```
-Authorization: Bearer <access_token>
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "has_membership": true,
-    "level_id": 1,
-    "level_name": "Premium",
-    "level_description": "Premium membership with full access",
-    "level_cost": 99.00,
-    "level_billing_amount": 9.99,
-    "level_billing_limit": 12,
-    "level_cycle_number": 1,
-    "level_cycle_period": "Month",
-    "level_trial_amount": 0.00,
-    "level_trial_limit": 0,
-    "start_date": "2024-01-01 00:00:00",
-    "end_date": "2024-12-31 23:59:59",
-    "status": "active",
-    "is_active": true,
-    "days_remaining": 365
-  }
-}
-```
-
-#### GET /wp-json/oba/v1/membership/plans
-Get list of available membership plans with pagination.
-
-**Query Parameters:**
-- `page` (optional): Page number (default: 1)
-- `per_page` (optional): Items per page (default: 10, max: 50)
-- `active_only` (optional): Show only active plans (default: true)
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": 1,
-      "name": "Basic",
-      "description": "Basic membership",
-      "initial_payment": 29.99,
-      "billing_amount": 9.99,
-      "billing_limit": 12,
-      "cycle_number": 1,
-      "cycle_period": "Month",
-      "trial_amount": 0.00,
-      "trial_limit": 0,
-      "allow_signups": true,
-      "expiration_number": 12,
-      "expiration_period": "Month"
-    }
-  ],
-  "pagination": {
-    "page": 1,
-    "per_page": 10,
-    "total": 5,
-    "total_pages": 1
-  }
-}
-```
-
-#### GET /wp-json/oba/v1/membership/signup-form
-Get signup form fields and configuration for a specific membership level.
-
-**Query Parameters:**
-- `level_id` (required): Membership level ID
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "level": {
-      "id": 1,
-      "name": "Premium",
-      "description": "Premium membership",
-      "initial_payment": 99.00,
-      "billing_amount": 9.99,
-      "billing_limit": 12,
-      "cycle_number": 1,
-      "cycle_period": "Month",
-      "trial_amount": 0.00,
-      "trial_limit": 0,
-      "expiration_number": 12,
-      "expiration_period": "Month"
-    },
-    "gateways": [
-      {
-        "id": "stripe",
-        "name": "Stripe",
-        "is_active": true
-      }
-    ],
-    "custom_fields": [],
-    "required_fields": [
-      "username",
-      "email",
-      "password",
-      "confirm_password",
-      "first_name",
-      "last_name",
-      "billing_address_1",
-      "billing_city",
-      "billing_state",
-      "billing_postcode",
-      "billing_country"
-    ]
-  }
-}
-```
-
-#### POST /wp-json/oba/v1/membership/signup
-Process membership signup with user creation and payment data.
-
-**Request Body:**
-```json
-{
-  "level_id": 1,
-  "username": "john_doe",
-  "email": "john@example.com",
-  "password": "securepassword123",
-  "first_name": "John",
-  "last_name": "Doe",
-  "billing_address": {
-    "address_1": "123 Main St",
-    "city": "New York",
-    "state": "NY",
-    "postcode": "10001",
-    "country": "US",
-    "phone": "+1234567890"
-  },
-  "custom_fields": {
-    "company": "ACME Corp",
-    "phone": "+1234567890"
-  }
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Membership signup completed successfully.",
-  "data": {
-    "id": 123,
-    "username": "john_doe",
-    "email": "john@example.com",
-    "first_name": "John",
-    "last_name": "Doe",
-    "membership": {
-      "user_id": 123,
-      "level_id": 1,
-      "status": "active",
-      "start_date": "2024-01-01 10:00:00",
-      "end_date": "2024-12-31 23:59:59"
-    }
-  }
-}
-```
-
-#### POST /wp-json/oba/v1/membership/change
-Upgrade or downgrade existing membership level (requires authentication).
-
-**Headers:**
-```
-Authorization: Bearer <access_token>
-Content-Type: application/json
-```
-
-**Request Body:**
-```json
-{
-  "new_level_id": 2
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Membership level changed successfully.",
-  "data": {
-    "level_id": 2,
-    "level_name": "Premium Plus",
-    "status": "active",
-    "start_date": "2024-01-01 10:00:00",
-    "end_date": "2024-12-31 23:59:59"
-  }
-}
-```
-
-#### POST /wp-json/oba/v1/membership/cancel
-Cancel current membership (immediately or at period end) (requires authentication).
-
-**Headers:**
-```
-Authorization: Bearer <access_token>
-Content-Type: application/json
-```
-
-**Request Body:**
-```json
-{
-  "cancel_at_period_end": true
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Membership cancelled successfully.",
-  "data": {
-    "cancelled": true,
-    "cancel_at_period_end": true
-  }
-}
-```
-
-#### GET /wp-json/oba/v1/membership/gateways
-Get available payment gateways and their capabilities.
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": "stripe",
-      "name": "Stripe",
-      "is_active": true,
-      "description": "Credit card payments via Stripe",
-      "supports_recurring": true,
-      "supports_trial": true
-    },
-    {
-      "id": "paypal",
-      "name": "PayPal",
-      "is_active": true,
-      "description": "PayPal payments",
-      "supports_recurring": true,
-      "supports_trial": true
-    }
-  ]
-}
-```
-
-#### GET /wp-json/oba/v1/membership/analytics
-Get membership analytics and statistics for date range.
-
-**Query Parameters:**
-- `start_date` (optional): Start date (default: 30 days ago)
-- `end_date` (optional): End date (default: today)
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "total_members": 1500,
-    "active_members": 1200,
-    "expired_members": 200,
-    "cancelled_members": 80,
-    "pending_members": 20,
-    "new_members_today": 5,
-    "revenue_today": 299.95,
-    "level_distribution": []
-  }
-}
-```
-
-#### GET /wp-json/oba/v1/membership/history
-Get user's membership history and level changes (requires authentication).
-
-**Headers:**
-```
-Authorization: Bearer <access_token>
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "level_id": 1,
-      "level_name": "Basic",
-      "start_date": "2023-01-01 00:00:00",
-      "end_date": "2023-12-31 23:59:59",
-      "status": "expired",
-      "is_current": false
-    },
-    {
-      "level_id": 2,
-      "level_name": "Premium",
-      "start_date": "2024-01-01 00:00:00",
-      "end_date": "2024-12-31 23:59:59",
-      "status": "active",
-      "is_current": true
-    }
-  ]
-}
-```
-
-#### GET /wp-json/oba/v1/membership/invoices
-Get user's membership invoices and payment history (requires authentication).
-
-**Headers:**
-```
-Authorization: Bearer <access_token>
-```
-
-**Query Parameters:**
-- `page` (optional): Page number (default: 1)
-- `per_page` (optional): Items per page (default: 10, max: 50)
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": 1,
-      "code": "INV-001",
-      "user_id": 123,
-      "membership_id": 1,
-      "gateway": "stripe",
-      "gateway_environment": "live",
-      "amount": 99.00,
-      "subtotal": 99.00,
-      "tax": 0.00,
-      "status": "completed",
-      "date": "2024-01-01 10:00:00",
-      "notes": "Initial payment"
-    }
-  ],
-  "pagination": {
-    "page": 1,
-    "per_page": 10,
-    "total": 5,
-    "total_pages": 1
-  }
-}
-```
-
-#### GET /wp-json/oba/v1/membership/profile
-Get comprehensive user profile including custom fields, membership data, and addresses (requires authentication).
-
-**Headers:**
-```
-Authorization: Bearer <access_token>
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "id": 123,
-    "username": "john_doe",
-    "email": "john@example.com",
-    "first_name": "John",
-    "last_name": "Doe",
-    "display_name": "John Doe",
-    "website": "https://example.com",
-    "date_registered": "2024-01-01 10:00:00",
-    "last_login": "2024-01-15 14:30:00",
-    "membership": {
-      "level_id": 1,
-      "level_name": "Premium",
-      "status": "active",
-      "start_date": "2024-01-01 10:00:00",
-      "end_date": "2024-12-31 23:59:59",
-      "is_active": true
-    },
-    "billing_address": {
-      "first_name": "John",
-      "last_name": "Doe",
-      "company": "ACME Corp",
-      "address_1": "123 Main St",
-      "city": "New York",
-      "state": "NY",
-      "postcode": "10001",
-      "country": "US",
-      "phone": "+1234567890",
-      "email": "john@example.com"
-    },
-    "shipping_address": {
-      "first_name": "John",
-      "last_name": "Doe",
-      "company": "ACME Corp",
-      "address_1": "123 Main St",
-      "city": "New York",
-      "state": "NY",
-      "postcode": "10001",
-      "country": "US"
-    },
-    "custom_fields": {
-      "phone": {
-        "value": "+1234567890",
-        "type": "tel"
-      },
-      "company": {
-        "value": "ACME Corp",
-        "type": "text"
-      },
-      "website": {
-        "value": "https://example.com",
-        "type": "url"
-      }
-    }
-  }
-}
-```
-
-## Error Handling
-
-The API returns proper HTTP status codes and error messages:
-
-```json
-{
-  "code": "authentication_required",
-  "message": "Authentication required.",
-  "data": {
-    "status": 401
-  }
-}
-```
-
-Common HTTP status codes:
-- `200` - Success
-- `201` - Created
-- `400` - Bad Request
-- `401` - Unauthorized
-- `403` - Forbidden
-- `404` - Not Found
-- `429` - Too Many Requests
-- `500` - Internal Server Error
-
-## Security Features
-
-- **JWT Token Authentication**: Secure token-based authentication
-- **Token Blacklisting**: Secure logout with token invalidation
-- **Rate Limiting**: Configurable rate limiting per user
-- **CORS Protection**: Configurable cross-origin access
-- **Input Validation**: Comprehensive input sanitization and validation
-- **SQL Injection Protection**: Prepared statements and proper escaping
-- **XSS Protection**: Output escaping and content security headers
-
-## Database Tables
-
-The plugin creates the following database tables:
-
-- `wp_oba_api_logs` - API request logging
-- `wp_oba_rate_limits` - Rate limiting data
-- `wp_oba_jwt_blacklist` - Blacklisted JWT tokens
-- `wp_oba_api_settings` - API settings storage
-
-## Development
 
 ### Adding New Endpoints
 
-1. Create a new service class in `src/Services/`
-2. Add the route registration in `src/Plugin.php`
-3. Implement the endpoint logic in your service class
+1. **Create Service Class** in `src/Services/`
+2. **Register Service** in `Plugin::init_services()`
+3. **Register Route** in `Plugin::register_routes()`
+4. **Add Middleware** if authentication required
 
 Example:
-```php
-// In src/Plugin.php
-$this->router->register_route( 'custom/endpoint', 'GET', [ $this->services['custom'], 'get_data' ], [ AuthMiddleware::class ] );
 
-// In src/Services/CustomService.php
-public function get_data( $request ) {
-    // Your endpoint logic here
-    return new WP_REST_Response( [ 'data' => $result ], 200 );
-}
+```php
+// In Plugin::init_services()
+$this->services['my_service'] = new MyService();
+
+// In Plugin::register_routes()
+$this->router->register_route(
+    'my-endpoint',
+    'GET',
+    [$this->services['my_service'], 'my_method'],
+    [AuthMiddleware::class] // Optional
+);
 ```
 
 ### Custom Middleware
 
-Create custom middleware by extending the base middleware pattern:
+Create middleware in `src/API/Middleware/`:
 
 ```php
-// In src/API/Middleware/CustomMiddleware.php
-class CustomMiddleware {
-    public function handle( $request ) {
-        // Your middleware logic here
-        return null; // Continue to next middleware/controller
+<?php
+namespace OBA\APIsIntegration\API\Middleware;
+
+use WP_REST_Request;
+
+class MyMiddleware {
+    public function handle(WP_REST_Request $request) {
+        // Validation logic
+        if (!$this->is_valid($request)) {
+            return new \WP_Error('invalid_request', 'Invalid request');
+        }
+        return null; // Continue to next middleware
     }
 }
 ```
 
-## Troubleshooting
+## 🔒 Security
+
+### Best Practices
+
+1. **Keep WordPress and Dependencies Updated**
+   - Regularly update WordPress core
+   - Update WooCommerce and other plugins
+   - Run `composer update` periodically
+
+2. **Secure JWT Secret**
+   - Never commit the JWT secret to version control
+   - Regenerate secret if compromised
+   - Use strong, random secrets (auto-generated on activation)
+
+3. **HTTPS Required**
+   - Always use HTTPS in production
+   - JWT tokens are transmitted in headers
+
+4. **Rate Limiting**
+   - Enable rate limiting in plugin settings
+   - Adjust limits based on your application needs
+
+5. **Input Validation**
+   - All user inputs are sanitized and validated
+   - Use WordPress sanitization functions
+
+6. **Token Management**
+   - Access tokens expire after 1 hour by default
+   - Refresh tokens expire after 7 days by default
+   - Tokens are blacklisted on logout
+
+### Security Headers
+
+The plugin automatically adds:
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: DENY`
+- `X-XSS-Protection: 1; mode=block`
+- `Referrer-Policy: strict-origin-when-cross-origin`
+
+### Apple App Store Notifications
+
+For Apple subscription management, see [APPLE_NOTIFICATIONS_SETUP.md](APPLE_NOTIFICATIONS_SETUP.md)
+
+## 📝 Support
+
+### Getting Help
+
+1. **Documentation**: Check this README and the Postman documentation
+2. **Debug Logs**: Enable WordPress debug mode to see detailed logs
+3. **Issue Tracker**: Submit issues on GitHub
+4. **Contact**: Reach out to the development team
+
+### Debugging
+
+Enable debug mode in `wp-config.php`:
+
+```php
+define('WP_DEBUG', true);
+define('WP_DEBUG_LOG', true);
+define('WP_DEBUG_DISPLAY', false);
+```
+
+Logs are written to `/wp-content/debug.log`
 
 ### Common Issues
 
-1. **JWT Secret Not Set**: The plugin will auto-generate a JWT secret on first use
-2. **CORS Issues**: Ensure CORS is enabled and allowed origins are configured
-3. **Rate Limiting**: Check rate limit settings if requests are being blocked
-4. **Dependencies**: Ensure WooCommerce is installed and activated
+**REST API Not Working**
+- Ensure permalinks are not set to "Plain"
+- Check that WooCommerce is activated
+- Verify .htaccess file is writable
 
-### Debug Mode
+**Authentication Failing**
+- Verify JWT secret is set in settings
+- Check token expiration settings
+- Ensure Authorization header is being sent
 
-Enable debug mode in the admin settings to get detailed error messages. Only use in development environments.
+**CORS Errors**
+- Enable CORS in plugin settings
+- Add your app's origin to allowed origins
+- Check browser console for specific errors
 
-### Logs
+## 📄 License
 
-API requests are logged to the database. You can view logs through the admin interface or directly query the `wp_oba_api_logs` table.
+GPL v2 or later - https://www.gnu.org/licenses/gpl-2.0.html
 
-## Support
+## 👥 Credits
 
-For support and questions:
-- Check the WordPress admin settings page for API documentation
-- Review the error logs for debugging information
-- Ensure all dependencies are properly installed and configured
+**Author**: OBA Team  
+**Contributors**: Development team members  
+**Version**: 1.0.3  
+**Repository**: https://github.com/AhmedHany2021/OBAApis
 
-## License
+---
 
-This plugin is licensed under the GPL v2 or later.
+Made with ❤️ for mobile app development
 
-## Changelog
-
-### Version 1.0.0
-- Initial release
-- JWT authentication system
-- Complete REST API implementation
-- WooCommerce integration
-- Dokan multi-vendor support
-- Paid Memberships Pro integration
-- Rate limiting and CORS support
-- Admin interface with documentation 
